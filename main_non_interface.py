@@ -13,6 +13,7 @@ def time_is(t, t0):
 
 
 def f_a_priori(i):
+    """описание"""
     if i == 2:
         return np.array([-0.005, 0., 0.02])
     return None
