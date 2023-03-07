@@ -112,16 +112,6 @@ def kronoker(a, b, tolerance=1e-6):
     tmp = abs(np.linalg.norm(a - np.array(b)))
     return 1 if tmp < tolerance else 0
 
-
-def okonchanye(N):
-    if (N % 10) == 1:
-        return ""
-    if ((N % 10) > 1) and ((N % 10) < 5):
-        return "а"
-    if ((N % 10) >= 5) or ((N > 9) and (N < 21)):
-        return "ов"
-
-
 def print_time(t0, simple=False):
     if simple:
         t = t0

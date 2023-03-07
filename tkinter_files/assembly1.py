@@ -25,7 +25,7 @@ def return_back0():
 
 def button_func_local():
     global o, vedo_pic, label_time_1, label_time_2, canvas2, tmp_n
-    global timerId, fig_view, button, start_time, i_time
+    global timerId, fig_view, button, start_time
     global f, vedo_picture
     fig_view.timer_callback("destroy", timerId)
     if "Play" in button.status():
@@ -36,10 +36,10 @@ def button_func_local():
 def iteration_timer(eventId=None):
     from main_non_interface import iteration_func
     global timerId, button, fig_view
-    global o, i_time, start_time, vedo_picture, tmp_n
+    global o, start_time, vedo_picture, tmp_n
 
-    if o.is_saving and (i_time % o.save_rate) == 0:
-        fileName = "storage/tmp_pic2"  #  + str('{:04}'.format(tmp_n))
+    if o.is_saving and (o.iter % o.save_rate) == 0:
+        fileName = "storage/tmp_pic2"
         canvas2.postscript(file=fileName + '.eps')
         img = Image.open(fileName + '.eps')
         img.save(fileName + '.png', 'png')
@@ -48,29 +48,28 @@ def iteration_timer(eventId=None):
 
     # 3d plotting and saving
     if vedo_picture:
-        fig_view = draw_vedo_and_save(o, i_time, fig_view)
+        fig_view = draw_vedo_and_save(o, fig_view)
 
     f = open('storage/main.txt', 'a')
-    if i_time <= o.T_total/o.dt:  # limitation of time
-        o, i_time, f = iteration_func(o, i_time, f)
+    if o.iter <= o.T_total/o.dt:  # limitation of time
+        o, f = iteration_func(o, f)
 
     o = update_apps(o)
-    tm = datetime.now() - start_time
-    label_time_1["text"] = f"Время расчётное:                 {print_time((i_time + 1) * o.dt, simple=True)}"
-    label_time_2["text"] = f"Время работы программы:  {print_time(tm, simple=False)}"
+    t_real = datetime.now() - start_time
+    label_time_1["text"] = f"Время расчётное:                 {print_time(o.t, simple=True)}"
+    label_time_2["text"] = f"Время работы программы:  {print_time(t_real, simple=False)}"
     f.close()
 
 
 def run_local():
     global vedo_pic, label_time_1, label_time_2, canvas2, tmp_n
-    global timerId, fig_view, button, start_time, i_time
+    global timerId, fig_view, button, start_time
     global o, f, vedo_picture
     f = open('storage/main.txt', 'w')
     f.close()
     # from main import iteration_timer
     start_time = datetime.now()
     vedo_picture = vedo_pic
-    i_time = 0
     if vedo_pic:
         timerId = None
         fig_view = Plotter(bg='bb', size=(1920, 1080))
@@ -87,10 +86,10 @@ def run_local():
             iteration_timer()
             o = update_apps(o)
             tm = datetime.now() - start_time
-            label_time_1["text"] = f"Время расчётное:                 {print_time(i_time * o.dt, simple=True)}"
+            label_time_1["text"] = f"Время расчётное:                 {print_time(o.t, simple=True)}"
             label_time_2["text"] = f"Время работы программы:  {print_time(tm, simple=False)}"
             f.close()
-            if o.is_saving and (i_time % o.save_rate) == 0:
+            if o.is_saving and (o.iter % o.save_rate) == 0:
                 # canvas2.update()
                 fileName = "storage/tmp_pic2_" + str('{:04}'.format(tmp_n))
                 canvas2.postscript(file=fileName + '.eps')
@@ -312,8 +311,7 @@ def full_assembly():
                              o.X_app.flag_beam[i], o.X_app.flag_to_mid[i])
 
         canvas2.create_line(otstup, h_tmp, 1915-otstup, h_tmp, width=2, fill="#9AC0CD")
-        canvas2.create_oval(x_app-2*arec, h_tmp-2*arec, x_app+2*arec, h_tmp+2*arec, fill="#836FFF",
-                                       outline="#473C8B")
+        canvas2.create_oval(x_app-2*arec, h_tmp-2*arec, x_app+2*arec, h_tmp+2*arec, fill="#836FFF", outline="#473C8B")
         canvas2.create_rectangle(otstup-arec, h_tmp-arec, otstup+arec, h_tmp+arec, fill="#FFB6C1", outline="#8B5F65")
         canvas2.create_rectangle(1915-otstup-arec, h_tmp-arec, 1915-otstup+arec, h_tmp+arec, fill="#1E90FF",
                                  outline="#483D8B")

@@ -31,16 +31,15 @@ def avoiding_force(o, id_app, r=None):
                 force = tmp_force.copy()
     return o.S.T @ force
 
-
-def pd_control(o, id_app, t):
+def pd_control(o, id_app):
     o.X_app.loc[id_app, 'flag_hkw'] = False
     r = np.array(o.X_app.r[id_app])
     v = np.array(o.X_app.v[id_app])
     dr = o.get_discrepancy(id_app, vector=True)
     dv = (dr - o.dr_p[id_app]) / o.dt
     o.dr_p[id_app] = dr.copy()
-    R_pd = r - r_HKW(o.C_R, o.mu, o.w_hkw, t - o.t_start[o.N_app])
-    V_pd = v - v_HKW(o.C_R, o.mu, o.w_hkw, t - o.t_start[o.N_app])
+    R_pd = r - r_HKW(o.C_R, o.mu, o.w_hkw, o.t - o.t_start[o.N_app])
+    V_pd = v - v_HKW(o.C_R, o.mu, o.w_hkw, o.t - o.t_start[o.N_app])
     r1 = o.X_app.target[id_app] - o.r_center
     '''a_pid = -o.k_p * dr - o.k_d * dv                                                               \
             + (my_cross(o.e, R_pd) + my_cross(o.w, my_cross(o.w, R_pd)) + 2 * my_cross(o.w, V_pd)) \
@@ -53,8 +52,7 @@ def pd_control(o, id_app, t):
     o.a_self[id_app] = a_pid.copy()
     print(f"управление чакррр {np.linalg.norm(a_pid) / o.a_pid_max * 100} % ")
 
-
-def lqr_control(o, id_app, t):
+def lqr_control(o, id_app):
     o.X_app.loc[id_app, 'flag_hkw'] = False
     r = np.array(o.X_app.r[id_app])
     v = np.array(o.X_app.v[id_app])
@@ -86,48 +84,41 @@ def lqr_control(o, id_app, t):
     a_lqr *= clip(np.linalg.norm(a_lqr), 0, o.a_pid_max) / np.linalg.norm(a_lqr)
     o.a_self[id_app] = a_lqr.copy()
 
-
-def impulse_control(o, t, id_app):
+def impulse_control(o, id_app):
     if not o.flag_vision[id_app]:
         o.t_flyby_counter -= o.dt
         o.t_reaction_counter = o.t_reaction
         if o.t_flyby_counter < 0:  # Облёт конструкции
-            u = diff_evolve(o=o, t=t, T_max=o.T_max, id_app=id_app, interaction=False)
-            print(
-                f'Импульс аппарата {id_app}: {np.linalg.norm(u - v_HKW(o.C_r[id_app], o.mu, o.w_hkw, t - o.t_start[id_app]))} m/s')
-            # f.write(f'импульс {u[0]} {u[1]} {u[2]} {i_time}\n')
-            o.C_r[id_app] = get_C_hkw(o.X_app.r[id_app], u, o.w_hkw)
+            u = diff_evolve(o=o, T_max=o.T_max, id_app=id_app, interaction=False)
+            print(f'Импульс аппарата {id_app}: {np.linalg.norm(u - v_HKW(o.C_r[id_app], o.mu, o.w_hkw, o.t - o.t_start[id_app]))} m/s')
             o.t_flyby_counter = o.t_flyby
-            o.t_start[id_app] = t
+            o.t_start[id_app] = o.t
             talk_flyby(o.if_talk)
     else:
         o.t_flyby_counter = o.t_flyby
         o.t_reaction_counter -= o.dt
         if o.t_reaction_counter < 0:  # Точное попадание в цель
             r_right = o.b_o(o.X_app.target[id_app])
-            u, target_is_reached = calc_shooting(o=o, t=t, id_app=id_app,
+            u, target_is_reached = calc_shooting(o=o, id_app=id_app,
                                                  r_right=r_right,
                                                  interaction=False, shooting_amount=10)
-            print(
-                f'Импульс аппарата {id_app}: {np.linalg.norm(u - v_HKW(o.C_r[id_app], o.mu, o.w_hkw, t - o.t_start[id_app]))} м/с')
-            # f.write(f'импульс {u[0]} {u[1]} {u[2]} {i_time}\n')
-            o.C_r[id_app] = get_C_hkw(o.X_app.r[id_app], u, o.w_hkw)
-            o.t_reaction_counter = o.t_reaction * 10
-            o.t_start[id_app] = t
+            o.t_reaction_counter = o.t_reaction
+            o.t_start[id_app] = o.t
             talk_shoot(o.if_talk)
             o.flag_impulse = not target_is_reached
+    print(f'Импульс аппарата {id_app}: {np.linalg.norm(u - v_HKW(o.C_r[id_app], o.mu, o.w_hkw, o.t - o.t_start[id_app]))} м/с')
+    o.C_r[id_app] = get_C_hkw(o.X_app.r[id_app], u, o.w_hkw)
 
-
-def control_condition(o, id_app, i_time):
-    o.a_self[id_app] = np.array(np.zeros(3))  # единственное место, где сбрасывается
+def control_condition(o, id_app):
+    o.a_self[id_app] = np.array(np.zeros(3))  # the only reset a_self
     target_orf = o.b_o(o.X_app.target[id_app])
     see_rate = 1
     not_see_rate = 5
-    if o.flag_vision[id_app]:  # Это надо убрать, борись честно, воин!
+    if o.flag_vision[id_app]:  # If app have seen target, then app see it due to episode end
         o.t_reaction_counter -= o.dt
         return True
-    if (o.X_app.flag_fly[id_app] == 1) and ((o.flag_vision[id_app] and ((i_time % see_rate) == 0)) or
-                                            ((not o.flag_vision[id_app]) and ((i_time % not_see_rate) == 0))):
+    if (o.X_app.flag_fly[id_app] == 1) and ((o.flag_vision[id_app] and ((o.iter % see_rate) == 0)) or
+                                            ((not o.flag_vision[id_app]) and ((o.iter % not_see_rate) == 0))):
         if ((o.if_impulse_control and o.flag_impulse) or o.if_PID_control) and o.X_app.flag_fly[id_app]:
             points = 20
             o.flag_vision[id_app] = True
@@ -139,6 +130,3 @@ def control_condition(o, id_app, i_time):
     else:
         return True
     return False
-    '''o.t_reaction_counter = o.t_reaction_counter - o.dt*see_rate
-    o.flag_vision[id_app] = True
-    return True'''

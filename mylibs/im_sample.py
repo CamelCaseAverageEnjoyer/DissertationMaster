@@ -558,6 +558,15 @@ def talk_success(cnd=True):
         'Свершилось!',
         'Неужели я это вижу?']))
 
+def okonchanye(N):
+    if (N % 10) == 1:
+        return " "
+    if ((N % 10) > 1) and ((N % 10) < 5):
+        return "а"
+    if ((N % 10) >= 5) or ((N > 9) and (N < 21)):
+        return "ов"
+    return "ов"
+
 
 if __name__ == "__main__":
     while True:

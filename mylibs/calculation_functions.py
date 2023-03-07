@@ -18,7 +18,6 @@ def call_crash_internal_func(r, r1, r2, diam, return_force=False):
     x1, y1, z1 = r1
     x2, y2, z2 = r2
     n = np.array([x2 - x1, y2 - y1, z2 - z1])  # Вектор вдоль стержня
-    length = np.linalg.norm(n)
     tau = my_cross(np.array([0, 0, 1]), n)
     if np.linalg.norm(tau) < 1e-6:
         tau = my_cross(np.array([1, 0, 0]), n)
@@ -209,13 +208,12 @@ def call_middle_point(X_cont, r_right):
     return np.array(X_middles.id)[i_needed]
 
 
-def calculation_motion(o, u0, t, T_max, id_app, interaction=True, line_return=False):
+def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False):
     """Функция расчитывает угловое и поступательное движение одного аппарата и конструкции; \n
     Других аппаратов и их решения она не учитывает;                                         \n
     Input:                                                                                  \n
     -> o - AllObjects класс;                                                                \n
     -> u0 - начальная скорость аппарата (ССК при interaction=True, ОСК иначе)               \n
-    -> t - время отталкивания/импульса (для расчёта положения/скорости ХКУ)                 \n
     -> T_max - время эпизода                                                                \n
     -> id_app - номер аппарата                                                              \n
     -> interaction - происходит ли при импульсе отталкивание аппарата от конструкции        \n
@@ -229,137 +227,108 @@ def calculation_motion(o, u0, t, T_max, id_app, interaction=True, line_return=Fa
     -> j_max - максимальный угол отклонения от целевого положения станции по ходу эпизода       \n
     -> N_crashes - количество соударений (не должно превосходить 1)                             \n
     -> line - линия аппарата ССК (при line_return=True)"""
-    La = o.La.copy()
-    u = u0.copy()
-    V = np.array(v_HKW(o.C_R, o.mu, o.w_hkw, t - o.t_start[o.N_app]))
-    R = np.array(r_HKW(o.C_R, o.mu, o.w_hkw, t - o.t_start[o.N_app]))
-    w = np.array(o.w.copy())
-
-    r = np.array(o.X_app.r[id_app])
-    r0 = o.o_b(r)
-    r_right = np.array(o.X_app.target[id_app])
-    id_beam = o.X_app.flag_beam[id_app]
-    m_app = o.X_app.mass[id_app]
-
-    # Initialization
-    m_beam = 0. if (id_beam is None) else o.X.mass[id_beam]
-    M = np.sum(o.X.mass.to_numpy()) + np.sum(o.X_cont.mass.to_numpy())
-    M_without = M - m_beam
-    m_extra = m_app + m_beam
-    w_hkw = np.linalg.norm(o.W_hkw)
-
-    J_p, r_center_p = call_inertia(o, o.taken_beams_p, app_y=id_app)
-    J, r_center = call_inertia(o, o.taken_beams, app_n=id_app)
-    J_1 = np.linalg.inv(J)
-    U, S, A, R_e = o.call_rotation_matrix(La, t)
-
-    if interaction:
-        R_p = R.copy()
-        V_p = V.copy()
-        R = R_p + S.T @ (r_center - r_center_p)                 # ORF
-        u_rot = my_cross(w, S.T @ r0)                         # ORF
-        V_rot = my_cross(w, S.T @ (r_center - r_center_p))    # ORF
-        V0 = - u * m_extra / M_without                         # BRF
-        u = V_p + S.T @ u + u_rot                              # ORF
-        V = V_p + S.T @ V0 + V_rot                              # ORF
-        w = o.b_o(J_1, S) @ (                                   # ORF
-            o.b_o(J_p, S) @ w - m_extra * my_cross(r, u) +
-            (M_without + m_extra) * my_cross(R_p, V_p) - M_without * my_cross(R, V)) 
-
-    Om = U.T @ w + o.W_hkw
-    C_r = get_C_hkw(r, u, w_hkw)
-    C_R = get_C_hkw(R, V, w_hkw)
-
-    F_min = np.array([1e10, 0, 0]) 
-    w_modeling = 0
-    N_crashes = 0
-    F_mean = 0. 
-    line = r0                       
+    n_crashes = 0
+    w_max = 0
     V_max = 0.
     R_max = 0.
     j_max = 0.
-    dt = o.dt
-    
-    # Iterations
-    for i in range(round(T_max / dt)):
-        t_i = (i + 1) * dt
-        r = np.array(r_HKW(C_r, o.mu, o.w_hkw, t_i))
-        R = np.array(r_HKW(C_R, o.mu, o.w_hkw, t_i))
-        V = np.array(v_HKW(C_R, o.mu, o.w_hkw, t_i))
+    f_min = np.array([1e10, 0, 0])
+    f_mean = 0.
+    line = []
+    o_lcl = o.copy()
 
-        La, Om = o.rk4_w(La, Om, J, t + t_i)
-        U, S, A, R_e = o.call_rotation_matrix(La, t + t_i)
-        w = U @ (Om - o.W_hkw)
+    r = np.array(o.X_app.r[id_app])
+    r0 = o.o_b(r)
+
+    id_beam = o.X_app.flag_beam[id_app]
+    m_beam = 0. if (id_beam is None) else o.X.mass[id_beam]
+    M_without = o_lcl.M - m_beam - o.X.mass[id_beam] * len(o_lcl.taken_beams)
+    m_extra = o.X_app.mass[id_app] + m_beam
+
+    if interaction:
+        J_p, r_center_p = call_inertia(o, o.taken_beams_p, app_y=id_app)
+        J, r_center = call_inertia(o, o.taken_beams, app_n=id_app)
+        J_1 = np.linalg.inv(J)
+        R_p = o_lcl.R.copy()
+        V_p = o_lcl.V.copy()
+        o_lcl.R = R_p + o_lcl.S.T @ (r_center - r_center_p)             # ORF
+        u_rot = my_cross(o_lcl.w, o_lcl.S.T @ r0)                       # ORF
+        V_rot = my_cross(o_lcl.w, o_lcl.S.T @ (r_center - r_center_p))  # ORF
+        V0 = - u * m_extra / M_without                                  # BRF
+        u = V_p + o_lcl.S.T @ u + u_rot                                 # ORF
+        o_lcl.V = V_p + o_lcl.S.T @ V0 + V_rot                          # ORF
+        w = o.b_o(J_1, o_lcl.S) @ (                                     # ORF
+                o.b_o(J_p, o_lcl.S) @ o_lcl.w - m_extra * my_cross(r, u) +
+                (M_without + m_extra) * my_cross(R_p, V_p) - M_without * my_cross(o_lcl.R, o_lcl.V))
+
+    o_lcl.Om_update()
+    o_lcl.C_r[id_app] = get_C_hkw(r, u, o.w_hkw)
+    o_lcl.C_R = get_C_hkw(o_lcl.R, o_lcl.V, o.w_hkw)
+
+    # Iterations
+    for i in range(int(T_max // o_lcl.dt)):
+        o_lcl.time_step()
 
         # Writing parameters
         if interaction:
-            F = o.o_b(r, S=S, R=R, r_center=r_center) - r_right  # BRF
+            f = o_lcl.o_b(o_lcl.X_app.r[id_app]) - o_lcl.X_app.target[id_app]  # BRF
         else:
-            F = r - o.b_o(r_right, S=S, R=R, r_center=r_center)  # ORF
-        if np.linalg.norm(F_min) > np.linalg.norm(F):
-            F_min = F.copy()
-        w_modeling = max(w_modeling, np.linalg.norm(w))
-        V_max = max(V_max, np.linalg.norm(V))
-        R_max = max(R_max, np.linalg.norm(R))
-        r_max = max(R_max, np.linalg.norm(r))
-        j_max = max(j_max, 180/np.pi*np.arccos((np.trace(S)-1)/2))
-        F_mean += np.linalg.norm(F)
-        iter = i
-        line = np.append(line, S @ (r - R) + r_center)
+            f = o_lcl.X_app.r[id_app] - o_lcl.b_o(o_lcl.X_app.target[id_app])  # ORF
+        if np.linalg.norm(f_min) > np.linalg.norm(f):
+            f_min = f.copy()
+        w_max = max(w_max, np.linalg.norm(o_lcl.w))
+        V_max = max(V_max, np.linalg.norm(o_lcl.V))
+        R_max = max(R_max, np.linalg.norm(o_lcl.R))
+        j_max = max(j_max, 180/np.pi*np.arccos((np.trace(o_lcl.S)-1)/2))
+        f_mean += np.linalg.norm(f)
+        line = np.append(line, o_lcl.o_b(o_lcl.X_app.r[id_app]))
 
         # Stop Criteria
         if o.d_to_grab is not None:
-            if np.linalg.norm(F) <= o.d_to_grab * 0.95:
+            if np.linalg.norm(f) <= o.d_to_grab * 0.95:
                 break
 
         if o.d_crash is not None:
-            if t_i > 20:
-                if call_crash(o, r, R, S, o.taken_beams):
-                    N_crashes = N_crashes + 1
+            if (o_lcl.t - o.t) > 10:
+                if call_crash(o, o_lcl.X_app.r[id_app], o_lcl.R, o_lcl.S, o_lcl.taken_beams):
+                    n_crashes += 1
                     break
 
-    if i > 0:
-        F_mean /= i
+    if (o_lcl.iter - o.iter) > 0:
+        f_mean /= (o_lcl.iter - o.iter)
 
     if interaction is False:
-        V_p = np.array(v_HKW(C_R, o.mu, o.w_hkw, t_i))
-        u_p = np.array(v_HKW(C_r, o.mu, o.w_hkw, t_i))
+        V_p = np.array(v_HKW(o_lcl.C_R, o.mu, o.w_hkw, o_lcl.t))
+        u_p = np.array(v_HKW(o_lcl.C_r[id_app], o.mu, o.w_hkw, o_lcl.t))
         J_p, r_center_p = call_inertia(o, o.taken_beams_p, app_n=id_app)
         J, r_center = call_inertia(o, o.taken_beams, app_y=id_app)
-        R_p = R.copy()
-        R += S.T @ (r_center - r_center_p)
+        R_p = o_lcl.R.copy()
+        o_lcl.R += o_lcl.S.T @ (r_center - r_center_p)
         V = (V_p * M_without + u_p * m_extra) / (M_without + m_extra)
-        w_after = np.linalg.inv(o.b_o(J, S)) @ (o.b_o(J_p, S) @ w - (M_without + m_extra) * my_cross(R, V) +
-                                   m_extra * my_cross(r, u_p) + M_without * my_cross(R_p, V_p))
-        w_modeling = np.linalg.norm(w_after)
-        Om = U.T @ w_after + o.W_hkw
-        C_R = get_C_hkw(R, V, o.w_hkw)
+        w_after = np.linalg.inv(o.b_o(J, o_lcl.S)) @ (o.b_o(J_p, o_lcl.S) @ o_lcl.w -
+                                                      (M_without + m_extra) * my_cross(o_lcl.R, V) +
+                                                      m_extra * my_cross(r, u_p) + M_without * my_cross(R_p, V_p))
+        w_max = np.linalg.norm(w_after)
+        o_lcl.Om = o_lcl.U.T @ w_after + o.W_hkw
+        o_lcl.C_R = get_C_hkw(o_lcl.R, V, o.w_hkw)
         V_max = np.linalg.norm(V)
-        R_max = np.linalg.norm(R)
+        R_max = np.linalg.norm(o_lcl.R)
 
-        for i in range(round(iter / 20)):
-            t_i += dt
-            R = np.array(r_HKW(C_R, o.mu, o.w_hkw, t_i))
-            V = np.array(v_HKW(C_R, o.mu, o.w_hkw, t_i))
+        for i in range(int((o_lcl.iter - o.iter) // 20)):
+            o_lcl.time_step()
 
-            La, Om = o.rk4_w(La, Om, J, t + t_i)
-            U, S, A, R_e = o.call_rotation_matrix(La, t + t_i)
-            w = U @ (Om - o.W_hkw)
+            w_max = max(w_max, np.linalg.norm(o_lcl.w))
+            V_max = max(V_max, np.linalg.norm(o_lcl.V))
+            R_max = max(R_max, np.linalg.norm(o_lcl.R))
+            j_max = max(j_max, 180/np.pi*np.arccos((np.trace(o_lcl.S)-1)/2))
 
-            w_modeling = max(w_modeling, np.linalg.norm(w))
-            V_max = max(V_max, np.linalg.norm(V))
-            R_max = max(R_max, np.linalg.norm(R))
-            r_max = max(R_max, np.linalg.norm(r))
-            j_max = max(j_max, 180/np.pi*np.arccos((np.trace(S)-1)/2))
-
-    w = w_modeling if interaction else  np.linalg.norm(w_after)
     if line_return:
-        return F_min, F_mean, w, V_max, R_max, j_max, N_crashes, line
+        return f_min, f_mean, w_max, V_max, R_max, j_max, n_crashes, line
     else:
-        return F_min, F_mean, w, V_max, R_max, j_max, N_crashes
+        return f_min, f_mean, w_max, V_max, R_max, j_max, n_crashes
 
 
-def diff_evolve_sample(o, t, T_max, id_app, interaction, convex, tmp1x, tmp1y, tmp1z, tmp2x, tmp2y, tmp2z,
+def diff_evolve_sample(o, T_max, id_app, interaction, convex, tmp1x, tmp1y, tmp1z, tmp2x, tmp2y, tmp2z,
                        tmp3x, tmp3y, tmp3z, ajx, ajy, ajz, a_recjx, a_recjy, a_recjz, iter):
     """- Зачем я существую?         \n
     - Ты - условная единица парпрога"""
@@ -389,9 +358,9 @@ def diff_evolve_sample(o, t, T_max, id_app, interaction, convex, tmp1x, tmp1y, t
 
     if a_recj[0] is None:
         if convex:
-            dr_p, _, _ = dr_gradient(o=o, u0=u_pre, t=t, T_max=T_max, id_app=id_app, interaction=interaction, mu_IPM=mu_IPM, mu_e=0.1)
+            dr_p, _, _ = dr_gradient(o=o, u0=u_pre, T_max=T_max, id_app=id_app, interaction=interaction, mu_IPM=mu_IPM, mu_e=0.1)
         else:
-            dr_p = dr_evolve(u_pre, o, t, T_max, id_app, interaction)
+            dr_p = dr_non_gradient(u_pre, o, T_max, id_app, interaction)
     else:
         dr_p = a_recj
 
@@ -402,9 +371,9 @@ def diff_evolve_sample(o, t, T_max, id_app, interaction, convex, tmp1x, tmp1y, t
             if o.du_impulse_max > du_m else np.array([1e10, 1e10, 1e10])
 
     if convex:
-        dr_n, _, real_dr = dr_gradient(o=o, u0=u_new, t=t, T_max=T_max, id_app=id_app, interaction=interaction, mu_IPM=mu_IPM, mu_e=o.mu_e)
+        dr_n, _, real_dr = dr_gradient(o=o, u0=u_new, T_max=T_max, id_app=id_app, interaction=interaction, mu_IPM=mu_IPM, mu_e=o.mu_e)
     else:
-        dr_n = dr_evolve(u_new, o, t, T_max, id_app, interaction)
+        dr_n = dr_non_gradient(u_new, o, T_max, id_app, interaction)
 
     if np.linalg.norm(u_p) == 0.:
         du = u_new - np.array(o.X_app.v[id_app])
@@ -496,8 +465,8 @@ def diff_evolve(o, t, T_max, id_app, interaction=True, convex=False):
     return np.array(u)
 
 
-def dr_gradient(o, u0, t, T_max, id_app, interaction, mu_IPM, mu_e):
-    dr_, _, w_, V_, R_, j_, _ = calculation_motion(o=o, u0=u0, t=t, T_max=T_max, id_app=id_app, interaction=interaction)
+def dr_gradient(o, u0, T_max, id_app, interaction, mu_IPM, mu_e):
+    dr_, _, w_, V_, R_, j_, _ = calculation_motion(o=o, u=u0, T_max=T_max, id_app=id_app, interaction=interaction)
     reserve_rate = 1.5
     e_w = 0. if (o.w_max/reserve_rate - w_) > 0 else abs(w_ - o.w_max/reserve_rate)
     e_V = 0. if (o.V_max/reserve_rate - V_) > 0 else abs(V_ - o.V_max/reserve_rate)
@@ -512,9 +481,9 @@ def dr_gradient(o, u0, t, T_max, id_app, interaction, mu_IPM, mu_e):
            cnd, np.linalg.norm(dr_)
 
 
-def dr_evolve(u, o, t, T_max, id_app, interaction):
+def dr_non_gradient(u, o, T_max, id_app, interaction):
     mu_IPM = 0.01
-    dr_p, dr_m_p, w_p, V_p, R_p, j_p, N_crashes_p = calculation_motion(o, u, t, T_max, id_app, interaction=interaction)
+    dr_p, dr_m_p, w_p, V_p, R_p, j_p, N_crashes_p = calculation_motion(o, u, T_max, id_app, interaction=interaction)
 
     # Нет проблем с ограничениями
     if (o.w_max - w_p > 0) and (o.V_max - V_p > 0) and (o.R_max - R_p > 0) and (o.j_max - j_p > 0):  
@@ -540,7 +509,6 @@ def calc_shooting(o, t, id_app, r_right, interaction=True, shooting_amount=None,
     -> convex_domain - считать ли пространство целевой функции выпуклым                     \n
     Output:                                                                                 \n
     -> u - оптимальный вектор скорости отталкивания/импульса (ССК при interaction=True, ОСК иначе)"""
-    # shooting_amount = (o.shooting_amount_repulsion if interaction else o.shooting_amount_impulse) if (shooting_amount is None) else shooting_amount
     shooting_amount = o.shooting_amount_repulsion if (shooting_amount is None) else shooting_amount
     if interaction:
         tmp = r_right - np.array(o.o_b(o.X_app.r[id_app]))
@@ -638,7 +606,7 @@ def calc_shooting(o, t, id_app, r_right, interaction=True, shooting_amount=None,
     return u, target_is_reached
 
 
-def repulsion(o, t, id_app, u_a_priori=None):
+def repulsion(o, id_app, u_a_priori=None):
     """Input:                                                                   \n
     -> o - AllObjects класс                                                     \n
     -> t - время принятия решения (для расчёта положения и скорости ХКУ)        \n
@@ -687,10 +655,10 @@ def repulsion(o, t, id_app, u_a_priori=None):
     # Нахождение вектора скорости отталкивания
     if o.control:
         u0 = u_a_priori if (u_a_priori is not None) else \
-            diff_evolve(o=o, t=t, T_max=o.T_max, id_app=id_app, interaction=True)
+            diff_evolve(o=o, T_max=o.T_max, id_app=id_app, interaction=True)
     else:
         u0, _ = (u_a_priori, 1) if (u_a_priori is not None) else \
-            calc_shooting(o=o, t=t, id_app=id_app, r_right=r_right, interaction=True,
+            calc_shooting(o=o, id_app=id_app, r_right=r_right, interaction=True,
                           shooting_amount=o.shooting_amount_repulsion, T_max=o.T_max)
 
     R_p = o.R.copy()
@@ -716,8 +684,8 @@ def repulsion(o, t, id_app, u_a_priori=None):
     o.C_r[id_app] = get_C_hkw(r, u, o.w_hkw)
     o.C_R = get_C_hkw(R, V, o.w_hkw)
     o.flag_vision[id_app] = False
-    o.t_start[0] = t
-    o.t_start[o.N_app] = t
+    o.t_start[0] = o.t
+    o.t_start[o.N_app] = o.t
 
     o.X_app.loc[id_app, 'r'][0], o.X_app.loc[id_app, 'r'][1], o.X_app.loc[id_app, 'r'][2] = r
     o.X_app.loc[id_app, 'v'][0], o.X_app.loc[id_app, 'v'][1], o.X_app.loc[id_app, 'v'][2] = u
@@ -731,7 +699,7 @@ def repulsion(o, t, id_app, u_a_priori=None):
     return u0
 
 
-def capturing(o, id_app, t):
+def capturing(o, id_app):
     if o.if_any_print:
         print(Fore.BLUE + f'Аппарат id:{id_app} захватился')
     o.a_self[id_app] = np.array(np.zeros(3))
@@ -776,6 +744,6 @@ def capturing(o, id_app, t):
     o.X_app.loc[id_app, 'flag_hkw'] = True
     o.X_app.loc[id_app, 'flag_fly'] = False
     o.t_reaction_counter = o.t_reaction
-    o.t_start[o.N_app] = t
+    o.t_start[o.N_app] = o.t
     o.flag_impulse = True
     o.taken_beams_p = o.taken_beams.copy()

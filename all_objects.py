@@ -18,62 +18,61 @@ from mylibs.im_sample import *
 
 class AllProblemObjects(object):
     """Класс содержит в себе абсолютно все нужные параметры и некоторые методы"""
-
     def __init__(self,
-                 if_impulse_control=False,  # Управление импульсное
-                 if_PID_control=False,  # Управление ПД-регулятором
-                 if_LQR_control=False,  # Управление ЛКР
-                 if_avoiding=False,  # Исскуственное избежание столкновения
+                 if_impulse_control=False,              # Управление импульсное
+                 if_PID_control=False,                  # Управление ПД-регулятором
+                 if_LQR_control=False,                  # Управление ЛКР
+                 if_avoiding=False,                     # Исскуственное избежание столкновения
 
-                 N_apparatus=1,  # Количество аппаратов
-                 diff_evolve_vectors=5,  # Количество проб дифф. эволюции
-                 diff_evolve_times=3,  # Количество эпох дифф. эволюции
-                 shooting_amount_repulsion=15,  # Шаги пристрелки отталкивания
-                 shooting_amount_impulse=10,  # Шаги пристрелки импульсного управления
+                 N_apparatus=1,                         # Количество аппаратов
+                 diff_evolve_vectors=5,                 # Количество проб дифф. эволюции
+                 diff_evolve_times=3,                   # Количество эпох дифф. эволюции
+                 shooting_amount_repulsion=15,          # Шаги пристрелки отталкивания
+                 shooting_amount_impulse=10,            # Шаги пристрелки импульсного управления
 
-                 diff_evolve_F=0.8,  # Гиперпараметр дифф. эволюции
-                 diff_evolve_chance=0.5,  # Гиперпараметр дифф. эволюции
-                 mu_IPM=0.01,  # Гиперпараметр дифф. эволюции
+                 diff_evolve_F=0.8,                     # Гиперпараметр дифф. эволюции
+                 diff_evolve_chance=0.5,                # Гиперпараметр дифф. эволюции
+                 mu_IPM=0.01,                           # Гиперпараметр дифф. эволюции
                  mu_e=0.1,
 
-                 T_total=100000.,  # Необязательное ограничение по времени на строительство
-                 T_max=500.,  # Максимальное время перелёта
-                 T_max_hard_limit=4000.,  # Максимальное время перелёта при близости нарушении ограничений
-                 dt=1.0,  # Шаг по времени
-                 t_reaction=10.,  # Время между обнаружением цели и включением управления
-                 time_to_be_busy=10.,  # Время занятости между перелётами
-                 u_max=0.2,  # Максимальная скорость отталкивания
-                 du_impulse_max=0.4,  # Максимальная скорость импульса при импульсном управлении
-                 w_max=0.0015,  # Максимально допустимая скорость вращения станции (искуственное ограничение)
-                 V_max=0.1,  # Максимально допустимая поступательная скорость станции (искуственное ограничение)
-                 R_max=9.,  # Максимально допустимое отклонение станции (искуственное ограничение)
-                 j_max=30.,  # Максимально допустимый след матрицы поворота S (искуственное ограничение)
-                 a_pid_max=0.001,  # Максимальное ускорение при непрерывном управлении
+                 T_total=100000.,                       # Необязательное ограничение по времени на строительство
+                 T_max=500.,                            # Максимальное время перелёта
+                 T_max_hard_limit=4000.,                # Максимальное время перелёта при близости нарушении ограничений
+                 dt=1.0,                                # Шаг по времени
+                 t_reaction=10.,                        # Время между обнаружением цели и включением управления
+                 time_to_be_busy=10.,                   # Время занятости между перелётами
+                 u_max=0.2,                             # Максимальная скорость отталкивания
+                 du_impulse_max=0.4,                    # Максимальная скорость импульса при импульсном управлении
+                 w_max=0.0015,      # Максимально допустимая скорость вращения станции (искуственное ограничение)
+                 V_max=0.1,         # Максимально допустимая поступательная скорость станции (искуственное ограничение)
+                 R_max=9.,          # Максимально допустимое отклонение станции (искуственное ограничение)
+                 j_max=30.,         # Максимально допустимый след матрицы поворота S (искуственное ограничение)
+                 a_pid_max=0.001,   # Максимальное ускорение при непрерывном управлении
 
-                 is_saving=False,  # Сохранение vedo-изображений
-                 save_rate=1,  # Итерации между сохранением vedo-изображений
-                 coordinate_system='orbital',  # Система координат vedo-изображения
+                 is_saving=False,               # Сохранение vedo-изображений
+                 save_rate=1,                   # Итерации между сохранением vedo-изображений
+                 coordinate_system='orbital',   # Система координат vedo-изображения
 
-                 choice='3',  # Тип конструкции
-                 choice_complete=False,  # Уже собранная конструкция (для отладки)
+                 choice='3',                    # Тип конструкции
+                 choice_complete=False,         # Уже собранная конструкция (для отладки)
 
-                 if_talk=True,  # Мне было скучно
-                 if_multiprocessing=True,  # Многопроцессорность
-                 if_testing_mode=False,  # Лишние принтпоинты
-                 if_any_print=True,  # Любые принтпоинты
+                 if_talk=True,                  # Мне было скучно
+                 if_multiprocessing=True,       # Многопроцессорность
+                 if_testing_mode=False,         # Лишние принтпоинты
+                 if_any_print=True,             # Любые принтпоинты
 
-                 Radius_orbit=6800e3,  # Радиус орбиты
-                 mu=5.972e24 * 6.67408e-11,  # Гравитационный параметр Земли
-                 d_to_grab=0.5,  # Расстояние захвата до цели
-                 d_crash=0.1,  # Расстояние соударения до осей стержней
+                 Radius_orbit=6800e3,           # Радиус орбиты
+                 mu=5.972e24 * 6.67408e-11,     # Гравитационный параметр Земли
+                 d_to_grab=0.5,                 # Расстояние захвата до цели
+                 d_crash=0.1,                   # Расстояние соударения до осей стержней
 
-                 k_p=1e-4,  # Коэффициент ПД-регулятора
-                 La=np.array(q_dot([1 / np.sqrt(2), 1 / np.sqrt(2), 0., 0.], [1 / np.sqrt(2), 0., 1 / np.sqrt(2), 0.]))):
+                 k_p=1e-4,                      # Коэффициент ПД-регулятора
+                 La=np.array(q_dot([1/np.sqrt(2), 1/np.sqrt(2), 0., 0.], [1/np.sqrt(2), 0., 1/np.sqrt(2), 0.]))):
 
         # Инициализация переменных
-        self.survivor = True  # Зафиксирован ли проход "через текстуры" / можно сделать вылет программы
-        self.warning_message = None  # Если где-то проблема, вместо вылета программы я обозначаю её сообщениями
-        self.t_flyby = T_max * 0.95  # Время необходимости облёта
+        self.survivor = True            # Зафиксирован ли проход "через текстуры" / можно сделать вылет программы
+        self.warning_message = None     # Если где-то проблема, вместо вылета программы я обозначаю её сообщениями
+        self.t_flyby = T_max * 0.95     # Время необходимости облёта
         self.if_talk = if_talk
         self.if_multiprocessing = if_multiprocessing
         self.if_testing_mode = if_testing_mode
@@ -102,6 +101,7 @@ class AllProblemObjects(object):
         self.T_max = T_max
         self.T_max_hard_limit = T_max_hard_limit
         self.t = np.double(0.)
+        self.iter = 0
         self.dt = np.double(dt)
         self.time_to_be_busy = time_to_be_busy
         self.t_reaction = t_reaction
@@ -257,8 +257,10 @@ class AllProblemObjects(object):
         LaOm = self.dt / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
         return (LaOm[0:4] + La) / np.linalg.norm(LaOm[0:4] + La), LaOm[4:7] + Om
 
-    def time_step(self, t):
-        self.t = t
+    def time_step(self):
+        self.iter += 1
+        self.t = self.iter * self.dt
+
 
         # Вращение конструкции по Эйлеру
         self.La, self.Om = self.rk4_w(self.La, self.Om, self.J, self.t)
@@ -372,3 +374,105 @@ class AllProblemObjects(object):
                 print(Fore.BLUE + txt)
             if mode == "green":
                 print(Fore.GREEN + txt)
+
+    def copy(self):
+        slf = AllProblemObjects()
+        slf.survivor = self.survivor
+        slf.warning_message = False
+        slf.t_flyby = self.t_flyby
+        slf.if_talk = False
+        slf.if_multiprocessing = self.if_multiprocessing
+        slf.if_testing_mode = self.if_testing_mode
+        slf.if_any_print = self.if_any_print
+        slf.flag_impulse = self.flag_impulse
+        slf.collision_foo = None
+
+        slf.d_crash = self.d_crash
+        slf.if_impulse_control = self.if_impulse_control
+        slf.if_PID_control = self.if_PID_control
+        slf.if_LQR_control = self.if_LQR_control
+        slf.if_avoiding = self.if_avoiding
+        slf.control = self.control
+
+        slf.diff_evolve_vectors = self.diff_evolve_vectors
+        slf.diff_evolve_times = self.diff_evolve_times
+        slf.shooting_amount_repulsion = self.shooting_amount_repulsion
+        slf.shooting_amount_impulse = self.shooting_amount_impulse
+
+        slf.diff_evolve_F = self.diff_evolve_F
+        slf.diff_evolve_chance = self.diff_evolve_chance
+        slf.mu_IPM = self.mu_IPM
+        slf.mu_e = self.mu_e
+
+        slf.T_total = self.T_total
+        slf.T_max = self.T_max
+        slf.T_max_hard_limit = self.T_max_hard_limit
+        slf.iter = self.iter
+        slf.t = self.t
+        slf.dt = self.dt
+        slf.time_to_be_busy = self.time_to_be_busy
+        slf.t_reaction = self.t_reaction
+        slf.t_reaction_counter = self.t_reaction_counter
+        slf.t_flyby_counter = self.t_flyby
+        slf.u_max = self.u_max
+        slf.u_min = self.u_min
+        slf.du_impulse_max = self.du_impulse_max
+        slf.w_max = self.w_max
+        slf.V_max = self.V_max
+        slf.R_max = self.R_max
+        slf.j_max = self.j_max
+        slf.a_pid_max = self.a_pid_max
+
+        slf.is_saving = self.is_saving
+        slf.save_rate = self.save_rate
+        slf.coordinate_system = self.coordinate_system
+
+        slf.Radius_orbit = self.Radius_orbit
+        slf.Re = self.Re
+        slf.mu = self.mu
+        slf.d_to_grab = self.d_to_grab
+
+        slf.k_p = self.k_p
+        slf.k_d = self.k_d
+        slf.La = self.La.copy()
+
+        slf.X = self.X.copy()
+        slf.X_cont = self.X_cont.copy()
+        slf.N_nodes = self.N_nodes
+        slf.N_beams = self.N_beams
+        slf.N_cont_beams = self.N_cont_beams
+        slf.X_app = self.X_app.copy()
+        slf.N_app = self.N_app
+        slf.t_start = self.t_start.copy()
+        slf.M = self.M
+
+        slf.w_hkw = self.w_hkw
+        slf.W_hkw = self.W_hkw.copy()
+        slf.U = self.U.copy()
+        slf.S = self.S.copy()
+        slf.A = self.A.copy()
+        slf.R_e = self.R_e.copy()
+
+        slf.J = self.J.copy()
+        slf.r_center = self.r_center.copy()
+        slf.R = self.R.copy()
+        slf.V = self.V.copy()
+        slf.J_1 = self.J_1.copy()
+
+        slf.line_str = slf.R
+        slf.taken_beams = self.taken_beams.copy()
+        slf.taken_beams_p = self.taken_beams_p.copy()
+
+        slf.C_R = self.C_R.copy()
+        slf.C_r = self.C_r.copy()
+
+        slf.v_p = self.v_p.copy()
+        slf.dr_p = self.dr_p.copy()
+        slf.a_orbital = self.a_orbital.copy()
+        slf.A_orbital = self.A_orbital.copy()
+        slf.a_self = self.a_self.copy()
+        slf.w = self.w.copy()
+        slf.Om = self.Om.copy()
+        slf.e = self.e.copy()
+        slf.tg_tmp = self.tg_tmp.copy()
+        slf.flag_vision = self.flag_vision.copy()
