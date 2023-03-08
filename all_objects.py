@@ -172,6 +172,10 @@ class AllProblemObjects(object):
                                                                if np.linalg.norm(a) > self.u_min else
                                                                a / np.linalg.norm(a) * self.u_min * 1.05) if cnd
                                                                                                           else a})
+        self.cases = dict({'repulse_vel_control': lambda v: (v if np.linalg.norm(v) < self.u_max else
+                                                             v / np.linalg.norm(v) * self.u_max * 0.95)
+                                                            if np.linalg.norm(v) > self.u_min else
+                                                            v / np.linalg.norm(v) * self.u_min * 1.05})
 
     def get_discrepancy(self, id_app, vector=False):
         """Возвращает невязку аппарата с целью"""
@@ -270,16 +274,16 @@ class AllProblemObjects(object):
         self.e = np.double((self.w - tmp) / self.dt)
 
         # Поступательное движение конструкции
-        self.R = r_HKW(self.C_R, self.mu, self.w_hkw, t - self.t_start[self.N_app])
-        self.V = v_HKW(self.C_R, self.mu, self.w_hkw, t - self.t_start[self.N_app])
+        self.R = r_HKW(self.C_R, self.mu, self.w_hkw, self.t - self.t_start[self.N_app])
+        self.V = v_HKW(self.C_R, self.mu, self.w_hkw, self.t - self.t_start[self.N_app])
         self.A_orbital = self.orbital_acceleration(np.append(self.R, self.V))
 
         # Поступательное движение аппаратов
         for id_app in self.X_app.id:
             if self.X_app.flag_fly[id_app] == 1:
                 if self.X_app.flag_hkw[id_app]:
-                    r = r_HKW(self.C_r[id_app], self.mu, self.w_hkw, t - self.t_start[id_app])
-                    v = v_HKW(self.C_r[id_app], self.mu, self.w_hkw, t - self.t_start[id_app])
+                    r = r_HKW(self.C_r[id_app], self.mu, self.w_hkw, self.t - self.t_start[id_app])
+                    v = v_HKW(self.C_r[id_app], self.mu, self.w_hkw, self.t - self.t_start[id_app])
                 else:
                     r = self.X_app.r[id_app]
                     v = self.X_app.v[id_app]
@@ -476,3 +480,5 @@ class AllProblemObjects(object):
         slf.e = self.e.copy()
         slf.tg_tmp = self.tg_tmp.copy()
         slf.flag_vision = self.flag_vision.copy()
+
+        return slf

@@ -1,22 +1,18 @@
 # 3d plot libraries
-import vedo
 from vedo import dataurl, Mesh, Plotter
 from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits import mplot3d
-from scipy import spatial
-from stl import mesh
 import stl
 
 # Standard libraries
-import time
 import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
+from scipy import spatial
 from PIL import Image
+from stl import mesh
+import vedo
 
 # Local libraries
-from mylibs.construction_functions import *
 from mylibs.tiny_functions import *
 
 
@@ -30,7 +26,7 @@ def color_between(tau):
     return 0.8 * tau + 1.0 * (1 - tau), 0.8 * tau, 0.8 * tau + 1.0 * (1 - tau)
 
 
-def line_chaos(x_lim=20., y_lim=20., z_lim=20., h = 1.):
+def line_chaos(x_lim=20., y_lim=20., z_lim=20.):
     """Функция создания линии помех на vedo-изображении для видимости нарушения жёстких ограничений. \n
     Используется вместо вылета программы."""
     line = [-x_lim, -y_lim, -z_lim,
@@ -103,28 +99,33 @@ def fig_plot(o, line_0, point):
     return line
 
 
-def draw_vector(ax, v, r0=[0.,0.,0.], v0=None, clr='m', style='-'):
-    """Функия рисует стрелочку"""
+def draw_vector(ax, v, r0=None, v0=None, clr='m', style='-'):
+    """Функия рисует стрелочку в осях matplotlib.pyplot"""
+    r0 = np.array([0., 0., 0.]) if r0 is None else r0
     rate = 0.9
     width = 0.02
     
     if v[2] > v[1] and v[2] > v[0]:
-        b = my_cross(v, [0,1,0])
+        b = my_cross(v, [0, 1, 0])
     else:
         if v[0] > v[1] and v[0] > v[2]:
-            b = my_cross(v, [0,0,1])
+            b = my_cross(v, [0, 0, 1])
         else:
-            b = my_cross(v, [1,0,0])
+            b = my_cross(v, [1, 0, 0])
     if np.linalg.norm(b) > 0:
         b *= width*np.linalg.norm(v)/np.linalg.norm(b)
     if v0 is None:
         ax.plot([r0[0], r0[0]+v[0]], [r0[1], r0[1]+v[1]], [r0[2], r0[2]+v[2]], c=clr, ls=style)
-        ax.plot([r0[0]+v[0]*rate+b[0], r0[0]+v[0]], [r0[1]+v[1]*rate+b[1], r0[1]+v[1]], [r0[2]+v[2]*rate+b[2], r0[2]+v[2]], c=clr)
-        ax.plot([r0[0]+v[0]*rate-b[0], r0[0]+v[0]], [r0[1]+v[1]*rate-b[1], r0[1]+v[1]], [r0[2]+v[2]*rate-b[2], r0[2]+v[2]], c=clr)
+        ax.plot([r0[0]+v[0]*rate+b[0], r0[0]+v[0]], [r0[1]+v[1]*rate+b[1], r0[1]+v[1]], [r0[2]+v[2]*rate+b[2],
+                                                                                         r0[2]+v[2]], c=clr)
+        ax.plot([r0[0]+v[0]*rate-b[0], r0[0]+v[0]], [r0[1]+v[1]*rate-b[1], r0[1]+v[1]], [r0[2]+v[2]*rate-b[2],
+                                                                                         r0[2]+v[2]], c=clr)
     else:
         ax.plot([v0[0], v[0]], [v0[1], v[1]], [v0[2], v[2]], c=clr, ls=style)
-        ax.plot([v0[0]+(v[0]-v0[0])*rate+b[0], v[0]], [v0[1]+(v[1]-v0[1])*rate+b[1], v[1]], [v0[2]+(v[2]-v0[2])*rate+b[2], v[2]], c=clr)
-        ax.plot([v0[0]+(v[0]-v0[0])*rate-b[0], v[0]], [v0[1]+(v[1]-v0[1])*rate-b[1], v[1]], [v0[2]+(v[2]-v0[2])*rate-b[2], v[2]], c=clr)
+        ax.plot([v0[0]+(v[0]-v0[0])*rate+b[0], v[0]], [v0[1]+(v[1]-v0[1])*rate+b[1], v[1]],
+                [v0[2]+(v[2]-v0[2])*rate+b[2], v[2]], c=clr)
+        ax.plot([v0[0]+(v[0]-v0[0])*rate-b[0], v[0]], [v0[1]+(v[1]-v0[1])*rate-b[1], v[1]],
+                [v0[2]+(v[2]-v0[2])*rate-b[2], v[2]], c=clr)
         
         
 def draw_reference_frames(o, size=10, showing=False):
@@ -145,15 +146,15 @@ def draw_reference_frames(o, size=10, showing=False):
     draw_vector(ax=ax, v=[0., o.Radius_orbit, 0.], clr='k', style=':')
     draw_vector(ax=ax, v=[o.Radius_orbit, 0., 0.], clr='k')
     draw_vector(ax=ax, v=o.o_i(np.zeros(3)), clr='silver')
-    draw_vector(ax=ax, v0=o.o_i(np.zeros(3)), v=o.o_i([1e6,0,0]), clr='darkslateblue')
-    draw_vector(ax=ax, v0=o.o_i(np.zeros(3)), v=o.o_i([0,1e6,0]), clr='darkslateblue', style=':')
-    draw_vector(ax=ax, v0=o.o_i(np.zeros(3)), v=o.o_i([0,0,1e6]), clr='darkslateblue', style='-.')
-    draw_vector(ax=ax, v0=o.b_i(np.zeros(3)), v=o.b_i([1e6,0,0]), clr='aqua')
-    draw_vector(ax=ax, v0=o.b_i(np.zeros(3)), v=o.b_i([0,1e6,0]), clr='aqua', style=':')
-    draw_vector(ax=ax, v0=o.b_i(np.zeros(3)), v=o.b_i([0,0,1e6]), clr='aqua', style='-.')
-    ax.axes.set_xlim3d(left=-  o.Radius_orbit*1.2, right=o.Radius_orbit*1.2)
-    ax.axes.set_ylim3d(bottom=-o.Radius_orbit*1.2, top=  o.Radius_orbit*1.2) 
-    ax.axes.set_zlim3d(bottom=-o.Radius_orbit*1.2, top=  o.Radius_orbit*1.2)
+    draw_vector(ax=ax, v0=o.o_i(np.zeros(3)), v=o.o_i([1e6, 0, 0]), clr='darkslateblue')
+    draw_vector(ax=ax, v0=o.o_i(np.zeros(3)), v=o.o_i([0, 1e6, 0]), clr='darkslateblue', style=':')
+    draw_vector(ax=ax, v0=o.o_i(np.zeros(3)), v=o.o_i([0, 0, 1e6]), clr='darkslateblue', style='-.')
+    draw_vector(ax=ax, v0=o.b_i(np.zeros(3)), v=o.b_i([1e6, 0, 0]), clr='aqua')
+    draw_vector(ax=ax, v0=o.b_i(np.zeros(3)), v=o.b_i([0, 1e6, 0]), clr='aqua', style=':')
+    draw_vector(ax=ax, v0=o.b_i(np.zeros(3)), v=o.b_i([0, 0, 1e6]), clr='aqua', style='-.')
+    ax.axes.set_xlim3d(left=-o.Radius_orbit*1.2, right=o.Radius_orbit*1.2)
+    ax.axes.set_ylim3d(bottom=-o.Radius_orbit*1.2, top=o.Radius_orbit*1.2)
+    ax.axes.set_zlim3d(bottom=-o.Radius_orbit*1.2, top=o.Radius_orbit*1.2)
     if showing:
         plt.show()
     else:
@@ -171,12 +172,12 @@ def show_beam(r1, r2, flag_non_relative=0, radius_per_len=0.1):
         radius = radius_per_len * L
     x_up = [radius * np.cos(i / N_nodes_circle * 2 * np.pi) for i in range(N_nodes_circle)]
     y_up = [radius * np.sin(i / N_nodes_circle * 2 * np.pi) for i in range(N_nodes_circle)]
-    z_up = [L for i in range(N_nodes_circle)]
-    z_down = [0 for i in range(N_nodes_circle)]
-    x0 = np.hstack((x_up, x_up))  # Union of arrays
+    z_up = [L for _ in range(N_nodes_circle)]
+    z_down = [0 for _ in range(N_nodes_circle)]
+    '''x0 = np.hstack((x_up, x_up))  # Union of arrays
     y0 = np.hstack((y_up, y_up))
-    z0 = np.hstack((z_down, z_up))
-    vertices_0 = np.array([[0.0, 0.0, 0.0] for i in range(2 * N_nodes_circle)])
+    z0 = np.hstack((z_down, z_up))'''
+    vertices_0 = np.array([[0.0, 0.0, 0.0] for _ in range(2 * N_nodes_circle)])
     for i in range(N_nodes_circle):
         vertices_0[2 * i] = [x_up[i], y_up[i], z_up[i]]
         vertices_0[2 * i + 1] = [x_up[i], y_up[i], z_down[i]]
@@ -189,7 +190,7 @@ def show_beam(r1, r2, flag_non_relative=0, radius_per_len=0.1):
     quaternion_tmp = np.array(
         [np.cos(phi / 2), tau[0] * np.sin(phi / 2), tau[1] * np.sin(phi / 2), tau[2] * np.sin(phi / 2)])
     A = quart2dcm(quaternion_tmp)
-    vertices = np.array([[0.0, 0.0, 0.0] for i in range(2 * N_nodes_circle)])
+    vertices = np.array([[0.0, 0.0, 0.0] for _ in range(2 * N_nodes_circle)])
     for i in range(2 * N_nodes_circle):
         vertices[i] = np.linalg.inv(A) @ vertices_0[i] + np.array(r1)
     if (r_tmp[2] < 0) and (phi == np.pi):
@@ -299,7 +300,7 @@ def plot_iterations_new(o):
     """Возвращает mesh конструкции"""
     diam_cylinders_if_not = 0.001
     diam_cylinders = 0.03
-    flag = 0
+    main_body = None
     
     for b in range(o.N_beams):
         if np.sum(o.X.flag[b]) == 0:
@@ -319,12 +320,11 @@ def plot_iterations_new(o):
             for i, f in enumerate(faces):
                 for j in range(3):
                     myramid_mesh.vectors[i][j] = vertices[f[j], :]
-            if flag == 1:
+            if main_body is None:
+                main_body = myramid_mesh
+            else:
                 twist_lock = myramid_mesh
                 main_body = mesh.Mesh(np.concatenate([main_body.data, twist_lock.data]))
-            else:
-                main_body = myramid_mesh
-            flag = 1
 
     for b in range(o.N_beams):
         # if b not in taken_beams:  # CДЕЛАТЬ ПО НОРМАЛЬНОМУ
@@ -348,12 +348,11 @@ def plot_iterations_new(o):
         for i, f in enumerate(faces):
             for j in range(3):
                 myramid_mesh.vectors[i][j] = vertices[f[j], :]
-        if flag == 1:
+        if main_body is None:
+            main_body = myramid_mesh
+        else:
             twist_lock = myramid_mesh
             main_body = mesh.Mesh(np.concatenate([main_body.data, twist_lock.data]))
-        else:
-            main_body = myramid_mesh
-        flag = 1
             
     for b in range(o.N_cont_beams):
         r1 = o.X_cont.r1[b]
@@ -386,16 +385,16 @@ def plot_iterations_new(o):
 
 def plot_apps_new(o):
     """Возвращает mesh аппаратов"""
+    ready_mesh = None
     for app in range(o.N_app):
         r_tmp = o.S @ (o.X_app.r[app] - o.R) + o.r_center
         if o.coordinate_system == 'orbital':
             r_tmp = o.X_app.r[app]
         if o.coordinate_system == 'support':
             r_tmp = (o.X_app.r[app] - o.R) + o.r_center
-        main_body = mesh.Mesh(draw_apparatus(0.2, 0.3, r_tmp, np.array([0, 0, 1]),
-                                              np.array([0, -1, 0]), 0, 30 * np.pi / 180,
-                                              70 * np.pi / 180, 0, 30 * np.pi / 180,
-                                              70 * np.pi / 180).data)
+        main_body = mesh.Mesh(draw_apparatus(0.2, 0.3, r_tmp, np.array([0, 0, 1]), np.array([0, -1, 0]), 0,
+                                             30 * np.pi / 180, 70 * np.pi / 180, 0, 30 * np.pi / 180,
+                                             70 * np.pi / 180).data)
         verts_temp, faces_temp = [], []
         for i in range(len(main_body.v0)):
             verts_temp.append(main_body.v0[i])
@@ -403,7 +402,7 @@ def plot_apps_new(o):
             verts_temp.append(main_body.v2[i])
             faces_temp.append([i * 3, i * 3 + 1, i * 3 + 2])
         app_color = "navy" if o.X_app.flag_beam[app] is None else "m"
-        if app == 0:
+        if ready_mesh is None:
             ready_mesh = vedo.Mesh([verts_temp, faces_temp]).clean().color(app_color)
         else:
             ready_mesh += vedo.Mesh([verts_temp, faces_temp]).clean().color(app_color)
@@ -497,14 +496,15 @@ def draw_vedo_and_save(o, i_time, fig_view):
         watermark = Image.open('storage/tmp_pic.png')
         we, hi = watermark.size
         size = 0.29
-        img.paste(watermark.crop((we * size + 25, hi * size + 25, we * (1 - size), hi * (1 - size) - 25)))
+        img.paste(watermark.crop((int(we * size + 25), int(hi * size + 25),
+                                  int(we * (1 - size)), int(hi * (1 - size) - 25))))
         # img.save(filename)
         # img.close()
         watermark.close()
         watermark = Image.open('storage/tmp_pic2.png').resize((509, 200))
         # we, hi = watermark.size
         # size = 0.29
-        img.paste(watermark, (0, hi))  # watermark.crop((we * size + 25, hi * size + 25, we * (1 - size), hi * (1 - size) - 25)))
+        img.paste(watermark, (0, hi))
         img.save(filename)
         img.close()
         watermark.close()

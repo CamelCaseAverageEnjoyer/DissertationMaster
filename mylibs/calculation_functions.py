@@ -4,9 +4,9 @@ from p_tqdm import p_map
 import scipy
 
 # Local libraries
-from mylibs.tiny_functions import *
 from mylibs.plot_functions import *
 from mylibs.im_sample import *
+from mylibs.archive import *
 
 
 def call_crash_internal_func(r, r1, r2, diam, return_force=False):
@@ -129,8 +129,8 @@ def call_inertia(o, id_s=np.array([]), app_y=None, app_n=None):
     J = np.double(np.zeros((3, 3)))
     N_points_m = 10                                                 # количество материальных точек на стержень
     N_m = N_points_m * (o.N_beams + o.N_cont_beams)                 # материальных точек всего
-    m = np.double([0. for i in range(N_m + o.N_app)])
-    r = np.double([[0., 0., 0.] for i in range(N_m + o.N_app)])
+    m = np.double([0. for _ in range(N_m + o.N_app)])
+    r = np.double([[0., 0., 0.] for _ in range(N_m + o.N_app)])
 
     # Выделение координат стержня - на месте или в грузовом отсеке
     for n in range(o.N_beams):
@@ -159,7 +159,7 @@ def call_inertia(o, id_s=np.array([]), app_y=None, app_n=None):
                 b = o.X_cont.diam[n] * my_cross((r_2 - r_1), [0, 1, 0]) / np.linalg.norm(r_2 - r_1)
                 k = o.X_cont.diam[n] * my_cross((r_2 - r_1), b) / np.linalg.norm(r_2 - r_1) / np.linalg.norm(b)
                 r[(o.N_beams + n) * N_points_m + i] = r_0 + b * np.sin(2*np.pi * i / N_points_m) + \
-                                                      k * np.cos(2*np.pi * i / N_points_m)
+                                                            k * np.cos(2*np.pi * i / N_points_m)
 
     # Учёт аппаратов
     tmp_i = 0
@@ -242,7 +242,8 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False)
 
     id_beam = o.X_app.flag_beam[id_app]
     m_beam = 0. if (id_beam is None) else o.X.mass[id_beam]
-    M_without = o_lcl.M - m_beam - o.X.mass[id_beam] * len(o_lcl.taken_beams)
+    m_extra = o.X.mass[id_beam] * len(o.taken_beams) if id_beam is not None else 0
+    M_without = o.M - m_beam - m_extra
     m_extra = o.X_app.mass[id_app] + m_beam
 
     if interaction:
@@ -257,7 +258,7 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False)
         V0 = - u * m_extra / M_without                                  # BRF
         u = V_p + o_lcl.S.T @ u + u_rot                                 # ORF
         o_lcl.V = V_p + o_lcl.S.T @ V0 + V_rot                          # ORF
-        w = o.b_o(J_1, o_lcl.S) @ (                                     # ORF
+        o_lcl.w = o.b_o(J_1, o_lcl.S) @ (                               # ORF
                 o.b_o(J_p, o_lcl.S) @ o_lcl.w - m_extra * my_cross(r, u) +
                 (M_without + m_extra) * my_cross(R_p, V_p) - M_without * my_cross(o_lcl.R, o_lcl.V))
 
@@ -328,175 +329,56 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False)
         return f_min, f_mean, w_max, V_max, R_max, j_max, n_crashes
 
 
-def diff_evolve_sample(o, T_max, id_app, interaction, convex, tmp1x, tmp1y, tmp1z, tmp2x, tmp2y, tmp2z,
-                       tmp3x, tmp3y, tmp3z, ajx, ajy, ajz, a_recjx, a_recjy, a_recjz, iter):
-    """- Зачем я существую?         \n
-    - Ты - условная единица парпрога"""
-    tmp1 = np.array([tmp1x, tmp1y, tmp1z])
-    tmp2 = np.array([tmp2x, tmp2y, tmp2z])
-    tmp3 = np.array([tmp3x, tmp3y, tmp3z])
-    aj = np.array([ajx, ajy, ajz])
-    a_recj = np.array([a_recjx, a_recjy, a_recjz])
-    u_p = o.X_app.v[id_app]
-    mu_IPM = o.mu_IPM / 2**iter
-
-    tmp = tmp1 + o.diff_evolve_F * (tmp2 - tmp3)  # mutant vector
-    if random.uniform(0, 1) < o.diff_evolve_chance:  # crossing
-        tmp[0] = aj[0]
-    if random.uniform(0, 1) < o.diff_evolve_chance:
-        tmp[1] = aj[1]
-    if random.uniform(0, 1) < o.diff_evolve_chance:
-        tmp[2] = aj[2]
-    u_pre = np.array([aj[0] * np.cos(aj[1]) * np.cos(aj[2]),
-                      aj[0] * np.sin(aj[1]) * np.cos(aj[2]),
-                      aj[0] * np.sin(aj[2])])
-    u_new = np.array([tmp[0] * np.cos(tmp[1]) * np.cos(tmp[2]),
-                      tmp[0] * np.sin(tmp[1]) * np.cos(tmp[2]),
-                      tmp[0] * np.sin(tmp[2])])
-    u_pre = o.cases['diff_vel_control'](u_pre, np.linalg.norm(u_p) == 0.)
-    u_new = o.cases['diff_vel_control'](u_new, np.linalg.norm(u_p) == 0.)
-
-    if a_recj[0] is None:
-        if convex:
-            dr_p, _, _ = dr_gradient(o=o, u0=u_pre, T_max=T_max, id_app=id_app, interaction=interaction, mu_IPM=mu_IPM, mu_e=0.1)
-        else:
-            dr_p = dr_non_gradient(u_pre, o, T_max, id_app, interaction)
-    else:
-        dr_p = a_recj
-
-    if np.linalg.norm(u_p) == 0.:
-        du = u_pre - np.array(o.X_app.v[id_app])
-        du_m = np.linalg.norm(du)
-        dr_p = dr_p - mu_IPM * np.log([o.du_impulse_max - du_m, o.du_impulse_max - du_m, o.du_impulse_max - du_m]) \
-            if o.du_impulse_max > du_m else np.array([1e10, 1e10, 1e10])
-
-    if convex:
-        dr_n, _, real_dr = dr_gradient(o=o, u0=u_new, T_max=T_max, id_app=id_app, interaction=interaction, mu_IPM=mu_IPM, mu_e=o.mu_e)
-    else:
-        dr_n = dr_non_gradient(u_new, o, T_max, id_app, interaction)
-
-    if np.linalg.norm(u_p) == 0.:
-        du = u_new - np.array(o.X_app.v[id_app])
-        du_m = np.linalg.norm(du)
-        dr_n = dr_n - mu_IPM * np.log([o.du_impulse_max - du_m, o.du_impulse_max - du_m, o.du_impulse_max - du_m]) \
-            if o.du_impulse_max > du_m else np.array([1e10, 1e10, 1e10])*clip(10*(du_m - o.du_impulse_max), 0, 1)
-    a_recj = dr_n if np.linalg.norm(dr_n) < np.linalg.norm(dr_p) else dr_p
-    aj = tmp if np.linalg.norm(dr_n) < np.linalg.norm(dr_p) else aj
-    return [aj[0], aj[1], aj[2], a_recj[0], a_recj[1], a_recj[2]]
-
-
-def diff_evolve(o, t, T_max, id_app, interaction=True, convex=False):
-    """Функция дифференциальной эволюции - неградиентный поиск скорости отталкивания/импульса   \n
-    Input:                                                                                      \n
-    -> o - AllObjects класс;                                                                    \n
-    -> t - время отталкивания/импульса (для расчёта положения/скорости ХКУ)                     \n
-    -> T_max - время эпизода                                                                    \n
-    -> id_app - номер аппарата                                                                  \n
-    -> interaction - происходит ли при импульсе отталкивание аппарата от конструкции            \n
-    Output:                                                                                     \n
-    -> u - вектор отталкивания/импульса (ССК при interaction=True, ОСК иначе)"""
-    if o.if_talk:
-        talk()
-    n = o.diff_evolve_vectors
-    lst_errors = []
-
-    a = [[np.exp(random.uniform(np.log(o.u_min), np.log(o.u_max))), 
-          random.uniform(-np.pi, np.pi), 
-          random.uniform(-np.pi / 2, np.pi / 2)]
-          for _ in range(n)]
-    a_rec = [[None, None, None] for _ in range(n)]
-    tmp = [[0. for i in range(6)] for _ in range(n)]
-    tmp1_ind = [-1 for i in range(n)]
-    tmp2_ind = [-1 for i in range(n)]
-    tmp3_ind = [-1 for i in range(n)]
-    for i in range(o.diff_evolve_times):
-        if o.if_testing_mode:
-            print(Style.RESET_ALL + f"Шаг {i + 1}/{o.diff_evolve_times} дифференциальной эволюции")
-        for j in range(n):
-            to_choice = np.delete(range(n), j)
-            tmp1_ind[j] = random.choice(to_choice)
-            tmp2_ind[j] = random.choice(to_choice)
-            tmp3_ind[j] = random.choice(to_choice)
-        if o.if_multiprocessing:
-            tmp = p_map(diff_evolve_sample,
-                        [o for ii in range(n)],
-                        [t for ii in range(n)],
-                        [T_max for ii in range(n)],
-                        [id_app for ii in range(n)],
-                        [interaction for ii in range(n)],
-                        [convex for ii in range(n)],
-                        [a[tmp1_ind[ii]][0] for ii in range(n)],
-                        [a[tmp1_ind[ii]][1] for ii in range(n)],
-                        [a[tmp1_ind[ii]][2] for ii in range(n)],
-                        [a[tmp2_ind[ii]][0] for ii in range(n)],
-                        [a[tmp2_ind[ii]][1] for ii in range(n)],
-                        [a[tmp2_ind[ii]][2] for ii in range(n)],
-                        [a[tmp3_ind[ii]][0] for ii in range(n)],
-                        [a[tmp3_ind[ii]][1] for ii in range(n)],
-                        [a[tmp3_ind[ii]][2] for ii in range(n)],
-                        [a[ii][0] for ii in range(n)],
-                        [a[ii][1] for ii in range(n)],
-                        [a[ii][2] for ii in range(n)],
-                        [a_rec[ii][0] for ii in range(n)],
-                        [a_rec[ii][1] for ii in range(n)],
-                        [a_rec[ii][2] for ii in range(n)],
-                        [n for ii in range(n)])
-        else:
-            for ii in range(n):
-                tmp[ii] = diff_evolve_sample(o,t,T_max,id_app,interaction,
-                        a[tmp1_ind[ii]][0],a[tmp1_ind[ii]][1],a[tmp1_ind[ii]][2],
-                        a[tmp2_ind[ii]][0],a[tmp2_ind[ii]][1],a[tmp2_ind[ii]][2],
-                        a[tmp3_ind[ii]][0],a[tmp3_ind[ii]][1],a[tmp3_ind[ii]][2],
-                        a[ii][0],a[ii][1],a[ii][2],a_rec[ii][0],a_rec[ii][1],a_rec[ii][2])
-        
-        a = [[tmp[ii][0],tmp[ii][1],tmp[ii][2]] for ii in range(n)]
-        a_rec = [[tmp[ii][3],tmp[ii][4],tmp[ii][5]] for ii in range(n)]
-        tmp2 = [np.linalg.norm(a_rec[ii]) for ii in range(n)]
-        if o.if_testing_mode:
-            print(Style.RESET_ALL + f"ошибки проб {tmp2}")
-        u_ = a[np.argmin(tmp2)]
-        lst_errors.append(np.min(tmp2))
-    u = np.array([u_[0] * np.cos(u_[1]) * np.cos(u_[2]),
-                  u_[0] * np.sin(u_[1]) * np.cos(u_[2]),
-                  u_[0] * np.sin(u_[2])])
-    u = o.cases['diff_vel_control'](u, True)
-    if o.if_testing_mode:
-        print(Fore.GREEN + f"Сделали скорость:{u}, прогресс целевой функции: {lst_errors}")
-    return np.array(u)
-
-
-def dr_gradient(o, u0, T_max, id_app, interaction, mu_IPM, mu_e):
-    dr_, _, w_, V_, R_, j_, _ = calculation_motion(o=o, u=u0, T_max=T_max, id_app=id_app, interaction=interaction)
+def f_to_capturing(u, *args):
+    o, T_max, id_app, interaction, mu_IPM, mu_e = args
+    dr_, _, w_, V_, R_, j_, _ = calculation_motion(o=o, u=u, T_max=T_max, id_app=id_app, interaction=interaction)
     reserve_rate = 1.5
     e_w = 0. if (o.w_max/reserve_rate - w_) > 0 else abs(w_ - o.w_max/reserve_rate)
     e_V = 0. if (o.V_max/reserve_rate - V_) > 0 else abs(V_ - o.V_max/reserve_rate)
     e_R = 0. if (o.R_max/reserve_rate - R_) > 0 else abs(R_ - o.R_max/reserve_rate)
     e_j = 0. if (o.j_max/reserve_rate - j_) > 0 else abs(j_ - o.j_max/reserve_rate)
-    if o.if_testing_mode:
-        print(Style.RESET_ALL + f"e: {e_w/o.w_max} | {e_V/o.V_max} | {e_R/o.R_max} | {e_j/o.j_max}")
-    cnd = (e_w + e_V + e_R + e_j > 0)
-    return dr_ - \
-           mu_IPM * (np.log(o.w_max - w_ + e_w) + np.log(o.V_max - V_ + e_V) + np.log(o.R_max - R_ + e_R) + np.log(o.j_max - j_ + e_j)) + \
-           mu_e * (e_w/o.w_max + e_V/o.V_max + e_R/o.R_max + e_j/o.j_max), \
-           cnd, np.linalg.norm(dr_)
+    anw = dr_ - \
+        mu_IPM * (np.log(o.w_max - w_ + e_w) + np.log(o.V_max - V_ + e_V) +
+                  np.log(o.R_max - R_ + e_R) + np.log(o.j_max - j_ + e_j)) + \
+        mu_e * (e_w/o.w_max + e_V/o.V_max + e_R/o.R_max + e_j/o.j_max)
+    return np.linalg.norm(anw)
 
 
-def dr_non_gradient(u, o, T_max, id_app, interaction):
+def f_to_detour(u, *args):
+    o, T_max, id_app, interaction = args
     mu_IPM = 0.01
     dr_p, dr_m_p, w_p, V_p, R_p, j_p, N_crashes_p = calculation_motion(o, u, T_max, id_app, interaction=interaction)
 
     # Нет проблем с ограничениями
-    if (o.w_max - w_p > 0) and (o.V_max - V_p > 0) and (o.R_max - R_p > 0) and (o.j_max - j_p > 0):  
-        return dr_p - mu_IPM * (np.log(o.w_max - w_p) + np.log(o.V_max - V_p) + np.log(o.R_max - R_p) + np.log(o.j_max - j_p)) + \
+    if (o.w_max - w_p > 0) and (o.V_max - V_p > 0) and (o.R_max - R_p > 0) and (o.j_max - j_p > 0):
+        anw = dr_p - mu_IPM * (np.log(o.w_max - w_p) + np.log(o.V_max - V_p) +
+                               np.log(o.R_max - R_p) + np.log(o.j_max - j_p)) + \
             np.array([1e50, 1e50, 1e50]) * N_crashes_p
     # Нарушение ограничений
-    else:  
-        return np.array([1e5, 1e5, 1e5]) * \
-            (clip(10*(w_p - o.w_max), 0, 1) + clip(10*(V_p - o.V_max), 0, 1) + clip(1e-1*(R_p - o.R_max), 0, 1) + clip(1e-2*(j_p - o.j_max), 0, 1)) + \
+    else:
+        anw = np.array([1e5, 1e5, 1e5]) * \
+            (clip(10*(w_p - o.w_max), 0, 1) + clip(10*(V_p - o.V_max), 0, 1) +
+             clip(1e-1*(R_p - o.R_max), 0, 1) + clip(1e-2*(j_p - o.j_max), 0, 1)) + \
             np.array([1e50, 1e50, 1e50]) * N_crashes_p
+    return np.linalg.norm(anw)
 
 
-def calc_shooting(o, t, id_app, r_right, interaction=True, shooting_amount=None, T_max=None, convex_domain=True, mu_e=None):  
+def find_repulsion_velocity(o, id_app, target, interaction=True, convex_domain=True):
+    if interaction:
+        tmp = target - np.array(o.o_b(o.X_app.r[id_app]))
+    else:
+        tmp = o.b_o(target) - np.array(o.X_app.r[id_app])
+    u = o.u_min * tmp / np.linalg.norm(tmp)
+    if interaction and not o.control or not interaction:
+        res = scipy.optimize.minimize(f_to_capturing, u, args=(o, o.T_max, id_app, interaction,
+                                                               o.mu_IPM, o.mu_e), tol=0.5)
+    else:
+        res = scipy.optimize.minimize(f_to_capturing, u, args=(o, o.T_max, id_app, interaction,
+                                                               o.mu_IPM, o.mu_e), tol=20)
+    return res.x
+
+
+def calc_shooting(o, id_app, r_right, interaction=True, shooting_amount=None, convex_domain=True, mu_e=None):
     """ Функция выполняет пристрелочный/спектральный поиск оптимальной скорости отталкивания/импульса аппарата; \n
     Input:                                                                                  \n
     -> o - AllObjects класс;                                                                \n
@@ -516,7 +398,7 @@ def calc_shooting(o, t, id_app, r_right, interaction=True, shooting_amount=None,
         tmp = o.b_o(r_right) - np.array(o.X_app.r[id_app])
     mu_e = o.mu_e if (mu_e is None) else mu_e
     T_max = 2*(np.linalg.norm(tmp)/o.u_min if o.X_app.flag_fly[id_app] else o.T_max)  # if (T_max is None) else T_max
-    T_max_hard_limit = T_max*16 if o.X_app.flag_fly[id_app] else o.T_max_hard_limit
+    # T_max_hard_limit = T_max*16 if o.X_app.flag_fly[id_app] else o.T_max_hard_limit
     u = o.u_min * tmp / np.linalg.norm(tmp)
 
     # Differential evolution
@@ -546,10 +428,14 @@ def calc_shooting(o, t, id_app, r_right, interaction=True, shooting_amount=None,
             i_iteration += 1
             i_iteration_for_stable_T += 1
 
-            dr, c, tol = dr_gradient(o=o, u0=u, t=t, T_max=T_max, id_app=id_app, interaction=interaction, mu_IPM=mu_IPM, mu_e=mu_e)
-            dr_x, cx, _ = dr_gradient(o=o, u0=u + u_i[:, 0], t=t, T_max=T_max, id_app=id_app, interaction=interaction, mu_IPM=mu_IPM, mu_e=mu_e)
-            dr_y, cy, _ = dr_gradient(o=o, u0=u + u_i[:, 1], t=t, T_max=T_max, id_app=id_app, interaction=interaction, mu_IPM=mu_IPM, mu_e=mu_e)
-            dr_z, cz, _ = dr_gradient(o=o, u0=u + u_i[:, 2], t=t, T_max=T_max, id_app=id_app, interaction=interaction, mu_IPM=mu_IPM, mu_e=mu_e)
+            dr, c, tol = dr_gradient(o=o, u0=u, T_max=T_max, id_app=id_app, interaction=interaction, mu_IPM=mu_IPM,
+                                     mu_e=mu_e)
+            dr_x, cx, _ = dr_gradient(o=o, u0=u + u_i[:, 0], T_max=T_max, id_app=id_app, interaction=interaction,
+                                      mu_IPM=mu_IPM, mu_e=mu_e)
+            dr_y, cy, _ = dr_gradient(o=o, u0=u + u_i[:, 1], T_max=T_max, id_app=id_app, interaction=interaction,
+                                      mu_IPM=mu_IPM, mu_e=mu_e)
+            dr_z, cz, _ = dr_gradient(o=o, u0=u + u_i[:, 2], T_max=T_max, id_app=id_app, interaction=interaction,
+                                      mu_IPM=mu_IPM, mu_e=mu_e)
             if o.if_any_print:
                 print(Style.RESET_ALL + f"Точность пристрелки: {tol} метров, разрешённое время {T_max} секунд")
             if tol < o.d_to_grab*0.98:  # and not (c or cx or cy or cz): 
@@ -573,37 +459,13 @@ def calc_shooting(o, t, id_app, r_right, interaction=True, shooting_amount=None,
             if c or cx or cy or cz:
                 mu_IPM *= 10
                 i_iteration -= 1
-            '''if i_iteration_for_stable_T >= 5 and ((c and cx and cy and cz) > 0 or np.linalg.norm(dr) > o.d_to_grab):  # (tolerance > o.d_to_grab) or (
+            '''if i_iteration_for_stable_T >= 5 and ((c and cx and cy and cz) > 0 or np.linalg.norm(dr) > o.d_to_grab):
                 # T_max *= 2 if T_max < T_max_hard_limit else 1
                 # u = o.u_max / 5 * tmp / np.linalg.norm(tmp)
                 i_iteration_for_stable_T = 0
                 i_iteration -= 5'''
-        target_is_reached = True  # tol <= o.d_to_grab and ((c or cx or cy or cz) is False)
-    else: 
-        # Метод спектрального пучка
-        """N_bundle = 3  # обязательно нечётный
-        du = np.linalg.norm(u) / 5
-        print('Метод спектрального пучка, du =', du)
-        for i_iteration in range(shooting_amount):
-            v1 = my_cross(u, [0, 0, 1]) / np.linalg.norm(my_cross(u, [0, 0, 1]))
-            v2 = my_cross(u, v1) / np.linalg.norm(my_cross(u, v1))
-            u_map = np.array([[(u + v1 * (i - (N_bundle - 1) / 2) / N_bundle * du + v2 * (
-                        j - (N_bundle - 1) / 2) / N_bundle * du) for i in range(N_bundle)] for j in range(N_bundle)])
-            tolerance = np.zeros((N_bundle, N_bundle))
-            for i in range(N_bundle):
-                for j in range(N_bundle):
-                    tmp = u_map[i, j]
-                    if np.linalg.norm(tmp) > u_max:
-                        tmp = tmp / np.linalg.norm(tmp) * u_max
-                    calc_args.u = np.array(tmp)
-                    dr, w_modeling_0, N_crashes = calculation_motion(calc_args)
-                    tolerance[i, j] = np.linalg.norm(dr)
-            i_best = int(np.argmin(tolerance) / N_bundle)
-            j_best = np.argmin(tolerance) % N_bundle
-            print('Точность', tolerance[i_best, j_best])
-            u = np.array(u_map[i_best, j_best])
-            du = du / N_bundle"""
-    return u, target_is_reached
+        # target_is_reached = tol <= o.d_to_grab and ((c or cx or cy or cz) is False)
+    return u, True  # target_is_reached
 
 
 def repulsion(o, id_app, u_a_priori=None):
@@ -657,9 +519,14 @@ def repulsion(o, id_app, u_a_priori=None):
         u0 = u_a_priori if (u_a_priori is not None) else \
             diff_evolve(o=o, T_max=o.T_max, id_app=id_app, interaction=True)
     else:
-        u0, _ = (u_a_priori, 1) if (u_a_priori is not None) else \
+        '''u0, _ = (u_a_priori, 1) if (u_a_priori is not None) else \
             calc_shooting(o=o, id_app=id_app, r_right=r_right, interaction=True,
-                          shooting_amount=o.shooting_amount_repulsion, T_max=o.T_max)
+                          shooting_amount=o.shooting_amount_repulsion)'''
+        tmp = r_right - np.array(o.o_b(o.X_app.r[id_app]))
+        u0 = o.u_min * tmp / np.linalg.norm(tmp)
+        print(scipy.optimize.minimize(dr_gradient, u0, args=(o, o.T_max, id_app, True, o.mu_IPM, o.mu_e)))
+        # print(res)
+        # u0 = res.x
 
     R_p = o.R.copy()
     V_p = o.V.copy()
@@ -692,7 +559,8 @@ def repulsion(o, id_app, u_a_priori=None):
     o.X_app.loc[id_app, 'r_0'] = o.get_discrepancy(id_app)
     o.X_app.loc[id_app, 'flag_fly'] = True
     o.X_app.loc[id_app, 'flag_hkw'] = False if (o.if_PID_control or o.if_LQR_control) else True
-    o.my_print(f"App id:{id_app} pushed off with u={np.linalg.norm(u)}, w={np.linalg.norm(o.w)}", mode="blue", test=True)
+    o.my_print(f"App id:{id_app} pushed off with u={np.linalg.norm(u)}, w={np.linalg.norm(o.w)}",
+               mode="blue", test=True)
     o.my_print(f"Taken beams list: {o.taken_beams}", mode="green", test=True)
     talk_decision(o.if_talk)
 

@@ -2,9 +2,9 @@
 from all_objects import *
 
 vedo_picture = True
-o = AllProblemObjects(if_impulse_control=False, if_PID_control=True, if_LQR_control=False, if_avoiding=False,
+o = AllProblemObjects(if_impulse_control=False, if_PID_control=False, if_LQR_control=False, if_avoiding=False,
                       is_saving=False, save_rate=1, if_talk=False, if_multiprocessing=True, if_testing_mode=True,
-                      dt=5., choice='3', T_max=1000., u_max=0.1, N_apparatus=1)
+                      dt=5., choice='1', T_max=1000., u_max=0.1, N_apparatus=1)
 
 
 def time_is(t, t0):
@@ -18,8 +18,8 @@ def iteration_func(o, f):
         # Repulsion
         o.X_app.loc[id_app, 'busy_time'] -= o.dt if o.X_app.busy_time[id_app] >= 0 else 0
         if (not o.X_app.flag_fly[id_app]) and o.X_app.busy_time[id_app] < 0:
-            # u = repulsion(o, o.t, id_app, u_a_priori=np.array([-0.04, 0., 0.00]))
-            u = repulsion(o, o.t, id_app)
+            u = repulsion(o, id_app, u_a_priori=np.array([-0.04, 0., 0.00]))
+            # u = repulsion(o, id_app)
             o.file_save(f, f'отталкивание {id_app} {u[0]} {u[1]} {u[2]}\n')
 
         # Motion control 
