@@ -66,6 +66,8 @@ class Icons:
         self.app_1 = self.app_1.resize((50, 50))
         self.plus = Image.open("icons/plus.png")
         self.plus = self.plus.resize((22, 22))
+        self.back = PhotoImage(file="icons/back.png").subsample(10, 10)
+        self.what = PhotoImage(file="icons/what.png").subsample(10, 10)
 
 def create_check(name: str, default_value: bool, n_row: int, cmd, frame):
     """Добавление флажка на окно                                                                \n
@@ -112,3 +114,6 @@ def create_choice(name: str, default_value: str, n_row: int, n_vars: int, cmd, f
     label_choice.grid(row=n_row, rowspan=4, column=0, padx='7', pady='7', sticky=EW)
     label_choice_extra.grid(row=n_row, rowspan=4, column=2, padx='7', pady='7')
     return n_row + n_vars, choice, label_choice, label_choice_extra, img_label
+
+def get_simple_label(name: str, frame):
+    return ttk.Label(frame, text=name, background="#828282", foreground="#E0EEE0", padding=8, width=20)

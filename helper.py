@@ -4,7 +4,7 @@ from all_objects import *
 o = AllProblemObjects(dt=10.)
 
 
-def dr_gradient_my(u0, *args):
+'''def dr_gradient_my(u0, *args):
     o, T_max, id_app, interaction, mu_IPM, mu_e = args
     u0 = o.cases['repulse_vel_control'](u0)
     dr_, _, w_, V_, R_, j_, _ = calculation_motion(o=o, u=u0, T_max=T_max, id_app=id_app, interaction=interaction)
@@ -27,4 +27,6 @@ def dr_gradient_my(u0, *args):
 
 u0 = np.array(np.zeros(3))
 res = scipy.optimize.minimize(dr_gradient_my, u0, args=(o, o.T_max, 0, True, o.mu_IPM, o.mu_e), tol=0.5)
-print(res)
+print(res)'''
+
+help(o.control_step)

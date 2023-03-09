@@ -94,7 +94,7 @@ class AllProblemObjects(object):
 
         self.diff_evolve_F = np.double(diff_evolve_F)
         self.diff_evolve_chance = np.double(diff_evolve_chance)
-        self.mu_IPM = np.double(mu_IPM)
+        self.mu_ipm = np.double(mu_IPM)
         self.mu_e = mu_e
 
         self.T_total = T_total
@@ -147,6 +147,7 @@ class AllProblemObjects(object):
         self.J_1 = np.double(np.linalg.inv(self.J))
 
         self.line_app = [[self.X_app.r[i][0], self.X_app.r[i][1], self.X_app.r[i][2]] for i in range(self.N_app)]
+        self.line_app_orf = [[self.X_app.r[i][0], self.X_app.r[i][1], self.X_app.r[i][2]] for i in range(self.N_app)]
         self.line_str = self.R
         self.taken_beams = np.array([])
         self.taken_beams_p = np.array([])
@@ -265,7 +266,6 @@ class AllProblemObjects(object):
         self.iter += 1
         self.t = self.iter * self.dt
 
-
         # Вращение конструкции по Эйлеру
         self.La, self.Om = self.rk4_w(self.La, self.Om, self.J, self.t)
         self.U, self.S, self.A, self.R_e = self.call_rotation_matrix()
@@ -295,6 +295,24 @@ class AllProblemObjects(object):
             self.X_app.loc[id_app, 'v'][0], self.X_app.loc[id_app, 'v'][1], self.X_app.loc[id_app, 'v'][2] = v
             self.X_app.loc[id_app, 'r'][0], self.X_app.loc[id_app, 'r'][1], self.X_app.loc[id_app, 'r'][2] = r
             self.a_orbital[id_app] = self.orbital_acceleration(np.append(r, v))
+
+    def control_step(self, id_app):
+        """ Функция ускорения бортового двигателя / подачи импульса двигателя.
+        Вызывается на каждой итерации.
+        :param id_app: id-номер аппарата
+        :return: None
+        """
+        if control_condition(o=self, id_app=id_app):
+            if self.if_impulse_control:
+                impulse_control(o=self, id_app=id_app)
+            if self.if_PID_control and self.t_reaction_counter < 0:
+                pd_control(o=self, id_app=id_app)
+            if self.if_LQR_control and self.t_reaction_counter < 0:
+                lqr_control(o=self, id_app=id_app)
+            if self.if_avoiding:
+                self.a_self[id_app] += avoiding_force(self, id_app)
+                if np.linalg.norm(self.a_self[id_app]) > self.a_pid_max:
+                    self.a_self[id_app] *= self.a_pid_max / np.linalg.norm(self.a_self[id_app])
 
     def i_o(self, a, U=None):
         """Инерциальная -> Орбитальная"""
@@ -373,14 +391,21 @@ class AllProblemObjects(object):
     def my_print(self, txt, mode=None, test=False):
         if (self.if_any_print and not test) or (self.if_testing_mode and test):
             if mode is None:
-                print(txt)
-            if mode == "blue":
+                print(Style.RESET_ALL + txt)
+            if mode == "b":
                 print(Fore.BLUE + txt)
-            if mode == "green":
+            if mode == "g":
                 print(Fore.GREEN + txt)
+            if mode == "y":
+                print(Fore.YELLOW + txt)
+            if mode == "r":
+                print(Fore.RED + txt)
+            if mode == "c":
+                print(Fore.CYAN + txt)
 
     def copy(self):
         slf = AllProblemObjects()
+
         slf.survivor = self.survivor
         slf.warning_message = False
         slf.t_flyby = self.t_flyby
@@ -405,7 +430,7 @@ class AllProblemObjects(object):
 
         slf.diff_evolve_F = self.diff_evolve_F
         slf.diff_evolve_chance = self.diff_evolve_chance
-        slf.mu_IPM = self.mu_IPM
+        slf.mu_ipm = self.mu_ipm
         slf.mu_e = self.mu_e
 
         slf.T_total = self.T_total
@@ -445,6 +470,9 @@ class AllProblemObjects(object):
         slf.N_nodes = self.N_nodes
         slf.N_beams = self.N_beams
         slf.N_cont_beams = self.N_cont_beams
+        for i in range(self.N_app):
+            self.X_app.r = np.array(self.X_app.r)
+            self.X_app.v = np.array(self.X_app.v)
         slf.X_app = self.X_app.copy()
         slf.N_app = self.N_app
         slf.t_start = self.t_start.copy()

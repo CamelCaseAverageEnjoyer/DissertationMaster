@@ -89,8 +89,8 @@ def impulse_control(o, id_app):
         o.t_flyby_counter -= o.dt
         o.t_reaction_counter = o.t_reaction
         if o.t_flyby_counter < 0:  # Облёт конструкции
-            u = diff_evolve(o=o, T_max=o.T_max, id_app=id_app, interaction=False)
-            print(f'Импульс аппарата {id_app}: {np.linalg.norm(u - v_HKW(o.C_r[id_app], o.mu, o.w_hkw, o.t - o.t_start[id_app]))} m/s')
+            # u = diff_evolve(o=o, T_max=o.T_max, id_app=id_app, interaction=False)
+            u = find_repulsion_velocity(o=o, id_app=id_app, interaction=False)
             o.t_flyby_counter = o.t_flyby
             o.t_start[id_app] = o.t
             talk_flyby(o.if_talk)
@@ -99,14 +99,11 @@ def impulse_control(o, id_app):
         o.t_reaction_counter -= o.dt
         if o.t_reaction_counter < 0:  # Точное попадание в цель
             r_right = o.b_o(o.X_app.target[id_app])
-            u, target_is_reached = calc_shooting(o=o, id_app=id_app,
-                                                 r_right=r_right,
-                                                 interaction=False, shooting_amount=10)
+            u, target_is_reached = calc_shooting(o=o, id_app=id_app, r_right=r_right, interaction=False)
             o.t_reaction_counter = o.t_reaction
             o.t_start[id_app] = o.t
             talk_shoot(o.if_talk)
             o.flag_impulse = not target_is_reached
-    print(f'Импульс аппарата {id_app}: {np.linalg.norm(u - v_HKW(o.C_r[id_app], o.mu, o.w_hkw, o.t - o.t_start[id_app]))} м/с')
     o.C_r[id_app] = get_C_hkw(o.X_app.r[id_app], u, o.w_hkw)
 
 def control_condition(o, id_app):

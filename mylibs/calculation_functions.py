@@ -6,7 +6,6 @@ import scipy
 # Local libraries
 from mylibs.plot_functions import *
 from mylibs.im_sample import *
-from mylibs.archive import *
 
 
 def call_crash_internal_func(r, r1, r2, diam, return_force=False):
@@ -236,6 +235,8 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False)
     f_mean = 0.
     line = []
     o_lcl = o.copy()
+    print(f"global {id(o.X_app.r[id_app])}")
+    print(f"local  {id(o_lcl.X_app.r[id_app])}")
 
     r = np.array(o.X_app.r[id_app])
     r0 = o.o_b(r)
@@ -258,8 +259,8 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False)
         V0 = - u * m_extra / M_without                                  # BRF
         u = V_p + o_lcl.S.T @ u + u_rot                                 # ORF
         o_lcl.V = V_p + o_lcl.S.T @ V0 + V_rot                          # ORF
-        o_lcl.w = o.b_o(J_1, o_lcl.S) @ (                               # ORF
-                o.b_o(J_p, o_lcl.S) @ o_lcl.w - m_extra * my_cross(r, u) +
+        o_lcl.w = o_lcl.b_o(J_1, o_lcl.S) @ (                               # ORF
+                o_lcl.b_o(J_p, o_lcl.S) @ o_lcl.w - m_extra * my_cross(r, u) +
                 (M_without + m_extra) * my_cross(R_p, V_p) - M_without * my_cross(o_lcl.R, o_lcl.V))
 
     o_lcl.Om_update()
@@ -285,11 +286,11 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False)
         line = np.append(line, o_lcl.o_b(o_lcl.X_app.r[id_app]))
 
         # Stop Criteria
-        if o.d_to_grab is not None:
-            if np.linalg.norm(f) <= o.d_to_grab * 0.95:
+        if o_lcl.d_to_grab is not None:
+            if np.linalg.norm(f) <= o_lcl.d_to_grab * 0.95:
                 break
 
-        if o.d_crash is not None:
+        if o_lcl.d_crash is not None:
             if (o_lcl.t - o.t) > 10:
                 if call_crash(o, o_lcl.X_app.r[id_app], o_lcl.R, o_lcl.S, o_lcl.taken_beams):
                     n_crashes += 1
@@ -301,12 +302,12 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False)
     if interaction is False:
         V_p = np.array(v_HKW(o_lcl.C_R, o.mu, o.w_hkw, o_lcl.t))
         u_p = np.array(v_HKW(o_lcl.C_r[id_app], o.mu, o.w_hkw, o_lcl.t))
-        J_p, r_center_p = call_inertia(o, o.taken_beams_p, app_n=id_app)
-        J, r_center = call_inertia(o, o.taken_beams, app_y=id_app)
+        J_p, r_center_p = call_inertia(o, o_lcl.taken_beams_p, app_n=id_app)
+        J, r_center = call_inertia(o, o_lcl.taken_beams, app_y=id_app)
         R_p = o_lcl.R.copy()
         o_lcl.R += o_lcl.S.T @ (r_center - r_center_p)
         V = (V_p * M_without + u_p * m_extra) / (M_without + m_extra)
-        w_after = np.linalg.inv(o.b_o(J, o_lcl.S)) @ (o.b_o(J_p, o_lcl.S) @ o_lcl.w -
+        w_after = np.linalg.inv(o_lcl.b_o(J, o_lcl.S)) @ (o_lcl.b_o(J_p, o_lcl.S) @ o_lcl.w -
                                                       (M_without + m_extra) * my_cross(o_lcl.R, V) +
                                                       m_extra * my_cross(r, u_p) + M_without * my_cross(R_p, V_p))
         w_max = np.linalg.norm(w_after)
@@ -330,59 +331,85 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False)
 
 
 def f_to_capturing(u, *args):
-    o, T_max, id_app, interaction, mu_IPM, mu_e = args
-    dr_, _, w_, V_, R_, j_, _ = calculation_motion(o=o, u=u, T_max=T_max, id_app=id_app, interaction=interaction)
+    o, T_max, id_app, interaction, return_to_shooting_method = args
+    # u = o.cases['repulse_vel_control'](u)
+    dr, _, w, V, R, j, _ = calculation_motion(o=o, u=u, T_max=T_max, id_app=id_app, interaction=interaction)
     reserve_rate = 1.5
-    e_w = 0. if (o.w_max/reserve_rate - w_) > 0 else abs(w_ - o.w_max/reserve_rate)
-    e_V = 0. if (o.V_max/reserve_rate - V_) > 0 else abs(V_ - o.V_max/reserve_rate)
-    e_R = 0. if (o.R_max/reserve_rate - R_) > 0 else abs(R_ - o.R_max/reserve_rate)
-    e_j = 0. if (o.j_max/reserve_rate - j_) > 0 else abs(j_ - o.j_max/reserve_rate)
-    anw = dr_ - \
-        mu_IPM * (np.log(o.w_max - w_ + e_w) + np.log(o.V_max - V_ + e_V) +
-                  np.log(o.R_max - R_ + e_R) + np.log(o.j_max - j_ + e_j)) + \
-        mu_e * (e_w/o.w_max + e_V/o.V_max + e_R/o.R_max + e_j/o.j_max)
+    e_w = 0. if (o.w_max/reserve_rate - w) > 0 else abs(w - o.w_max/reserve_rate)
+    e_V = 0. if (o.V_max/reserve_rate - V) > 0 else abs(V - o.V_max/reserve_rate)
+    e_R = 0. if (o.R_max/reserve_rate - R) > 0 else abs(R - o.R_max/reserve_rate)
+    e_j = 0. if (o.j_max/reserve_rate - j) > 0 else abs(j - o.j_max/reserve_rate)
+    anw = dr - \
+        o.mu_ipm * (np.log(o.w_max - w + e_w) + np.log(o.V_max - V + e_V) +
+                    np.log(o.R_max - R + e_R) + np.log(o.j_max - j + e_j)) + \
+        o.mu_e * (e_w/o.w_max + e_V/o.V_max + e_R/o.R_max + e_j/o.j_max)
+    if return_to_shooting_method:
+        return anw, np.linalg.norm(dr)
     return np.linalg.norm(anw)
 
 
 def f_to_detour(u, *args):
-    o, T_max, id_app, interaction = args
-    mu_IPM = 0.01
-    dr_p, dr_m_p, w_p, V_p, R_p, j_p, N_crashes_p = calculation_motion(o, u, T_max, id_app, interaction=interaction)
+    o, T_max, id_app, interaction, return_vec = args
+    # u = o.cases['repulse_vel_control'](u)
+    dr, dr_average, w, V, R, j, n_crashes = calculation_motion(o, u, T_max, id_app, interaction=interaction)
 
-    # Нет проблем с ограничениями
-    if (o.w_max - w_p > 0) and (o.V_max - V_p > 0) and (o.R_max - R_p > 0) and (o.j_max - j_p > 0):
-        anw = dr_p - mu_IPM * (np.log(o.w_max - w_p) + np.log(o.V_max - V_p) +
-                               np.log(o.R_max - R_p) + np.log(o.j_max - j_p)) + \
-            np.array([1e50, 1e50, 1e50]) * N_crashes_p
-    # Нарушение ограничений
+    if (o.w_max - w > 0) and (o.V_max - V > 0) and (o.R_max - R > 0) and (o.j_max - j > 0):  # Constraint's fulfillment
+        anw = dr - o.mu_ipm * (np.log(o.w_max - w) + np.log(o.V_max - V) +
+                               np.log(o.R_max - R) + np.log(o.j_max - j)) + \
+              np.array([1e50, 1e50, 1e50]) * n_crashes
     else:
         anw = np.array([1e5, 1e5, 1e5]) * \
-            (clip(10*(w_p - o.w_max), 0, 1) + clip(10*(V_p - o.V_max), 0, 1) +
-             clip(1e-1*(R_p - o.R_max), 0, 1) + clip(1e-2*(j_p - o.j_max), 0, 1)) + \
-            np.array([1e50, 1e50, 1e50]) * N_crashes_p
+              (clip(10*(w - o.w_max), 0, 1) + clip(10*(V - o.V_max), 0, 1) +
+               clip(1e-1 * (R - o.R_max), 0, 1) + clip(1e-2 * (j - o.j_max), 0, 1)) + \
+              np.array([1e50, 1e50, 1e50]) * n_crashes
+    if return_vec:
+        return anw
     return np.linalg.norm(anw)
 
 
-def find_repulsion_velocity(o, id_app, target, interaction=True, convex_domain=True):
+def find_repulsion_velocity(o, id_app: int, target=None, interaction: bool = True, convex_domain: bool = True):
+    # Initialization
     if interaction:
+        target = o.X_app.target[id_app] if target is None else target
         tmp = target - np.array(o.o_b(o.X_app.r[id_app]))
     else:
+        target = o.b_o(o.X_app.target[id_app]) if target is None else target
         tmp = o.b_o(target) - np.array(o.X_app.r[id_app])
     u = o.u_min * tmp / np.linalg.norm(tmp)
+
+    # Solution
+    def cons_f(x):
+        return np.linalg.norm(x)
+
+    def cons_j(x):
+        return [[2*x[0], 0., 0.], [0., 2*x[1], 0.], [0., 0., 2*x[2]]]
+
+    def cons_h(x, v):
+        return v[0]*np.array([[2., 0., 0.], [0., 0., 0.], [0., 0., 0.]]) + \
+               v[1]*np.array([[0., 0., 0.], [0., 2., 0.], [0., 0., 0.]]) + \
+               v[2]*np.array([[0., 0., 0.], [0., 0., 0.], [0., 0., 2.]])
+
+    # nonlinear_constraint = scipy.optimize.NonlinearConstraint(cons_f, o.u_min**2, o.u_max**2, jac=cons_j, hess=cons_h)
+    nonlinear_constraint = scipy.optimize.NonlinearConstraint(fun=cons_f, lb=o.u_min, ub=o.u_max)
+
     if interaction and not o.control or not interaction:
-        res = scipy.optimize.minimize(f_to_capturing, u, args=(o, o.T_max, id_app, interaction,
-                                                               o.mu_IPM, o.mu_e), tol=0.5)
+        func = f_to_capturing
+        mtd = 'trust-constr'
+        tol = 0.5
     else:
-        res = scipy.optimize.minimize(f_to_capturing, u, args=(o, o.T_max, id_app, interaction,
-                                                               o.mu_IPM, o.mu_e), tol=20)
+        func = f_to_detour
+        mtd = 'trust-constr'
+        tol = 20
+    res = scipy.optimize.minimize(func, u, args=(o, o.T_max, id_app, interaction, False), tol=tol, method=mtd,
+                                  constraints=nonlinear_constraint)
+    # u = o.cases['repulse_vel_control'](res.x)
     return res.x
 
 
-def calc_shooting(o, id_app, r_right, interaction=True, shooting_amount=None, convex_domain=True, mu_e=None):
+def calc_shooting(o, id_app, r_right, interaction=True, mu_e=None):
     """ Функция выполняет пристрелочный/спектральный поиск оптимальной скорости отталкивания/импульса аппарата; \n
     Input:                                                                                  \n
     -> o - AllObjects класс;                                                                \n
-    -> t - время отталкивания/импульса (для расчёта положения/скорости ХКУ)                 \n
     -> id_app - номер аппарата                                                              \n
     -> r_right - радиус-вектор ССК положения цели                                           \n
     -> interaction - происходит ли при импульсе отталкивание аппарата от конструкции        \n
@@ -391,7 +418,7 @@ def calc_shooting(o, id_app, r_right, interaction=True, shooting_amount=None, co
     -> convex_domain - считать ли пространство целевой функции выпуклым                     \n
     Output:                                                                                 \n
     -> u - оптимальный вектор скорости отталкивания/импульса (ССК при interaction=True, ОСК иначе)"""
-    shooting_amount = o.shooting_amount_repulsion if (shooting_amount is None) else shooting_amount
+    shooting_amount = o.shooting_amount_repulsion if interaction else o.shooting_amount_impulse
     if interaction:
         tmp = r_right - np.array(o.o_b(o.X_app.r[id_app]))
     else:
@@ -401,71 +428,45 @@ def calc_shooting(o, id_app, r_right, interaction=True, shooting_amount=None, co
     # T_max_hard_limit = T_max*16 if o.X_app.flag_fly[id_app] else o.T_max_hard_limit
     u = o.u_min * tmp / np.linalg.norm(tmp)
 
-    # Differential evolution
-    start_time = datetime.now()
-    # if interaction:  # это кому-то было лень делать нормально
-    # u = diff_evolve(o=o, t=t, T_max=T_max, id_app=id_app, interaction=interaction, convex=not interaction)
-    '''cons = ({'type': 'ineq', 'fun': lambda x:  x[0] - 2 * x[1] + 2},
-            {'type': 'ineq', 'fun': lambda x: -x[0] - 2 * x[1] + 6},
-            {'type': 'ineq', 'fun': lambda x: -x[0] + 2 * x[1] + 2})
-    u = sp.optimize.minimize(dr_evolve, u, o, t, T_max, id_app, interaction, method='COBYLA', constraints=cons, 
-                             callback='callable')'''
+    # Метод пристрелки
+    mu_ipm = o.mu_ipm
+    i_iteration = 0
+    tol = 1e5
+    while i_iteration < shooting_amount:
+        du = 0.00001
+        u_i = np.eye(3) * du
+        mu_ipm /= 5
+        mu_e /= 2
+        i_iteration += 1
 
-    if o.if_testing_mode:
-        print(Style.RESET_ALL + 'Время, потраченное на дифференциальную эволюцию:', datetime.now() - start_time)
+        dr, tol = f_to_capturing(u, o, T_max, id_app, interaction, True)
+        dr_x, _ = f_to_capturing(u + u_i[:, 0], o, T_max, id_app, interaction, True)
+        dr_y, _ = f_to_capturing(u + u_i[:, 1], o, T_max, id_app, interaction, True)
+        dr_z, _ = f_to_capturing(u + u_i[:, 2], o, T_max, id_app, interaction, True)
+        o.my_print(f"Точность пристрелки {tol}, разрешённое время {T_max} секунд", mode=None)
+        if tol < o.d_to_grab*0.98:  # and not (c or cx or cy or cz):
+            break
 
-    if convex_domain:
-        # Метод пристрелки
-        mu_IPM = o.mu_IPM
-        # for i_iteration in range(shooting_amount):
-        i_iteration = 0
-        i_iteration_for_stable_T = 0
-        while i_iteration < shooting_amount:
-            du = 0.00001
-            u_i = np.eye(3) * du
-            mu_IPM /= 5
-            mu_e /= 2
-            i_iteration += 1
-            i_iteration_for_stable_T += 1
+        # Коррекция скорости отталкивания
+        Jacobian = np.array([[dr_x[0] - dr[0], dr_y[0] - dr[0], dr_z[0] - dr[0]],
+                             [dr_x[1] - dr[1], dr_y[1] - dr[1], dr_z[1] - dr[1]],
+                             [dr_x[2] - dr[2], dr_y[2] - dr[2], dr_z[2] - dr[2]]]) / du
+        Jacobian_1 = np.linalg.inv(Jacobian)
+        correction = Jacobian_1 @ dr
+        correction = correction/np.linalg.norm(correction)*clip(np.linalg.norm(correction), 0, o.u_max/2)
+        u = u - correction
 
-            dr, c, tol = dr_gradient(o=o, u0=u, T_max=T_max, id_app=id_app, interaction=interaction, mu_IPM=mu_IPM,
-                                     mu_e=mu_e)
-            dr_x, cx, _ = dr_gradient(o=o, u0=u + u_i[:, 0], T_max=T_max, id_app=id_app, interaction=interaction,
-                                      mu_IPM=mu_IPM, mu_e=mu_e)
-            dr_y, cy, _ = dr_gradient(o=o, u0=u + u_i[:, 1], T_max=T_max, id_app=id_app, interaction=interaction,
-                                      mu_IPM=mu_IPM, mu_e=mu_e)
-            dr_z, cz, _ = dr_gradient(o=o, u0=u + u_i[:, 2], T_max=T_max, id_app=id_app, interaction=interaction,
-                                      mu_IPM=mu_IPM, mu_e=mu_e)
+        # Ограничение по модулю скорости
+        if np.linalg.norm(u) > o.u_max:
             if o.if_any_print:
-                print(Style.RESET_ALL + f"Точность пристрелки: {tol} метров, разрешённое время {T_max} секунд")
-            if tol < o.d_to_grab*0.98:  # and not (c or cx or cy or cz): 
-                break
+                print(Style.RESET_ALL + f'attention: shooting speed reduction: {np.linalg.norm(u)/o.u_max*100} %')
+            u = u / np.linalg.norm(u) * o.u_max * 0.9
 
-            # Коррекция скорости отталкивания
-            Jacobian = np.array([[dr_x[0] - dr[0], dr_y[0] - dr[0], dr_z[0] - dr[0]],
-                                 [dr_x[1] - dr[1], dr_y[1] - dr[1], dr_z[1] - dr[1]],
-                                 [dr_x[2] - dr[2], dr_y[2] - dr[2], dr_z[2] - dr[2]]]) / du
-            Jacobian_1 = np.linalg.inv(Jacobian)
-            correction = Jacobian_1 @ dr
-            correction = correction/np.linalg.norm(correction)*clip(np.linalg.norm(correction), 0, o.u_max/2)
-            u = u - correction
-
-            # Ограничение по модулю скорости
-            if np.linalg.norm(u) > o.u_max:
-                if o.if_any_print:
-                    print(Style.RESET_ALL + f'attention: shooting speed reduction: {np.linalg.norm(u)/o.u_max*100} %')
-                u = u / np.linalg.norm(u) * o.u_max * 0.9
-
-            if c or cx or cy or cz:
-                mu_IPM *= 10
-                i_iteration -= 1
-            '''if i_iteration_for_stable_T >= 5 and ((c and cx and cy and cz) > 0 or np.linalg.norm(dr) > o.d_to_grab):
-                # T_max *= 2 if T_max < T_max_hard_limit else 1
-                # u = o.u_max / 5 * tmp / np.linalg.norm(tmp)
-                i_iteration_for_stable_T = 0
-                i_iteration -= 5'''
-        # target_is_reached = tol <= o.d_to_grab and ((c or cx or cy or cz) is False)
-    return u, True  # target_is_reached
+        if dr > tol * 1e2:
+            mu_ipm *= 10
+            i_iteration -= 1
+            T_max *= 1.1 if T_max < o.T_max_hard_limit else 1
+    return u, tol <= o.d_to_grab
 
 
 def repulsion(o, id_app, u_a_priori=None):
@@ -484,49 +485,39 @@ def repulsion(o, id_app, u_a_priori=None):
     if o.X_app.flag_start[id_app]:  # IF ON START
         id_beam = int(np.round(call_possible_transport(o)[0]))
         o.taken_beams = np.append(o.taken_beams, id_beam)
-        o.my_print(f"Аппарат {id_app} забрал стержень {id_beam}", mode="blue")
+        o.my_print(f"Аппарат {id_app} забрал стержень {id_beam}", mode="b")
     else:
         if o.X_app.flag_beam[id_app] is None:   # GOING HOME
             id_beam = None
-            o.my_print(f"Аппарат {id_app} возвращается на базу", mode="blue")
+            o.my_print(f"Аппарат {id_app} возвращается на базу", mode="b")
         else:                                   # GOING TO POINT
             id_beam = o.X_app.flag_beam[id_app]
-            o.my_print(f"Аппарат {id_app} летит установливать стержень {id_beam}", mode="blue")
+            o.my_print(f"Аппарат {id_app} летит установливать стержень {id_beam}", mode="b")
 
     if id_beam is not None:
-        r_right = np.array(o.X.r1[id_beam])
+        r_1 = np.array(o.X.r1[id_beam])
     else:
         tmp_id = call_possible_transport(o)[0]
-        r_right = np.array(o.X.r_st[tmp_id] - np.array([o.X.length[tmp_id], 0.0, 0.0]))
+        r_1 = np.array(o.X.r_st[tmp_id] - np.array([o.X.length[tmp_id], 0.0, 0.0]))
 
     if o.X_app.flag_start[id_app] or (not o.X_app.flag_to_mid[id_app]):
-        m = call_middle_point(o.X_cont, r_right)
+        m = call_middle_point(o.X_cont, r_1)
         if np.linalg.norm(o.X_app.target[id_app] - np.array(o.X_cont.r1[m]) / 2 - np.array(o.X_cont.r2[m]) / 2) > 1e-2:
-            r_right = np.array(o.X_cont.r1[m]) / 2 + np.array(o.X_cont.r2[m]) / 2
+            r_1 = np.array(o.X_cont.r1[m]) / 2 + np.array(o.X_cont.r2[m]) / 2
         o.X_app.loc[id_app, 'flag_to_mid'] = True
-        o.my_print(f"Аппарат {id_app} целится в промежуточный узел захвата", mode="blue")
+        o.my_print(f"Аппарат {id_app} целится в промежуточный узел захвата", mode="b")
     else:
         o.X_app.loc[id_app, 'flag_to_mid'] = False
 
     o.X_app.loc[id_app, 'target_p'][0], o.X_app.loc[id_app, 'target_p'][1], o.X_app.loc[id_app, 'target_p'][2] = \
         o.X_app.target[id_app]
-    o.X_app.loc[id_app, 'target'][0], o.X_app.loc[id_app, 'target'][1], o.X_app.loc[id_app, 'target'][2] = r_right
+    o.X_app.loc[id_app, 'target'][0], o.X_app.loc[id_app, 'target'][1], o.X_app.loc[id_app, 'target'][2] = r_1
     o.X_app.loc[id_app, 'flag_beam'] = id_beam
     o.X_app.loc[id_app, 'flag_start'] = False
 
     # Нахождение вектора скорости отталкивания
-    if o.control:
-        u0 = u_a_priori if (u_a_priori is not None) else \
-            diff_evolve(o=o, T_max=o.T_max, id_app=id_app, interaction=True)
-    else:
-        '''u0, _ = (u_a_priori, 1) if (u_a_priori is not None) else \
-            calc_shooting(o=o, id_app=id_app, r_right=r_right, interaction=True,
-                          shooting_amount=o.shooting_amount_repulsion)'''
-        tmp = r_right - np.array(o.o_b(o.X_app.r[id_app]))
-        u0 = o.u_min * tmp / np.linalg.norm(tmp)
-        print(scipy.optimize.minimize(dr_gradient, u0, args=(o, o.T_max, id_app, True, o.mu_IPM, o.mu_e)))
-        # print(res)
-        # u0 = res.x
+    u0 = u_a_priori if (u_a_priori is not None) else \
+        find_repulsion_velocity(o=o, id_app=id_app, target=r_1, interaction=True)
 
     R_p = o.R.copy()
     V_p = o.V.copy()
@@ -559,9 +550,8 @@ def repulsion(o, id_app, u_a_priori=None):
     o.X_app.loc[id_app, 'r_0'] = o.get_discrepancy(id_app)
     o.X_app.loc[id_app, 'flag_fly'] = True
     o.X_app.loc[id_app, 'flag_hkw'] = False if (o.if_PID_control or o.if_LQR_control) else True
-    o.my_print(f"App id:{id_app} pushed off with u={np.linalg.norm(u)}, w={np.linalg.norm(o.w)}",
-               mode="blue", test=True)
-    o.my_print(f"Taken beams list: {o.taken_beams}", mode="green", test=True)
+    o.my_print(f"App id:{id_app} pushed off with u={np.linalg.norm(u)}, w={np.linalg.norm(o.w)}", mode="b", test=True)
+    o.my_print(f"Taken beams list: {o.taken_beams}", mode="g", test=True)
     talk_decision(o.if_talk)
 
     return u0
@@ -588,7 +578,7 @@ def capturing(o, id_app):
     # Процесс захвата
     if id_beam is not None:
         if np.linalg.norm(np.array(o.X.r1[id_beam]) - np.array(o.X_app.target[0])) < 1e-2:
-            o.my_print(f"Стержень id:{id_beam} устанавливается", mode="blue")
+            o.my_print(f"Стержень id:{id_beam} устанавливается", mode="b")
             o.X.loc[id_beam, 'flag'][0] = 1
             o.X.loc[id_beam, 'flag'][1] = 1
             o.X_app.loc[id_app, 'flag_beam'] = None

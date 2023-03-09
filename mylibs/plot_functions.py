@@ -16,7 +16,7 @@ import vedo
 from mylibs.tiny_functions import *
 
 
-def color_between(tau):
+def color_between(tau: float):
     c0 = (0.8, 0.8, 0.8)
     c1 = (1.0, 0.0, 1.0)
     if tau <= 0:
@@ -26,7 +26,7 @@ def color_between(tau):
     return 0.8 * tau + 1.0 * (1 - tau), 0.8 * tau, 0.8 * tau + 1.0 * (1 - tau)
 
 
-def line_chaos(x_lim=20., y_lim=20., z_lim=20.):
+def line_chaos(x_lim: [int, float] = 20., y_lim: [int, float] = 20., z_lim: [int, float] = 20.):
     """Функция создания линии помех на vedo-изображении для видимости нарушения жёстких ограничений. \n
     Используется вместо вылета программы."""
     line = [-x_lim, -y_lim, -z_lim,
@@ -40,7 +40,7 @@ def line_chaos(x_lim=20., y_lim=20., z_lim=20.):
     return line
 
 
-def line_target(r, d=0.5):
+def line_target(r, d: [int, float] = 0.5):
     """Рисует кружочек вокруг цели."""
     line = []
     N = 40
@@ -55,7 +55,7 @@ def line_target(r, d=0.5):
     return line
 
 
-def plot_by_y(y, x=None, name=None, color='slategray', color_zero='powderblue'):
+def plot_by_y(y, x=None, name=None, color: str = 'slategray', color_zero: str = 'powderblue'):
     """Функция, показывающая график; \n
     Также показываются название графика, min/max значения функции."""
     fig, ax = plt.subplots()
@@ -79,27 +79,24 @@ def plot_by_y(y, x=None, name=None, color='slategray', color_zero='powderblue'):
     plt.show()
     
 
-def fig_plot(o, line_0, point):
+def fig_plot(o, line_0, point=None):
     """Функция распаковки линии, построения vedo.Line"""
     N = int(np.floor(len(line_0) / 3))
     x = [line_0[3 * i + 0] for i in range(N)]
     y = [line_0[3 * i + 1] for i in range(N)]
     z = [line_0[3 * i + 2] for i in range(N)]
-    if o.coordinate_system == 'orbital':
+    if point is not None:
         for i in range(N):
             x[i], y[i], z[i] = o.b_o(np.array([x[i], y[i], z[i]]))
-    if o.coordinate_system == 'support':
-        for i in range(N):
-            x[i], y[i], z[i] = o.S.T @ np.array([x[i], y[i], z[i]])
-    vertices = [[x[i], y[i], z[i]] for i in range(N)]
-    if point is not None:
+        vertices = [[x[i], y[i], z[i]] for i in range(N)]
         line = vedo.Line(vertices, c=(238/255, 130/255, 238/255)) + vedo.Point(point, c='c')
     else:
+        vertices = [[x[i], y[i], z[i]] for i in range(N)]
         line = vedo.Line(vertices, c=(135/255, 206/255, 250/255))
     return line
 
 
-def draw_vector(ax, v, r0=None, v0=None, clr='m', style='-'):
+def draw_vector(ax, v, r0=None, v0=None, clr: str = 'm', style: str = '-'):
     """Функия рисует стрелочку в осях matplotlib.pyplot"""
     r0 = np.array([0., 0., 0.]) if r0 is None else r0
     rate = 0.9
@@ -128,7 +125,7 @@ def draw_vector(ax, v, r0=None, v0=None, clr='m', style='-'):
                 [v0[2]+(v[2]-v0[2])*rate-b[2], v[2]], c=clr)
         
         
-def draw_reference_frames(o, size=10, showing=False):
+def draw_reference_frames(o, size: int = 10, showing: bool = False):
     """Функция рисует системы координат"""
     fig = plt.figure(figsize=(size, size))
     ax = fig.add_subplot(projection='3d')
@@ -164,7 +161,7 @@ def draw_reference_frames(o, size=10, showing=False):
 
 def show_beam(r1, r2, flag_non_relative=0, radius_per_len=0.1):
     """Возвращает точки цилиндра стержня"""
-    N_nodes_circle = 25
+    N_nodes_circle = 8
     L = np.sqrt((r1[0] - r2[0]) ** 2 + (r1[1] - r2[1]) ** 2 + (r1[2] - r2[2]) ** 2)
     if flag_non_relative > 0.5:
         radius = radius_per_len
@@ -174,9 +171,6 @@ def show_beam(r1, r2, flag_non_relative=0, radius_per_len=0.1):
     y_up = [radius * np.sin(i / N_nodes_circle * 2 * np.pi) for i in range(N_nodes_circle)]
     z_up = [L for _ in range(N_nodes_circle)]
     z_down = [0 for _ in range(N_nodes_circle)]
-    '''x0 = np.hstack((x_up, x_up))  # Union of arrays
-    y0 = np.hstack((y_up, y_up))
-    z0 = np.hstack((z_down, z_up))'''
     vertices_0 = np.array([[0.0, 0.0, 0.0] for _ in range(2 * N_nodes_circle)])
     for i in range(N_nodes_circle):
         vertices_0[2 * i] = [x_up[i], y_up[i], z_up[i]]
@@ -409,7 +403,7 @@ def plot_apps_new(o):
     return ready_mesh
 
 
-def draw_flat_arrow(vec, o, id_app, clr='c'):
+def draw_flat_arrow(vec, o, id_app: int, clr: str = 'c'):
     from vedo import FlatArrow
     x, y, z = o.X_app.r[id_app]
     tmp = np.array([0.1*vec[1] + 0.1*vec[2], 0.1*vec[0] + 0.1*vec[2], 0.1*vec[0] + 0.1*vec[1]])
@@ -418,7 +412,7 @@ def draw_flat_arrow(vec, o, id_app, clr='c'):
     return FlatArrow(l1, l2, tip_size=1, tip_width=1).c(color=clr, alpha=1)
 
 
-def avoid_field_internal_func(o, arrs, x_boards, z_boards, nx, nz):
+def avoid_field_internal_func(o, avoid_vectors, x_boards: list, z_boards: list, nx: int, nz: int):
     from vedo import FlatArrow
     from mylibs.control_function import avoiding_force
     x_list = np.linspace(x_boards[0], x_boards[1], nx)
@@ -444,25 +438,24 @@ def avoid_field_internal_func(o, arrs, x_boards, z_boards, nx, nz):
                 l2 = [np.array([x + 0.1 * force[2], 0, z + 0.1 * force[0]]),
                       np.array([x + 0.1 * force[2], 0, z + 0.1 * force[0]]) + force]
                 farr = FlatArrow(l1, l2, tip_size=1, tip_width=1).c(color='m', alpha=0.3)
-                if arrs is None:
-                    arrs = farr
+                if avoid_vectors is None:
+                    avoid_vectors = farr
                 else:
-                    arrs += farr
-    return arrs
+                    avoid_vectors += farr
+    return avoid_vectors
 
 
 def avoid_field(o):
-    arrs = None
+    force_vectors = None
     x_boards: list = [4, 6]
     z_boards: list = [6, 8]
     nx = 5
     nz = 5
-    arrs = avoid_field_internal_func(o, arrs, x_boards, z_boards, nx, nz)
+    force_vectors = avoid_field_internal_func(o, force_vectors, x_boards, z_boards, nx, nz)
+    return force_vectors
 
-    return arrs
 
-
-def draw_vedo_and_save(o, i_time, fig_view):
+def draw_vedo_and_save(o, i_time: int, fig_view, app_diagram: bool = True):
     """Функция рисует всё, берёт и возрвращает объект vedo"""
     msh = plot_iterations_new(o).color("silver")
     msh += plot_apps_new(o)
@@ -471,7 +464,8 @@ def draw_vedo_and_save(o, i_time, fig_view):
         # msh += avoid_field(o)  # А вот это ты крутой конечно, но оно кушает много
         for i in range(o.N_app):
             msh += fig_plot(o, o.line_app[i], o.b_o(o.X_app.target[i]))
-            msh += fig_plot(o, line_target(r=o.X_app.target[i], d=o.d_to_grab), None)
+            msh += fig_plot(o, o.line_app_orf[i])
+            msh += fig_plot(o, line_target(r=o.X_app.target[i], d=o.d_to_grab), o.b_o(o.X_app.target[i]))
             if np.linalg.norm(o.a_self[i]) > 1e-9:
                 msh += draw_flat_arrow(np.array(o.a_self[i]) * 2 / o.a_pid_max, o, i, 'c')
             else:
@@ -498,14 +492,11 @@ def draw_vedo_and_save(o, i_time, fig_view):
         size = 0.29
         img.paste(watermark.crop((int(we * size + 25), int(hi * size + 25),
                                   int(we * (1 - size)), int(hi * (1 - size) - 25))))
-        # img.save(filename)
-        # img.close()
         watermark.close()
-        watermark = Image.open('storage/tmp_pic2.png').resize((509, 200))
-        # we, hi = watermark.size
-        # size = 0.29
-        img.paste(watermark, (0, hi))
-        img.save(filename)
-        img.close()
-        watermark.close()
+        if app_diagram:
+            watermark = Image.open('storage/tmp_pic2.png').resize((509, 200))
+            img.paste(watermark, (0, hi))
+            img.save(filename)
+            img.close()
+            watermark.close()
     return fig_view

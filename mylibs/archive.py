@@ -55,7 +55,7 @@ def diff_evolve_sample(o, T_max, id_app, interaction, convex, tmp1x, tmp1y, tmp1
     aj = np.array([ajx, ajy, ajz])
     a_recj = np.array([a_recjx, a_recjy, a_recjz])
     u_p = o.X_app.v[id_app]
-    mu_IPM = o.mu_IPM / 2 ** iter_decrease
+    mu_IPM = o.mu_ipm / 2 ** iter_decrease
 
     tmp = tmp1 + o.diff_evolve_F * (tmp2 - tmp3)  # mutant vector
     if random.uniform(0, 1) < o.diff_evolve_chance:  # crossing

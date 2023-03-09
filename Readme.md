@@ -26,7 +26,23 @@
     - tiny_functions.py [Вспомогательные функции]
   
 ---
+Методы scipy.optimize.minimize:
+- trust-constr:
+  - Bounds, (min, max)
+  - нелинейное программирование
+  - направление и длина шага выбираются одновременно 
+- SLSQP:
+  - Bounds, (min, max), LinearConstraint, NonlinearConstraint, словари
+  - без ограничений -> метод Ньютона 
+- TNC:
+  - Bounds, (min, max)
+  - ограниченное число итераций 
+- COBYLA:
+  - LinearConstraint, NonlinearConstraint, словари
+  - ограниченная оптимизация без градиентов
+
+---
 #### <image src="https://cdn.icon-icons.com/icons2/2596/PNG/512/fire_icon_155393.png" width=15> Гори оно синим пламенем
   
-  <image src="https://media.giphy.com/media/209KCwPntVIHsr5iIy/giphy.gif">
+  <img src="https://media.giphy.com/media/209KCwPntVIHsr5iIy/giphy.gif" alt="gif"/>
 
