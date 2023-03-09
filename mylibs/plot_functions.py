@@ -26,7 +26,7 @@ def color_between(tau: float):
     return 0.8 * tau + 1.0 * (1 - tau), 0.8 * tau, 0.8 * tau + 1.0 * (1 - tau)
 
 
-def line_chaos(x_lim: [int, float] = 20., y_lim: [int, float] = 20., z_lim: [int, float] = 20.):
+def line_chaos(x_lim: float = 20., y_lim: float = 20., z_lim: float = 20.):
     """Функция создания линии помех на vedo-изображении для видимости нарушения жёстких ограничений. \n
     Используется вместо вылета программы."""
     line = [-x_lim, -y_lim, -z_lim,
@@ -468,8 +468,6 @@ def draw_vedo_and_save(o, i_time: int, fig_view, app_diagram: bool = True):
             msh += fig_plot(o, line_target(r=o.X_app.target[i], d=o.d_to_grab), o.b_o(o.X_app.target[i]))
             if np.linalg.norm(o.a_self[i]) > 1e-9:
                 msh += draw_flat_arrow(np.array(o.a_self[i]) * 2 / o.a_pid_max, o, i, 'c')
-            else:
-                print(f"Управления нет!")
             if np.linalg.norm(o.a_orbital[i]) > 1e-9:
                 msh += draw_flat_arrow(np.array(o.a_orbital[i]) * 2 / o.a_pid_max, o, i, 'g')
         if (not o.survivor) and o.collision_foo == 'Line':

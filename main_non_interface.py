@@ -13,7 +13,7 @@ o = AllProblemObjects(if_impulse_control=False,
                       if_testing_mode=True,
                       dt=5.,
                       choice='1',
-                      T_max=1000.,
+                      T_max=300.,
                       u_max=0.1,
                       N_apparatus=1)
 
@@ -27,7 +27,7 @@ def iteration_func(o, f):
 
     for id_app in o.X_app.id:
         # Repulsion
-        o.X_app.loc[id_app, 'busy_time'] -= o.dt if o.X_app.busy_time[id_app] >= 0 else 0
+        o.X_app.busy_time[id_app] -= o.dt if o.X_app.busy_time[id_app] >= 0 else 0
         if (not o.X_app.flag_fly[id_app]) and o.X_app.busy_time[id_app] < 0:
             # u = repulsion(o, id_app, u_a_priori=np.array([-0.04, 0., 0.00]))
             u = repulsion(o, id_app)

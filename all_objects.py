@@ -129,14 +129,16 @@ class AllProblemObjects(object):
         self.k_d = np.double(kd_from_kp(k_p))
         self.La = np.double(La)
 
-        self.X, self.X_cont = get_construction(choice, choice_complete)
-        self.N_nodes = np.max(flatten(self.X.id_node)) + 1
-        self.N_beams = len(self.X.id)
-        self.N_cont_beams = len(self.X_cont.id)
-        self.X_app = get_apparatus(self.X, N_apparatus)
-        self.N_app = np.max(self.X_app.id) + 1
+        # self.X, self.X_cont = get_construction(choice, choice_complete)
+        # self.X_app = get_apparatus(self.X, N_apparatus)
+        self.choice = choice
+        self.X, self.X_cont, self.X_app = get_all_components(choice)
+        self.N_nodes = self.X.n_nodes
+        self.N_beams = self.X.n_beams
+        self.N_cont_beams = len(self.X_cont.mass)
+        self.N_app = N_apparatus
         self.t_start = np.zeros(self.N_app + 1)
-        self.M = np.double(np.sum(self.X.mass.to_numpy()) + np.sum(self.X_cont.mass.to_numpy()))
+        self.M = np.double(np.sum(self.X.mass) + np.sum(self.X_cont.mass))
 
         self.w_hkw = np.sqrt(mu / Radius_orbit ** 3)
         self.W_hkw = np.double(np.array([0., 0., self.w_hkw]))
@@ -145,7 +147,8 @@ class AllProblemObjects(object):
         self.R = np.double(np.zeros(3))
         self.V = np.double(np.zeros(3))
         self.J_1 = np.double(np.linalg.inv(self.J))
-
+        for i in range(self.N_app):
+            print(self.X_app.r)
         self.line_app = [[self.X_app.r[i][0], self.X_app.r[i][1], self.X_app.r[i][2]] for i in range(self.N_app)]
         self.line_app_orf = [[self.X_app.r[i][0], self.X_app.r[i][1], self.X_app.r[i][2]] for i in range(self.N_app)]
         self.line_str = self.R
@@ -291,9 +294,8 @@ class AllProblemObjects(object):
             else:
                 r = self.b_o(self.X_app.target[id_app])
                 v = np.zeros(3)
-
-            self.X_app.loc[id_app, 'v'][0], self.X_app.loc[id_app, 'v'][1], self.X_app.loc[id_app, 'v'][2] = v
-            self.X_app.loc[id_app, 'r'][0], self.X_app.loc[id_app, 'r'][1], self.X_app.loc[id_app, 'r'][2] = r
+            self.X_app.r[id_app] = r
+            self.X_app.v[id_app] = v
             self.a_orbital[id_app] = self.orbital_acceleration(np.append(r, v))
 
     def control_step(self, id_app):
@@ -404,7 +406,7 @@ class AllProblemObjects(object):
                 print(Fore.CYAN + txt)
 
     def copy(self):
-        slf = AllProblemObjects()
+        slf = AllProblemObjects(choice=self.choice)
 
         slf.survivor = self.survivor
         slf.warning_message = False

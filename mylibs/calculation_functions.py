@@ -65,57 +65,6 @@ def call_crash(o, r_sat, R, S, taken_beams=np.array([])):
     return False
 
 
-def call_possible_transport(o):
-    """ Функция осуществляет последовательность сборки;                                             \n
-    Input:                                                                                          \n
-    -> o - AllObjects класс;                                                                        \n
-    Output:                                                                                         \n
-    -> Отсортированный по необходимости массив id стержней, которые можно брать с грузового отсека. \n
-    В большинстве случаев нужен нулевой элемент возвращаемого массива"""
-    beams_to_take = np.array([])
-
-    mask_half_fixed = np.zeros(o.N_beams)
-    mask_full_fixed = np.zeros(o.N_beams)
-    mask_non_fixed = np.zeros(o.N_beams)
-    for i in range(o.N_beams):
-        if np.sum(o.X.flag[i]) == 2:
-            mask_full_fixed[i] += 1
-        if np.sum(o.X.flag[i]) == 1:
-            mask_half_fixed[i] += 1
-        if np.sum(o.X.flag[i]) == 0:
-            mask_non_fixed[i] += 1
-
-    needed_number_nodes = np.zeros(o.N_nodes)
-    current_number_nodes = np.zeros(o.N_nodes)
-    mask_open_nodes = np.zeros(o.N_nodes)
-    needed_number_nodes[o.X.id_node[0][0]] = 1      # Костыль на точку стыковки коснтрукции
-    current_number_nodes[o.X.id_node[0][0]] = 1     # с грузовым контейнером
-
-    for i in range(o.N_beams):
-        needed_number_nodes[o.X.id_node[i][0]] += 1  # Сколько стержней приходят в узел
-        needed_number_nodes[o.X.id_node[i][1]] += 1
-        current_number_nodes[o.X.id_node[i][0]] += o.X.flag[i][0]  # Сколько стержней в узле находятся
-        current_number_nodes[o.X.id_node[i][1]] += o.X.flag[i][1]
-
-    for i in range(o.N_nodes):  # В каких узлах неполное кол-во стержней, но есть хоть один
-        if (needed_number_nodes[i] - current_number_nodes[i] > 0) and (current_number_nodes[i] > 0):
-            mask_open_nodes[i] = 1  # Основная маска
-
-    for i in range(o.N_beams):
-        if mask_non_fixed[i] > 0:  # берём нетронутые со склада
-            if mask_open_nodes[o.X.id_node[i][0]] + mask_open_nodes[o.X.id_node[i][1]] > 0:  # проверка надобности балки
-                beams_to_take = np.append(beams_to_take, o.X.id[i])
-
-    i = 0
-    while i < len(beams_to_take):  # Удалить те, которые уже взяты
-        if beams_to_take[i] in o.taken_beams:
-            beams_to_take = np.delete(beams_to_take, i)
-            i -= 1
-        i += 1
-
-    return [int(i) for i in beams_to_take]
-
-
 def call_inertia(o, id_s=np.array([]), app_y=None, app_n=None):
     """Функция считает тензор инерции в собственной ск конструкции и центр масс;    \n
     Input:                                                                          \n
@@ -196,15 +145,18 @@ def call_middle_point(X_cont, r_right):
     -> r_right - радиус-вектор таргетной точки на конструкции ССК                       \n
     Output:                                                                             \n
     -> id-номер удобной ручки крепления с конструкцией """
-    X_middles = X_cont[X_cont.flag_grab]  # Стержни - узлы захвата
-    difference = [np.array(X_middles.r1[i]) / 2 + np.array(X_middles.r2[i]) / 2 for i in X_middles.id]
+    X_middles = []
+    for i in range(len(X_cont.id)):
+        if X_cont.flag_grab[i]:
+            X_middles.append(i)
+    difference = [X_cont.r1[X_middles[i]] / 2 + X_cont.r2[X_middles[i]] / 2 for i in range(len(X_middles))]
     N_middles = len(difference)
     difs = np.zeros(N_middles)
     for i in range(N_middles):
-        difs[i] = np.linalg.norm(np.array(difference[i]) - r_right)
+        difs[i] = np.linalg.norm(difference[i] - r_right)
     i_needed = np.argmin(difs)
 
-    return np.array(X_middles.id)[i_needed]
+    return np.array(X_middles)[i_needed]
 
 
 def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False):
@@ -403,7 +355,8 @@ def find_repulsion_velocity(o, id_app: int, target=None, interaction: bool = Tru
     res = scipy.optimize.minimize(func, u, args=(o, o.T_max, id_app, interaction, False), tol=tol, method=mtd,
                                   constraints=nonlinear_constraint)
     # u = o.cases['repulse_vel_control'](res.x)
-    return res.x
+    u = res.x
+    return u
 
 
 def calc_shooting(o, id_app, r_right, interaction=True, mu_e=None):
@@ -483,7 +436,7 @@ def repulsion(o, id_app, u_a_priori=None):
 
     # Алгоритм выбора цели
     if o.X_app.flag_start[id_app]:  # IF ON START
-        id_beam = int(np.round(call_possible_transport(o)[0]))
+        id_beam = int(np.round(o.X.call_possible_transport(o.taken_beams)[0]))
         o.taken_beams = np.append(o.taken_beams, id_beam)
         o.my_print(f"Аппарат {id_app} забрал стержень {id_beam}", mode="b")
     else:
@@ -497,23 +450,22 @@ def repulsion(o, id_app, u_a_priori=None):
     if id_beam is not None:
         r_1 = np.array(o.X.r1[id_beam])
     else:
-        tmp_id = call_possible_transport(o)[0]
+        tmp_id = o.X.call_possible_transport(o.taken_beams)[0]
         r_1 = np.array(o.X.r_st[tmp_id] - np.array([o.X.length[tmp_id], 0.0, 0.0]))
 
     if o.X_app.flag_start[id_app] or (not o.X_app.flag_to_mid[id_app]):
         m = call_middle_point(o.X_cont, r_1)
         if np.linalg.norm(o.X_app.target[id_app] - np.array(o.X_cont.r1[m]) / 2 - np.array(o.X_cont.r2[m]) / 2) > 1e-2:
             r_1 = np.array(o.X_cont.r1[m]) / 2 + np.array(o.X_cont.r2[m]) / 2
-        o.X_app.loc[id_app, 'flag_to_mid'] = True
+        o.X_app.flag_to_mid[id_app] = True
         o.my_print(f"Аппарат {id_app} целится в промежуточный узел захвата", mode="b")
     else:
-        o.X_app.loc[id_app, 'flag_to_mid'] = False
+        o.X_app.flag_to_mid[id_app] = False
 
-    o.X_app.loc[id_app, 'target_p'][0], o.X_app.loc[id_app, 'target_p'][1], o.X_app.loc[id_app, 'target_p'][2] = \
-        o.X_app.target[id_app]
-    o.X_app.loc[id_app, 'target'][0], o.X_app.loc[id_app, 'target'][1], o.X_app.loc[id_app, 'target'][2] = r_1
-    o.X_app.loc[id_app, 'flag_beam'] = id_beam
-    o.X_app.loc[id_app, 'flag_start'] = False
+    o.X_app.target_p[id_app] = o.X_app.target[id_app].copy()
+    o.X_app.target[id_app] = r_1
+    o.X_app.flag_beam[id_app] = id_beam
+    o.X_app.flag_start[id_app] = False
 
     # Нахождение вектора скорости отталкивания
     u0 = u_a_priori if (u_a_priori is not None) else \
@@ -524,7 +476,7 @@ def repulsion(o, id_app, u_a_priori=None):
     o.J, o.r_center = call_inertia(o, o.taken_beams, app_n=id_app)
     o.J_1 = np.linalg.inv(o.J)
     m_beam = 0. if (id_beam is None) else o.X.mass[id_beam]
-    M_without = np.sum(o.X.mass.to_numpy()) + np.sum(o.X_cont.mass.to_numpy()) - m_beam
+    M_without = o.M - m_beam
     m_extra = o.X_app.mass[id_app] + m_beam
     R = R_p + o.S.T @ (o.r_center - r_center_p)
     r = np.array(o.X_app.r[id_app])
@@ -545,11 +497,11 @@ def repulsion(o, id_app, u_a_priori=None):
     o.t_start[0] = o.t
     o.t_start[o.N_app] = o.t
 
-    o.X_app.loc[id_app, 'r'][0], o.X_app.loc[id_app, 'r'][1], o.X_app.loc[id_app, 'r'][2] = r
-    o.X_app.loc[id_app, 'v'][0], o.X_app.loc[id_app, 'v'][1], o.X_app.loc[id_app, 'v'][2] = u
-    o.X_app.loc[id_app, 'r_0'] = o.get_discrepancy(id_app)
-    o.X_app.loc[id_app, 'flag_fly'] = True
-    o.X_app.loc[id_app, 'flag_hkw'] = False if (o.if_PID_control or o.if_LQR_control) else True
+    o.X_app.r[id_app] = r
+    o.X_app.v[id_app] = u
+    o.X_app.r_0[id_app] = o.get_discrepancy(id_app)
+    o.X_app.flag_fly[id_app] = True
+    o.X_app.flag_hkw[id_app] = False if (o.if_PID_control or o.if_LQR_control) else True
     o.my_print(f"App id:{id_app} pushed off with u={np.linalg.norm(u)}, w={np.linalg.norm(o.w)}", mode="b", test=True)
     o.my_print(f"Taken beams list: {o.taken_beams}", mode="g", test=True)
     talk_decision(o.if_talk)
@@ -579,14 +531,13 @@ def capturing(o, id_app):
     if id_beam is not None:
         if np.linalg.norm(np.array(o.X.r1[id_beam]) - np.array(o.X_app.target[0])) < 1e-2:
             o.my_print(f"Стержень id:{id_beam} устанавливается", mode="b")
-            o.X.loc[id_beam, 'flag'][0] = 1
-            o.X.loc[id_beam, 'flag'][1] = 1
-            o.X_app.loc[id_app, 'flag_beam'] = None
+            o.X.flag[id_beam] = np.array([1., 1.])
+            o.X_app.flag_beam[id_app] = None
             o.taken_beams = np.delete(o.taken_beams, np.argmax(o.taken_beams == id_beam))
     else:
         if o.X_app.target[id_app][0] < -0.6:  # Если "слева" нет промежуточных точек, то окей
             o.my_print(f'Аппарат id:{id_app} в грузовом отсеке')
-            o.X_app.loc[id_app, 'flag_start'] = True
+            o.X_app.flag_start[id_app] = True
     
     # Пересчёт параметров 
     o.J, o.r_center = call_inertia(o, o.taken_beams, app_y=id_app)
@@ -598,9 +549,9 @@ def capturing(o, id_app):
     o.Om_update()
     o.C_R = get_C_hkw(o.R, o.V, o.w_hkw)
 
-    o.X_app.loc[id_app, 'busy_time'] = o.time_to_be_busy
-    o.X_app.loc[id_app, 'flag_hkw'] = True
-    o.X_app.loc[id_app, 'flag_fly'] = False
+    o.X_app.busy_time[id_app] = o.time_to_be_busy
+    o.X_app.flag_hkw[id_app] = True
+    o.X_app.flag_fly[id_app] = False
     o.t_reaction_counter = o.t_reaction
     o.t_start[o.N_app] = o.t
     o.flag_impulse = True
