@@ -12,7 +12,7 @@ o = AllProblemObjects(if_impulse_control=False,
                       if_multiprocessing=True,
                       if_testing_mode=True,
                       dt=5.,
-                      choice='1',
+                      choice='3',
                       T_max=300.,
                       u_max=0.1,
                       N_apparatus=1)

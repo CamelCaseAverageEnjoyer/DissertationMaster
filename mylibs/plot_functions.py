@@ -48,7 +48,7 @@ def line_target(r, d: [int, float] = 0.5):
         line = np.append(line, np.array(r)+d*np.array([np.sin(i/N*2*np.pi), 0., np.cos(i/N*2*np.pi)]))
     for i in range(N):
         line = np.append(line, np.array(r)+d*np.array([0., np.sin(i/N*2*np.pi), np.cos(i/N*2*np.pi)]))
-    for i in range(round(N/10)):
+    for i in range(round(N / 10)):
         line = np.append(line, np.array(r)+d*np.array([0., np.sin(i/N*2*np.pi), np.cos(i/N*2*np.pi)]))
     for i in range(N):
         line = np.append(line, np.array(r)+d*np.array([np.sin(i/N*2*np.pi), np.cos(i/N*2*np.pi), 0.]))

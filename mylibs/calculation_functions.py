@@ -436,7 +436,7 @@ def repulsion(o, id_app, u_a_priori=None):
 
     # Алгоритм выбора цели
     if o.X_app.flag_start[id_app]:  # IF ON START
-        id_beam = int(np.round(o.X.call_possible_transport(o.taken_beams)[0]))
+        id_beam = o.X.call_possible_transport(o.taken_beams)[0]
         o.taken_beams = np.append(o.taken_beams, id_beam)
         o.my_print(f"Аппарат {id_app} забрал стержень {id_beam}", mode="b")
     else:

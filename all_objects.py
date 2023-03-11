@@ -67,6 +67,9 @@ class AllProblemObjects(object):
                  d_crash=0.1,                   # Расстояние соударения до осей стержней
 
                  k_p=1e-4,                      # Коэффициент ПД-регулятора
+                 s=None,                        # готовый объект класса Structure
+                 c=None,                        # готовый объект класса Container
+                 a=None,                        # готовый объект класса Apparatus
                  La=np.array(q_dot([1/np.sqrt(2), 1/np.sqrt(2), 0., 0.], [1/np.sqrt(2), 0., 1/np.sqrt(2), 0.]))):
 
         # Инициализация переменных
