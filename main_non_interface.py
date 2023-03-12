@@ -12,7 +12,7 @@ o = AllProblemObjects(if_impulse_control=False,
                       if_multiprocessing=True,
                       if_testing_mode=True,
                       dt=5.,
-                      choice='3',
+                      choice='4',
                       T_max=300.,
                       u_max=0.1,
                       N_apparatus=1)
@@ -90,6 +90,4 @@ def run_it_all(o, vedo_picture):
 
 
 if __name__ == "__main__":
-    f = open('storage/main.txt', 'w')
-    f.close()
     run_it_all(o, vedo_picture)

@@ -72,7 +72,11 @@ class AllProblemObjects(object):
                  a=None,                        # готовый объект класса Apparatus
                  La=np.array(q_dot([1/np.sqrt(2), 1/np.sqrt(2), 0., 0.], [1/np.sqrt(2), 0., 1/np.sqrt(2), 0.]))):
 
-        # Инициализация переменных
+        # Init
+        self.file_name = 'storage/main.txt'
+        f = open('storage/main.txt', 'w')
+        f.close()
+
         self.survivor = True            # Зафиксирован ли проход "через текстуры" / можно сделать вылет программы
         self.warning_message = None     # Если где-то проблема, вместо вылета программы я обозначаю её сообщениями
         self.t_flyby = T_max * 0.95     # Время необходимости облёта
@@ -132,10 +136,8 @@ class AllProblemObjects(object):
         self.k_d = np.double(kd_from_kp(k_p))
         self.La = np.double(La)
 
-        # self.X, self.X_cont = get_construction(choice, choice_complete)
-        # self.X_app = get_apparatus(self.X, N_apparatus)
         self.choice = choice
-        self.X, self.X_cont, self.X_app = get_all_components(choice)
+        self.X, self.X_cont, self.X_app = get_all_components(choice=choice)
         self.N_nodes = self.X.n_nodes
         self.N_beams = self.X.n_beams
         self.N_cont_beams = len(self.X_cont.mass)
@@ -150,8 +152,6 @@ class AllProblemObjects(object):
         self.R = np.double(np.zeros(3))
         self.V = np.double(np.zeros(3))
         self.J_1 = np.double(np.linalg.inv(self.J))
-        for i in range(self.N_app):
-            print(self.X_app.r)
         self.line_app = [[self.X_app.r[i][0], self.X_app.r[i][1], self.X_app.r[i][2]] for i in range(self.N_app)]
         self.line_app_orf = [[self.X_app.r[i][0], self.X_app.r[i][1], self.X_app.r[i][2]] for i in range(self.N_app)]
         self.line_str = self.R
