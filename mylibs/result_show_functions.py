@@ -1,5 +1,6 @@
 from all_objects import *
 from vedo import *
+from datetime import datetime
 
 
 def pd_control_params_search(dt=1., N=5, T_max=2000., k_min=1e-4, k_max=1e-2):
@@ -28,8 +29,8 @@ def pd_control_params_search(dt=1., N=5, T_max=2000., k_min=1e-4, k_max=1e-2):
             o.euler_time_step()
 
             # Repulsion
-            o.X_app.loc[id_app, 'busy_time'] -= o.dt if o.X_app.busy_time[id_app] >= 0 else 0
-            if o.X_app.flag_fly[id_app] == 0 and o.X_app.busy_time[id_app] < 0:
+            o.a.loc[id_app, 'busy_time'] -= o.dt if o.a.busy_time[id_app] >= 0 else 0
+            if o.a.flag_fly[id_app] == 0 and o.a.busy_time[id_app] < 0:
                 u = repulsion(o, t, id_app, u_a_priori=np.array([0.00749797, 0.00605292, 0.08625441]))
                 o.if_see = False
                 o.t_start[0] = t
@@ -40,9 +41,9 @@ def pd_control_params_search(dt=1., N=5, T_max=2000., k_min=1e-4, k_max=1e-2):
                 if o.t_reaction_counter < 0:
                     pd_control(o=o, t=t, id_app=id_app)
 
-            target_orf = o.b_o(o.X_app.target[id_app])
-            tmp = (np.linalg.norm(target_orf - np.array(o.X_app.r[id_app])))
-            collide = collide or call_crash(o, o.X_app.r[id_app], o.R, o.S, o.taken_beams)
+            target_orf = o.b_o(o.a.target[id_app])
+            tmp = (np.linalg.norm(target_orf - np.array(o.a.r[id_app])))
+            collide = collide or call_crash(o, o.a.r[id_app], o.R, o.S, o.taken_beams)
             if tmp < tolerance:
                 tolerance = 20 if collide else tmp
         tolerance_list.append(tolerance)
@@ -75,6 +76,7 @@ def plot_params_while_main(filename: str):
     R = [[] for _ in range(id_max)]
     t = [[] for _ in range(id_max)]
     a = [[] for _ in range(id_max)]
+    m = [[] for _ in range(id_max)]
 
     f = open('storage/main.txt', 'r')
     for line in f:
@@ -87,10 +89,8 @@ def plot_params_while_main(filename: str):
                 j[id_app].append(float(lst[4]))
                 V[id_app].append(float(lst[5]))
                 R[id_app].append(float(lst[6]))
-            if lst[0] == 'управление':
-                id_app = int(lst[1])
-                a[id_app].append(float(lst[2]))
-
+                a[id_app].append(float(lst[7]))
+                m[id_app].append(int(lst[8]))
         else:
             dr[id_app] = np.array([])
             w[id_app] = np.array([])
@@ -103,30 +103,31 @@ def plot_params_while_main(filename: str):
     print(f"id_max: {id_max}")
 
     fig, axs = plt.subplots(3)
-    axs[0].set_xlabel('время t, с')
-    axs[0].set_ylabel('Невязка')
-    axs[0].set_title('Решение алгоритма')
+    axs[0].set_xlabel('время, с')
+    axs[0].set_ylabel('Невязка, м')
+    axs[0].set_title('Параметры в процессе алгоритма')
     axs[1].set_xlabel('время t, с')
     axs[1].set_ylabel('ограниченные величины')
-    axs[1].set_title('Выполнение ограничений')
     axs[2].set_xlabel('итерации')
-    axs[2].set_ylabel('бортовое ускорение')
-    axs[2].set_title('Работа двигателя')
+    axs[2].set_ylabel('бортовое ускорение, м/с2')
 
-
-    colors = ['c', 'greenyellow', 'violet', 'slategray', 'sienna', 'teal', 'indigo', 'm']
+    clr = ['c', 'indigo', 'm', 'violet', 'teal', 'slategray', 'greenyellow', 'sienna']
     for id_app in range(id_max):
         t[id_app] = np.linspace(0, len(dr[id_app]), len(dr[id_app]))
-        axs[0].plot(t[id_app], np.array(dr[id_app]) / abs(np.max(dr[id_app])), c=colors[id_app], label=f"Аппарат {id_app}")
+        for i in range(len(dr[id_app]) - 1):
+            axs[0].plot([t[id_app][i], t[id_app][i+1]], np.array([dr[id_app][i], dr[id_app][i+1]]),
+                        c=clr[2 * id_app + 2 * m[id_app][i]])
+        axs[0].plot(t[id_app], np.zeros(len(t[id_app])), c='khaki')
         axs[1].plot(t[id_app], [1 for _ in range(len(t[id_app]))], c='gray')
         axs[2].plot(range(len(a[id_app])), a[id_app], c='c')
+        axs[0].plot(range(len(a[id_app])), np.zeros(len(a[id_app])), c='khaki')
     id_app = 0
     axs[1].plot(t[id_app], np.array(w[id_app]) / o.w_max, c='teal', label='w')
     axs[1].plot(t[id_app], np.array(j[id_app]) / o.j_max, c='tan', label='угол')
     axs[1].plot(t[id_app], np.array(V[id_app]) / o.V_max, c='g', label='V')
     axs[1].plot(t[id_app], np.array(R[id_app]) / o.R_max, c='brown', label='R')
 
-    axs[0].legend()
+    # axs[0].legend()
     axs[1].legend()
 
     if filename != '[Название]':

@@ -1,7 +1,7 @@
 from all_objects import *
 
 
-o = AllProblemObjects(dt=10.)
+o_global = AllProblemObjects(dt=10.)
 
 
 '''def dr_gradient_my(u0, *args):
@@ -29,4 +29,4 @@ u0 = np.array(np.zeros(3))
 res = scipy.optimize.minimize(dr_gradient_my, u0, args=(o, o.T_max, 0, True, o.mu_IPM, o.mu_e), tol=0.5)
 print(res)'''
 
-help(o.control_step)
+help(o_global.control_step)

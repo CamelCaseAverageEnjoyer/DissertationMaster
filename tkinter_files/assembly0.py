@@ -31,7 +31,7 @@ entry3_state = 'DISABLED'
 entry4_state = 'DISABLED'
 entry5_state = 'DISABLED'
 entry6_state = 'DISABLED'
-o = AllProblemObjects()
+o_global = AllProblemObjects()
 
 def change_check_1():
     global check_var_1, check_label_1, vedo_pic
@@ -83,7 +83,7 @@ def download_params():
     global check_var_1, check_label_1, check_var_2, check_label_2, check_var_3, check_label_3
     global choice, control, vedo_pic, is_saving, if_testing_mode, save_rate, dt, k_p, N_app, d_crash
     global T_max, t_reaction, time_to_be_busy, u_max, du_impulse_max, w_max, V_max, R_max, j_max, a_max, d_to_grab
-    global label_choice_extra_1, choice_1, choice_2_vars, label_choice_extra_2, choice_2, o
+    global label_choice_extra_1, choice_1, choice_2_vars, label_choice_extra_2, choice_2, o_global
     global label_1, entry_1, dt
     f_tmp = open('storage/saved_params.txt', 'r')
     for line in f_tmp:
@@ -199,7 +199,7 @@ def change_entry_8():
     label_8["text"] = f"{int(100 * d_to_grab)} см"
 
 def change_entry_9():
-    global label_9, entry_9, T_max, o
+    global label_9, entry_9, T_max, o_global
     T_max = float(entry_9.get())
     label_9["text"] = f"{T_max} секунд, {int(100 * T_max / (2 * np.pi / o.w_hkw))}% оборота"
 
@@ -268,7 +268,7 @@ def click_button_assembly():
     global check_var_1, check_label_1, check_var_2, check_label_2, check_var_3, check_label_3
     global choice, control, vedo_pic, is_saving, if_testing_mode, save_rate, dt, k_p, N_app, T_max, t_reaction
     global time_to_be_busy, u_max, du_impulse_max, w_max, V_max, R_max, j_max, a_max, d_to_grab, d_crash
-    global label_choice_extra_1, choice_1, choice_2_vars, label_choice_extra_2, choice_2, o, icons
+    global label_choice_extra_1, choice_1, choice_2_vars, label_choice_extra_2, choice_2, o_global, icons
     o = AllProblemObjects()
     root = Tk()
     icons = Icons()

@@ -61,6 +61,9 @@ class Structure(object):
         self.h = 0.15
         self.lvl = 0
         self.x_start = 0.6
+        seq_truss_algo = [[1, 2, 3, 4, 1, 2, 3, 4, 5, 6, 7, 5],
+                          [5, 6, 7, 8, 8, 5, 6, 7, 6, 7, 8, 8]]
+        loc_truss_algo = [[0, 0, 0], [0, 1, 0], [1, 1, 0], [1, 0, 0], [0, 0, 1], [0, 1, 1], [1, 1, 1], [1, 0, 1]]
 
         def check_length():
             for i in range(self.n_beams):
@@ -86,30 +89,10 @@ class Structure(object):
             self.r_st = np.array(np.zeros(3))
 
         if choice == '1':
+            floor = 3
             self.n_beams = 24
-            self.n_nodes = 10
-            self.id = np.arange(self.n_beams)
-            self.mass = np.array([5.] * self.n_beams)
-            l_beam = 5.0
-            self.h = 0.5
-            r_inscribed = l_beam / 2 / np.sqrt(3)
-            r_circumscribed = l_beam / np.sqrt(3)
-            x_ground_floor = l_beam * np.sqrt(2 / 3)
             ast = 2 * self.h / np.sqrt(3)
-            r = np.array([np.array([0., 0., 0.]),
-                          np.array([x_ground_floor, 0., r_circumscribed]),
-                          np.array([x_ground_floor, -l_beam / 2, -r_inscribed]),
-                          np.array([x_ground_floor, l_beam / 2, r_inscribed]),
-                          np.array([x_ground_floor + l_beam, 0., r_circumscribed]),
-                          np.array([x_ground_floor + l_beam, -l_beam / 2, -r_inscribed]),
-                          np.array([x_ground_floor + l_beam, l_beam / 2, -r_inscribed]),
-                          np.array([x_ground_floor + 2 * l_beam, 0., r_circumscribed]),
-                          np.array([x_ground_floor + 2 * l_beam, -l_beam / 2, -r_inscribed]),
-                          np.array([x_ground_floor + 2 * l_beam, l_beam / 2, -r_inscribed])])
-            id_1 = [0, 0, 0, 1, 1, 2, 1, 2, 3, 2, 1, 3, 4, 4, 5, 4, 5, 6, 5, 4, 6, 7, 7, 8]
-            id_2 = [1, 2, 3, 2, 3, 3, 4, 5, 6, 4, 6, 5, 5, 6, 6, 7, 8, 9, 7, 9, 8, 8, 9, 9]
-            flag_1 = [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-            flag_2 = [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            self.flag = np.array([np.array([1, 1])] * 3 + [np.array([0, 0])] * 21)
             x_st = [-self.x_start for _ in range(self.n_beams)]
             y_st = [2 * self.h, 3 * self.h, 3 * self.h, 2 * self.h, 1 * self.h, -1 * self.h, -2 * self.h, -2 * self.h,
                     -2 * self.h, -1 * self.h, 0, 1 * self.h, 2 * self.h,
@@ -117,19 +100,11 @@ class Structure(object):
             z_st = [-2 * ast, -0.5 * ast, 0.5 * ast, 2 * ast, 2.5 * ast, 1.5 * ast, 1 * ast, 0, -1 * ast,
                     -1.5 * ast, -2 * ast, -1.5 * ast, -1 * ast, 0, 1 * ast, 1.5 * ast, 2 * ast, 0.5 * ast,
                     -0.5 * ast, -1 * ast, -0.5 * ast, 0.5 * ast, 1 * ast, 0]
-            self.id_node = np.array([np.array([id_1[i], id_2[i]]) for i in range(self.n_beams)])
-            self.r1 = np.array([np.array([r[self.id_node[i][0]][0], r[self.id_node[i][0]][1],
-                                          r[self.id_node[i][0]][2]]) for i in range(self.n_beams)])
-            self.r2 = np.array([np.array([r[self.id_node[i][1]][0], r[self.id_node[i][1]][1],
-                                          r[self.id_node[i][1]][2]]) for i in range(self.n_beams)])
-            self.flag = np.array([np.array([flag_1[i], flag_2[i]]) for i in range(self.n_beams)])
             self.r_st = np.array([np.array([x_st[i], y_st[i], z_st[i]]) for i in range(self.n_beams)])
-            self.length = np.array([np.linalg.norm(self.r1[i] - self.r2[i]) for i in range(self.n_beams)])
 
-        if choice == '2':
+        if choice in ['1', '2']:
             self.n_beams = 3 + floor * 3 + (floor - 1) * 6
             self.n_nodes = 1 + 3 * floor
-            self.container_length = 8.
             self.h = 0.25
             a_beam = 5.0
             r_inscribed = a_beam / 2 / np.sqrt(3)
@@ -162,12 +137,14 @@ class Structure(object):
             self.id_node = np.array([np.array([id_node_1[i], id_node_2[i]]) for i in range(self.n_beams)])
             self.r1 = np.array(r1)
             self.r2 = np.array(r2)
-            self.flag = np.array([np.array([int(complete), int(complete)]) for _ in range(self.n_beams)])
             self.length = np.array([np.linalg.norm(np.array(self.r1[i]) - np.array(self.r2[i]))
                                     for i in range(self.n_beams)])
-            self.r_st = np.array([np.array([-self.x_start - self.container_length + self.length[i], y_st[i], z_st[i]])
-                                  for i in range(self.n_beams)])
+            self.container_length = np.max(self.length) + 0.5
             self.mass = self.length * mass_per_length
+            if choice != '1':
+                self.flag = np.array([np.array([int(complete), int(complete)]) for _ in range(self.n_beams)])
+                self.r_st = np.array([np.array([-self.x_start - self.container_length + self.length[i], y_st[i], z_st[i]])
+                                      for i in range(self.n_beams)])
 
         if choice == '3':
             length = 5
@@ -245,37 +222,22 @@ class Structure(object):
                        np.array([length, -length / 2, -length]), np.array([0., -length / 2, -length]),
                        np.array([length, length / 2, -length]), np.array([length, length / 2, -length])]
 
-            def lcl_f(x: float, y: float, z: float):
-                return np.array([x * length, length * (y - 1 / 2), (i + 1 + z) * length])
+            def lcl_f(args):
+                x, y, z, z_ind = args
+                return np.array([x * length, length * (y - 1 / 2), z_ind * (i + 1 + z) * length])
 
             last_id = 0  # иначе оно конючит что может быть неинициализировано
             for i in range(floor):
-                for j in range(12):
-                    self.id += [self.n_beams + j + 12 * i + 1]
-                self.n_beams += 12
-                self.id_node_1 += [k + i * 4 for k in [1, 2, 3, 4, 1, 2, 3, 4, 5, 6, 7, 5]]
-                self.id_node_2 += [k + i * 4 for k in [5, 6, 7, 8, 8, 5, 6, 7, 6, 7, 8, 8]]
-                self.r1 += [lcl_f(0, 0, 0), lcl_f(0, 1, 0), lcl_f(1, 1, 0), lcl_f(1, 0, 0),
-                            lcl_f(0, 0, 0), lcl_f(0, 1, 0), lcl_f(1, 1, 0), lcl_f(1, 0, 0),
-                            lcl_f(0, 0, 1), lcl_f(0, 1, 1), lcl_f(1, 1, 1), lcl_f(0, 0, 1)]
-                self.r2 += [lcl_f(0, 0, 1), lcl_f(0, 1, 1), lcl_f(1, 0, 1), lcl_f(1, 1, 1),  # в конце (1, 0, 1)?
-                            lcl_f(1, 0, 1), lcl_f(0, 0, 1), lcl_f(0, 1, 1), lcl_f(1, 1, 1),
-                            lcl_f(0, 1, 1), lcl_f(1, 1, 1), lcl_f(1, 0, 1), lcl_f(1, 0, 1)]
-
-                for j in range(12):
-                    self.id += [self.n_beams + j + 12 * i + 1 + 12 * floor]
-                self.n_beams += 12
-                self.id_node_1 += [4 * (floor + 1 + i) + k for k in [1, 2, 3, 4, 1, 2, 3, 4, 5, 6, 7, 5]]
-                self.id_node_1 += [4 * (floor + 1 + i) + k for k in [5, 6, 7, 8, 8, 5, 6, 7, 6, 7, 8, 8]]
-                self.r1 += [lcl_f(0, 0, 0), lcl_f(0, 1, 0), lcl_f(1, 1, 0), lcl_f(1, 0, 0),
-                            lcl_f(0, 0, 0), lcl_f(0, 1, 0), lcl_f(1, 1, 0), lcl_f(1, 0, 0),
-                            lcl_f(0, 0, 1), lcl_f(0, 1, 1), lcl_f(1, 1, 1), lcl_f(0, 0, 1)]
-                self.r2 += [lcl_f(0, 0, 1), lcl_f(0, 1, 1), lcl_f(1, 1, 1), lcl_f(1, 0, 1),
-                            lcl_f(1, 0, 1), lcl_f(0, 0, 1), lcl_f(0, 1, 1), lcl_f(1, 1, 1),
-                            lcl_f(0, 1, 1), lcl_f(1, 1, 1), lcl_f(1, 0, 1), lcl_f(1, 0, 1)]
+                for z_index in [-1, 1]:
+                    for j in range(12):
+                        self.id += [int(self.n_beams + j + 12 * i + 1 + (12 * floor) * (0.5 - 0.5 * z_index))]
+                    self.n_beams += 12
+                    self.id_node_1 += [k + i * 4 + (floor + 1) * 4 * (0.5 - 0.5 * z_index) for k in seq_truss_algo[0]]
+                    self.id_node_2 += [k + i * 4 + (floor + 1) * 4 * (0.5 - 0.5 * z_index) for k in seq_truss_algo[1]]
+                    r_truss_algo = [lcl_f(loc_truss_algo[i] + [z_index]) for i in range(len(loc_truss_algo))]
+                    self.r1 += [r_truss_algo[seq_truss_algo[0][k] - 1].copy() for k in range(12)]
+                    self.r2 += [r_truss_algo[seq_truss_algo[1][k] - 1].copy() for k in range(12)]
                 last_id = 8 + i * 4 + (floor + 1) * 4
-            tmp = np.array([np.linalg.norm(k) for k in (np.array(self.r1) - np.array(self.r2))])
-            print(f"AAAAAAAAA {np.sum(tmp < 1)}")
 
             r_big_circle = length * (floor + 1)
             length *= beam_length_multiplier
@@ -296,13 +258,11 @@ class Structure(object):
                 copies = copy.deepcopy(rot_nods)
                 for k in range(4):
                     rot_nods[k] = rotation_matrix @ rot_nods[k]
-                seq_truss_algo = [[1, 2, 3, 4, 1, 2, 3, 4, 5, 6, 7, 5],
-                                  [5, 6, 7, 8, 8, 5, 6, 7, 6, 7, 8, 8]]
                 r_truss_algo = [copies[i] for i in range(4)] + [rot_nods[i] for i in range(4)]
                 self.id_node_1 += [k + 1 + (last_id + 1 + i) * 4 for k in seq_truss_algo[0]]
                 self.id_node_2 += [k + 1 + (last_id + 1 + i) * 4 for k in seq_truss_algo[1]]
-                self.r1 += [r_truss_algo[seq_truss_algo[0][k] - 1] for k in range(12)]
-                self.r2 += [r_truss_algo[seq_truss_algo[1][k] - 1] for k in range(12)]
+                self.r1 += [r_truss_algo[seq_truss_algo[0][k] - 1].copy() for k in range(12)]
+                self.r2 += [r_truss_algo[seq_truss_algo[1][k] - 1].copy() for k in range(12)]
                 check_plot()
 
             y_st, z_st, self.lvl = package_beams(self.n_beams, self.h)
@@ -313,7 +273,7 @@ class Structure(object):
             self.id_node = np.array([np.array([self.id_node_1[i], self.id_node_2[2]]) for i in range(self.n_nodes)])
             self.flag = np.array([np.array([int(complete)] * 2) for i in range(self.n_beams)])
             self.length = np.array([np.linalg.norm(self.r1[i] - self.r2[i]) for i in range(self.n_beams)])
-            self.container_length = np.max(self.length) + 0.5
+            self.container_length = np.max(self.length) + 0.1
             self.mass = self.length * mass_per_length
             self.r_st = np.array([[-self.x_start - self.container_length + self.length[i], y_st[i], z_st[i]]
                                   for i in range(self.n_beams)])
@@ -324,7 +284,7 @@ class Structure(object):
                          '-2', '-1', '-0', '+1', '+2', '-0', '-1', '+2', '+1', '+0', '+2', '+0', '-2', '+0', '+2']
             r1 = []
             r2 = []
-            point = np.array([0., 0., 0.])
+            point = np.zeros(3)
             for i in range(len(direction)):
                 r1 += [point]
                 point[int(direction[i][1])] += 4. if direction[i][0] == '+' else -4.
@@ -350,13 +310,13 @@ class Structure(object):
         s.n_beams = self.n_beams
         s.x_start = self.x_start
         s.n_nodes = self.n_nodes
-        s.mass = self.mass.copy()
-        s.length = self.length.copy()
-        s.id_node = self.id_node.copy()
-        s.r1 = self.r1.copy()
-        s.r2 = self.r2.copy()
-        s.flag = self.flag.copy()
-        s.r_st = self.r_st.copy()
+        s.mass = copy.deepcopy(self.mass)
+        s.length = copy.deepcopy(self.length)
+        s.id_node = copy.deepcopy(self.id_node)
+        s.r1 = copy.deepcopy(self.r1)
+        s.r2 = copy.deepcopy(self.r2)
+        s.flag = copy.deepcopy(self.flag)
+        s.r_st = copy.deepcopy(self.r_st)
         s.container_length = self.container_length
         return s
 
@@ -387,13 +347,11 @@ class Structure(object):
                     beams_to_take = np.append(beams_to_take, self.id[i])
 
         i = 0
-        print(f"beams_to_take: {beams_to_take}, taken:{taken_beams}")
         while i < len(beams_to_take):  # Удалить те, которые уже взяты
             if beams_to_take[i] in taken_beams:
                 beams_to_take = np.delete(beams_to_take, i)
                 i -= 1
             i += 1
-        print([int(i) for i in beams_to_take])
 
         return [int(i) for i in beams_to_take]
 
@@ -415,7 +373,7 @@ class Container(object):
         if choice == '1':
             self.n = 7
             self.id = np.arange(self.n)
-            self.mass = np.array([150., 5., 5., 5., 5., 5., 5.])
+            self.mass = np.array([5., 1., 1., 1., 1., 1., 1.])
             self.diam = np.array([5.0, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
             self.r1 = np.array([np.array([0.0, 0.0, 0.0]),
                                 np.array([-s.x_start / 2, 1.0, 6.0]),
@@ -443,7 +401,7 @@ class Container(object):
             r_container = s.h * s.lvl * 1.5
             self.n = 13
             self.id = list(range(self.n))
-            self.mass = [r_container] + [1.] * (self.n - 1)
+            self.mass = [5.] + [1.] * (self.n - 1)
             self.diam = [5.] + [0.1] * (self.n - 1)
             sequence_1 = [[1., 1., -1.], [6., 4., 4.]]
             sequence_2 = [[-1., 1., -1.], [6., 6., 6.]]
@@ -523,12 +481,12 @@ class Container(object):
     def copy(self):
         c = Container(choice=self.choice, s=self.s)
         c.n = self.n
-        c.id = self.id
-        c.mass = self.mass
-        c.diam = self.diam
-        c.r1 = self.r1
-        c.r2 = self.r2
-        c.flag_grab = self.flag_grab
+        c.id = copy.deepcopy(self.id)
+        c.mass = copy.deepcopy(self.mass)
+        c.diam = copy.deepcopy(self.diam)
+        c.r1 = copy.deepcopy(self.r1)
+        c.r2 = copy.deepcopy(self.r2)
+        c.flag_grab = copy.deepcopy(self.flag_grab)
         return c
 
 
@@ -548,11 +506,10 @@ class Apparatus(object):
         self.busy_time = np.array([i * 40. for i in range(n)])
         self.target_p = np.array([np.zeros(3) for _ in range(n)])
         self.v = np.array([np.zeros(3) for _ in range(n)])
-        id_list = X.call_possible_transport([])
+        id_list = X.call_possible_transport([]) if n > 0 else [0]
         self.target = np.array([(np.array(X.r_st[id_list[i]]) + np.array([-0.3 - X.length[id_list[i]], 0, 0]))
                                 for i in range(n)])
-        self.r = np.array([(np.array(X.r_st[id_list[i]]) + np.array([-0.3 - X.length[id_list[i]], 0, 0]))
-                           for i in range(n)])
+        self.r = copy.deepcopy(self.target)
         self.r_0 = np.array([mass] * n)
 
     def copy(self):
@@ -571,14 +528,13 @@ class Apparatus(object):
         return a
 
 
-def get_all_components(choice: str = '1', testing: bool = False):
+def get_all_components(choice: str = '1', testing: bool = False, complete=False, n_app=1):
     """Функция инициализирует классы конструкции и аппаратов"""
-    s = Structure(choice=choice, testing=testing)
+    s = Structure(choice=choice, testing=testing, complete=complete)
     c = Container(s=s, choice=choice)
-    a = Apparatus(s)
+    a = Apparatus(s, n=n_app)
     return s, c, a
 
 
 if __name__ == "__main__":
-    _, _, _ = get_all_components(choice='1', testing=True)
-    print("Good job!")
+    _, _, _ = get_all_components(choice='4', testing=True)

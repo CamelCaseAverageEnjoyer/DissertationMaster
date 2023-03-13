@@ -54,7 +54,7 @@ def diff_evolve_sample(o, T_max, id_app, interaction, convex, tmp1x, tmp1y, tmp1
     tmp3 = np.array([tmp3x, tmp3y, tmp3z])
     aj = np.array([ajx, ajy, ajz])
     a_recj = np.array([a_recjx, a_recjy, a_recjz])
-    u_p = o.X_app.v[id_app]
+    u_p = o.a.v[id_app]
     mu_IPM = o.mu_ipm / 2 ** iter_decrease
 
     tmp = tmp1 + o.diff_evolve_F * (tmp2 - tmp3)  # mutant vector
@@ -83,7 +83,7 @@ def diff_evolve_sample(o, T_max, id_app, interaction, convex, tmp1x, tmp1y, tmp1
         dr_p = a_recj
 
     if np.linalg.norm(u_p) == 0.:
-        du = u_pre - np.array(o.X_app.v[id_app])
+        du = u_pre - np.array(o.a.v[id_app])
         du_m = np.linalg.norm(du)
         dr_p = dr_p - mu_IPM * np.log([o.du_impulse_max - du_m, o.du_impulse_max - du_m, o.du_impulse_max - du_m]) \
             if o.du_impulse_max > du_m else np.array([1e10, 1e10, 1e10])
@@ -95,7 +95,7 @@ def diff_evolve_sample(o, T_max, id_app, interaction, convex, tmp1x, tmp1y, tmp1
         dr_n = dr_non_gradient(u_new, o, T_max, id_app, interaction)
 
     if np.linalg.norm(u_p) == 0.:
-        du = u_new - np.array(o.X_app.v[id_app])
+        du = u_new - np.array(o.a.v[id_app])
         du_m = np.linalg.norm(du)
         dr_n = dr_n - mu_IPM * np.log([o.du_impulse_max - du_m, o.du_impulse_max - du_m, o.du_impulse_max - du_m]) \
             if o.du_impulse_max > du_m else np.array([1e10, 1e10, 1e10]) * clip(10 * (du_m - o.du_impulse_max), 0, 1)
@@ -115,7 +115,7 @@ def diff_evolve(o, T_max, id_app, interaction=True, convex=False):
     -> u - вектор отталкивания/импульса (ССК при interaction=True, ОСК иначе)"""
     n = o.diff_evolve_vectors
     lst_errors = []
-    u = o.X_app.v[id_app]
+    u = o.a.v[id_app]
     a = [[np.exp(random.uniform(np.log(o.u_min), np.log(o.u_max))),
           random.uniform(-np.pi, np.pi),
           random.uniform(-np.pi / 2, np.pi / 2)] for _ in range(n)]

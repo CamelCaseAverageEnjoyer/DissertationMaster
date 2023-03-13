@@ -297,15 +297,15 @@ def plot_iterations_new(o):
     main_body = None
     
     for b in range(o.N_beams):
-        if np.sum(o.X.flag[b]) == 0:
-            r1 = o.X.r1[b]
-            r2 = o.X.r2[b]
+        if np.sum(o.s.flag[b]) == 0:
+            r1 = o.s.r1[b]
+            r2 = o.s.r2[b]
             if o.coordinate_system == 'orbital':
-                r1 = o.R + o.S.T @ (o.X.r1[b] - o.r_center)
-                r2 = o.R + o.S.T @ (o.X.r2[b] - o.r_center)
+                r1 = o.R + o.S.T @ (o.s.r1[b] - o.r_center)
+                r2 = o.R + o.S.T @ (o.s.r2[b] - o.r_center)
             if o.coordinate_system == 'support':
-                r1 = o.S.T @ (o.X.r1[b])
-                r2 = o.S.T @ (o.X.r2[b])
+                r1 = o.S.T @ (o.s.r1[b])
+                r2 = o.S.T @ (o.s.r2[b])
             vertices = show_beam(r1, r2, 1, diam_cylinders_if_not)
 
             hull = spatial.ConvexHull(vertices)
@@ -322,12 +322,12 @@ def plot_iterations_new(o):
 
     for b in range(o.N_beams):
         # if b not in taken_beams:  # CДЕЛАТЬ ПО НОРМАЛЬНОМУ
-        if np.sum(o.X.flag[b]) > 0:
-            r1 = o.X.r1[b]
-            r2 = o.X.r2[b]
+        if np.sum(o.s.flag[b]) > 0:
+            r1 = o.s.r1[b]
+            r2 = o.s.r2[b]
         else:
-            r1 = o.X.r_st[b]
-            r2 = o.X.r_st[b] - np.array([o.X.length[b], 0, 0])
+            r1 = o.s.r_st[b]
+            r2 = o.s.r_st[b] - np.array([o.s.length[b], 0, 0])
         if o.coordinate_system == 'orbital':
             r1 = o.R + o.S.T @ (r1 - o.r_center)
             r2 = o.R + o.S.T @ (r2 - o.r_center)
@@ -349,15 +349,15 @@ def plot_iterations_new(o):
             main_body = mesh.Mesh(np.concatenate([main_body.data, twist_lock.data]))
             
     for b in range(o.N_cont_beams):
-        r1 = o.X_cont.r1[b]
-        r2 = o.X_cont.r2[b]
+        r1 = o.c.r1[b]
+        r2 = o.c.r2[b]
         if o.coordinate_system == 'orbital':
             r1 = o.R + o.S.T @ (r1 - o.r_center)
             r2 = o.R + o.S.T @ (r2 - o.r_center)
         if o.coordinate_system == 'support':
             r1 = o.S.T @ r1
             r2 = o.S.T @ r2
-        vertices = show_beam(r1, r2, 1, o.X_cont.diam[b])
+        vertices = show_beam(r1, r2, 1, o.c.diam[b])
         hull = spatial.ConvexHull(vertices)
         faces = hull.simplices
         myramid_mesh = mesh.Mesh(np.zeros(faces.shape[0], dtype=mesh.Mesh.dtype))
@@ -381,11 +381,11 @@ def plot_apps_new(o):
     """Возвращает mesh аппаратов"""
     ready_mesh = None
     for app in range(o.N_app):
-        r_tmp = o.S @ (o.X_app.r[app] - o.R) + o.r_center
+        r_tmp = o.S @ (o.a.r[app] - o.R) + o.r_center
         if o.coordinate_system == 'orbital':
-            r_tmp = o.X_app.r[app]
+            r_tmp = o.a.r[app]
         if o.coordinate_system == 'support':
-            r_tmp = (o.X_app.r[app] - o.R) + o.r_center
+            r_tmp = (o.a.r[app] - o.R) + o.r_center
         main_body = mesh.Mesh(draw_apparatus(0.2, 0.3, r_tmp, np.array([0, 0, 1]), np.array([0, -1, 0]), 0,
                                              30 * np.pi / 180, 70 * np.pi / 180, 0, 30 * np.pi / 180,
                                              70 * np.pi / 180).data)
@@ -395,7 +395,7 @@ def plot_apps_new(o):
             verts_temp.append(main_body.v1[i])
             verts_temp.append(main_body.v2[i])
             faces_temp.append([i * 3, i * 3 + 1, i * 3 + 2])
-        app_color = "navy" if o.X_app.flag_beam[app] is None else "m"
+        app_color = "navy" if o.a.flag_beam[app] is None else "m"
         if ready_mesh is None:
             ready_mesh = vedo.Mesh([verts_temp, faces_temp]).clean().color(app_color)
         else:
@@ -405,7 +405,7 @@ def plot_apps_new(o):
 
 def draw_flat_arrow(vec, o, id_app: int, clr: str = 'c'):
     from vedo import FlatArrow
-    x, y, z = o.X_app.r[id_app]
+    x, y, z = o.a.r[id_app]
     tmp = np.array([0.1*vec[1] + 0.1*vec[2], 0.1*vec[0] + 0.1*vec[2], 0.1*vec[0] + 0.1*vec[1]])
     l1 = [np.array([x, y, z]) - tmp, np.array([x, y, z]) - tmp + vec]
     l2 = [np.array([x, y, z]) + tmp, np.array([x, y, z]) + tmp + vec]
@@ -463,9 +463,9 @@ def draw_vedo_and_save(o, i_time: int, fig_view, app_diagram: bool = True):
         msh += fig_plot(o, o.line_str, None)
         # msh += avoid_field(o)  # А вот это ты крутой конечно, но оно кушает много
         for i in range(o.N_app):
-            msh += fig_plot(o, o.line_app[i], o.b_o(o.X_app.target[i]))
+            msh += fig_plot(o, o.line_app[i], o.b_o(o.a.target[i]))
             msh += fig_plot(o, o.line_app_orf[i])
-            msh += fig_plot(o, line_target(r=o.X_app.target[i], d=o.d_to_grab), o.b_o(o.X_app.target[i]))
+            msh += fig_plot(o, line_target(r=o.a.target[i], d=o.d_to_grab), o.b_o(o.a.target[i]))
             if np.linalg.norm(o.a_self[i]) > 1e-9:
                 msh += draw_flat_arrow(np.array(o.a_self[i]) * 2 / o.a_pid_max, o, i, 'c')
             if np.linalg.norm(o.a_orbital[i]) > 1e-9:
@@ -474,7 +474,7 @@ def draw_vedo_and_save(o, i_time: int, fig_view, app_diagram: bool = True):
             msh += fig_plot(o, line_chaos(), None)
     else:
         if o.coordinate_system == 'body':
-            msh += fig_plot(o, o.line_app, o.X_app.target[0])
+            msh += fig_plot(o, o.line_app, o.a.target[0])
         else:
             raise Exception("Укажите систему координат правильно!")
     fig_view.pop().add(msh)

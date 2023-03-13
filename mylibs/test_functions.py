@@ -4,7 +4,7 @@ from all_objects import *
 def def_o(dt=0.1):
     o1 = AllProblemObjects(if_talk=False)
     o1.w = np.array([1e-3, -3e-5, 0])
-    o1.Om_update()
+    o1.om_update()
     return o1
 
 
@@ -14,7 +14,7 @@ def test_full_energy(order, w=0.001, dt=1., T_max=1000.):
     e = 10**(-order)
     o = AllProblemObjects(if_talk=False, dt=dt)
     o.w = np.array([0, -w, 0])
-    o.Om_update()
+    o.om_update()
     U0 = o.get_potential_energy()
     T = [o.get_kinetic_energy()]
     U = [o.get_potential_energy() - U0]
@@ -52,7 +52,7 @@ def test_rotation(order, o=None, dt=1., w=0.001, T_max=1000.):
     e = 10**(-order)
     o = def_o() if o is None else o
     o.w = np.array([0, -w, 0])
-    o.Om_update()
+    o.om_update()
     for i in range(int(T_max/dt)):
         o.time_step(i * dt)
         if i % 10 == 0:
@@ -120,7 +120,7 @@ def test_runge_kutta(order, o=None, dt=1., w=0.001, T_max=1000.):
     e = 10 ** (-order)
     o = def_o() if o is None else o
     o.w = np.array([0, -w, 0])
-    o.Om_update()
+    o.om_update()
     r = np.array([random.uniform(-10, 10), random.uniform(-10, 10), random.uniform(-10, 10)])
     v = np.array([random.uniform(-0.1, 0.1), random.uniform(-0.1, 0.1), random.uniform(-0.1, 0.1)])
     c = get_C_hkw(r, v, o.w_hkw)

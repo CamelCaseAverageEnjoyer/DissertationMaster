@@ -1,13 +1,3 @@
-# Standard libraries
-import matplotlib.pyplot as plt
-from scipy import spatial
-from datetime import datetime
-import numpy as np
-import pandas as pd
-import random
-from tqdm import tqdm
-
-# Local libraries
 from mylibs.calculation_functions import *
 from mylibs.construction_functions import *
 from mylibs.plot_functions import *
@@ -70,13 +60,12 @@ class AllProblemObjects(object):
                  s=None,                        # готовый объект класса Structure
                  c=None,                        # готовый объект класса Container
                  a=None,                        # готовый объект класса Apparatus
+                 file_reset=False,
                  La=np.array(q_dot([1/np.sqrt(2), 1/np.sqrt(2), 0., 0.], [1/np.sqrt(2), 0., 1/np.sqrt(2), 0.]))):
 
         # Init
         self.file_name = 'storage/main.txt'
-        f = open('storage/main.txt', 'w')
-        f.close()
-
+        self.main_numerical_simulation = True if s is None else False
         self.survivor = True            # Зафиксирован ли проход "через текстуры" / можно сделать вылет программы
         self.warning_message = None     # Если где-то проблема, вместо вылета программы я обозначаю её сообщениями
         self.t_flyby = T_max * 0.95     # Время необходимости облёта
@@ -137,13 +126,25 @@ class AllProblemObjects(object):
         self.La = np.double(La)
 
         self.choice = choice
-        self.X, self.X_cont, self.X_app = get_all_components(choice=choice)
-        self.N_nodes = self.X.n_nodes
-        self.N_beams = self.X.n_beams
-        self.N_cont_beams = len(self.X_cont.mass)
+        if s is None:
+            self.s, self.c, self.a = get_all_components(choice=choice, complete=choice_complete, n_app=N_apparatus)
+            if file_reset:
+                f = open(self.file_name, 'w')
+                f.close()
+            else:
+                f = open(self.file_name, 'a')
+                f.write("--------------------------------------\n")
+                f.close()
+        else:
+            self.s = s
+            self.c = c
+            self.a = a
+        self.N_nodes = self.s.n_nodes
+        self.N_beams = self.s.n_beams
+        self.N_cont_beams = len(self.c.mass)
         self.N_app = N_apparatus
         self.t_start = np.zeros(self.N_app + 1)
-        self.M = np.double(np.sum(self.X.mass) + np.sum(self.X_cont.mass))
+        self.M = np.double(np.sum(self.s.mass) + np.sum(self.c.mass))
 
         self.w_hkw = np.sqrt(mu / Radius_orbit ** 3)
         self.W_hkw = np.double(np.array([0., 0., self.w_hkw]))
@@ -152,15 +153,15 @@ class AllProblemObjects(object):
         self.R = np.double(np.zeros(3))
         self.V = np.double(np.zeros(3))
         self.J_1 = np.double(np.linalg.inv(self.J))
-        self.line_app = [[self.X_app.r[i][0], self.X_app.r[i][1], self.X_app.r[i][2]] for i in range(self.N_app)]
-        self.line_app_orf = [[self.X_app.r[i][0], self.X_app.r[i][1], self.X_app.r[i][2]] for i in range(self.N_app)]
+        self.line_app = [[] for _ in range(self.N_app)]
+        self.line_app_orf = [[] for _ in range(self.N_app)]
         self.line_str = self.R
         self.taken_beams = np.array([])
         self.taken_beams_p = np.array([])
         self.tmp_numer_frame = 0
 
         self.C_R = get_C_hkw(self.R, np.zeros(3), self.w_hkw)
-        self.C_r = [get_C_hkw(self.X_app.r[i], self.X_app.v[i], self.w_hkw) for i in range(self.N_app)]
+        self.C_r = [get_C_hkw(self.a.r[i], self.a.v[i], self.w_hkw) for i in range(self.N_app)]
 
         self.v_p = [np.zeros(3) for _ in range(N_apparatus)]
         self.dr_p = [np.zeros(3) for _ in range(N_apparatus)]
@@ -186,7 +187,7 @@ class AllProblemObjects(object):
 
     def get_discrepancy(self, id_app, vector=False):
         """Возвращает невязку аппарата с целью"""
-        discrepancy = self.X_app.r[id_app] - self.b_o(self.X_app.target[id_app])
+        discrepancy = self.a.r[id_app] - self.b_o(self.a.target[id_app])
         return discrepancy if vector else np.linalg.norm(discrepancy)
 
     def get_angular_momentum(self):
@@ -203,12 +204,13 @@ class AllProblemObjects(object):
         for i in range(3):
             for j in range(3):
                 tmp += 3 * J_orf[i][j] * gamma[i] * gamma[j]
+        # tmp = 3 * gamma.T @ J_orf @ gamma  # попробовать
         return 1 / 2 * self.mu / self.Radius_orbit ** 3 * (tmp + np.trace(self.J))  # self.mu/self.Radius_orbit + ()
 
     def w_update(self):
         self.w = self.U @ np.double(self.Om - self.W_hkw)
 
-    def Om_update(self):
+    def om_update(self):
         self.Om = np.double(self.U.T @ self.w + self.W_hkw)
 
     def call_rotation_matrix(self, La=None, t=None):
@@ -285,20 +287,20 @@ class AllProblemObjects(object):
         self.A_orbital = self.orbital_acceleration(np.append(self.R, self.V))
 
         # Поступательное движение аппаратов
-        for id_app in self.X_app.id:
-            if self.X_app.flag_fly[id_app] == 1:
-                if self.X_app.flag_hkw[id_app]:
+        for id_app in self.a.id:
+            if self.a.flag_fly[id_app] == 1:
+                if self.a.flag_hkw[id_app]:
                     r = r_HKW(self.C_r[id_app], self.mu, self.w_hkw, self.t - self.t_start[id_app])
                     v = v_HKW(self.C_r[id_app], self.mu, self.w_hkw, self.t - self.t_start[id_app])
                 else:
-                    r = self.X_app.r[id_app]
-                    v = self.X_app.v[id_app]
+                    r = self.a.r[id_app]
+                    v = self.a.v[id_app]
                     r, v = self.rk4_acceleration(r, v, self.a_self[id_app])
             else:
-                r = self.b_o(self.X_app.target[id_app])
+                r = self.b_o(self.a.target[id_app])
                 v = np.zeros(3)
-            self.X_app.r[id_app] = r
-            self.X_app.v[id_app] = v
+            self.a.r[id_app] = r
+            self.a.v[id_app] = v
             self.a_orbital[id_app] = self.orbital_acceleration(np.append(r, v))
 
     def control_step(self, id_app):
@@ -389,9 +391,13 @@ class AllProblemObjects(object):
             return np.double(U.T @ S.T @ a_np @ S @ U)
         raise Exception("Put vector or matrix")
 
-    def file_save(self, f, txt):
-        if self.is_saving:
-            f.write(txt)
+    def file_save(self, txt):
+        file = open(self.file_name, 'a')
+        file.write(txt + f" {int(self.main_numerical_simulation)}\n")
+        file.close()
+        '''file = open(self.file_name, 'r')
+        print(file.read())
+        file.close()'''
 
     def my_print(self, txt, mode=None, test=False):
         if (self.if_any_print and not test) or (self.if_testing_mode and test):
@@ -407,10 +413,13 @@ class AllProblemObjects(object):
                 print(Fore.RED + txt)
             if mode == "c":
                 print(Fore.CYAN + txt)
+            if mode == "m":
+                print(Fore.MAGENTA + txt)
 
     def copy(self):
-        slf = AllProblemObjects(choice=self.choice)
+        slf = AllProblemObjects(choice=self.choice, s=self.s.copy(), c=self.c.copy(), a=self.a.copy())
 
+        slf.main_numerical_simulation = False
         slf.survivor = self.survivor
         slf.warning_message = False
         slf.t_flyby = self.t_flyby
@@ -470,16 +479,6 @@ class AllProblemObjects(object):
         slf.k_d = self.k_d
         slf.La = self.La.copy()
 
-        slf.X = self.X.copy()
-        slf.X_cont = self.X_cont.copy()
-        slf.N_nodes = self.N_nodes
-        slf.N_beams = self.N_beams
-        slf.N_cont_beams = self.N_cont_beams
-        for i in range(self.N_app):
-            self.X_app.r = np.array(self.X_app.r)
-            self.X_app.v = np.array(self.X_app.v)
-        slf.X_app = self.X_app.copy()
-        slf.N_app = self.N_app
         slf.t_start = self.t_start.copy()
         slf.M = self.M
 

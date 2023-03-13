@@ -1,8 +1,5 @@
-from all_objects import *
-from tkinter import *
-from tkinter import ttk
-from PIL import Image
 from tkinter_files.tk_functions import *
+from datetime import datetime
 import os
 global timerId, fig_view, button
 tmp_n = 0
@@ -108,10 +105,10 @@ def draw_simplified_app_diagram(o1):
     indent = 80
     side = 5
     for i in range(o1.N_app):
-        Dr = np.linalg.norm(o.b_o(o.X_app.target[i]) - np.array(o.X_app.r[i]))
+        Dr = np.linalg.norm(o.b_o(o.a.target[i]) - np.array(o.a.r[i]))
         h_tmp = indent + (total_H - 2 * indent) / N_app * i
-        x_app = get_app_diagram_x(o.X_app.r_0[i], Dr, indent, o.X_app.flag_start[i], o.X_app.flag_fly[i],
-                                  o.X_app.flag_beam[i], o.X_app.flag_to_mid[i])
+        x_app = get_app_diagram_x(o.a.r_0[i], Dr, indent, o.a.flag_start[i], o.a.flag_fly[i],
+                                  o.a.flag_beam[i], o.a.flag_to_mid[i])
         canvas.create_line(indent, h_tmp, 1915 - indent, h_tmp, width=2, fill="#9AC0CD")
         canvas.create_oval(x_app - 2 * side, h_tmp - 2 * side, x_app + 2 * side, h_tmp + 2 * side,
                            fill="#836FFF", outline="#473C8B")
@@ -130,17 +127,17 @@ def draw_simplified_app_diagram(o1):
 def update_apps(o1):
     global label11, label12, label13, label14, label15, label16, back_yes, back_no, frame_canvas2, canvas2
     for i in range(o1.N_app):
-        label11[i]["background"] = back_yes if o1.X_app.flag_fly[i] == 1 else back_no
-        label12[i]["background"] = back_yes if o1.X_app.flag_start[i] == 1 else back_no
-        label13[i]["background"] = back_yes if o1.X_app.flag_beam[i] is not None else back_no
-        label14[i]["background"] = back_yes if o1.X_app.flag_hkw[i] else back_no
-        label15[i]["background"] = back_yes if o1.X_app.busy_time[i] <= 1e-5 else back_no
+        label11[i]["background"] = back_yes if o1.a.flag_fly[i] == 1 else back_no
+        label12[i]["background"] = back_yes if o1.a.flag_start[i] == 1 else back_no
+        label13[i]["background"] = back_yes if o1.a.flag_beam[i] is not None else back_no
+        label14[i]["background"] = back_yes if o1.a.flag_hkw[i] else back_no
+        label15[i]["background"] = back_yes if o1.a.busy_time[i] <= 1e-5 else back_no
         label16[i]["background"] = back_yes if o.flag_vision[i] else back_no
-        label11[i]["text"] = "Полёт" if o1.X_app.flag_fly[i] == 1 else "Захват"
-        label12[i]["text"] = "Старт" if o1.X_app.flag_start[i] == 1 else "Не старт"
-        label13[i]["text"] = "Стержень [-]" if o1.X_app.flag_beam[i] is None else f"Стержень [{o1.X_app.flag_beam[i]}]"
-        label14[i]["text"] = "Хку" if o1.X_app.flag_hkw[i] else "Шаг по t"
-        label15[i]["text"] = "Свободен" if o1.X_app.busy_time[i] <= 1e-5 else "Занят"
+        label11[i]["text"] = "Полёт" if o1.a.flag_fly[i] == 1 else "Захват"
+        label12[i]["text"] = "Старт" if o1.a.flag_start[i] == 1 else "Не старт"
+        label13[i]["text"] = "Стержень [-]" if o1.a.flag_beam[i] is None else f"Стержень [{o1.a.flag_beam[i]}]"
+        label14[i]["text"] = "Хку" if o1.a.flag_hkw[i] else "Шаг по t"
+        label15[i]["text"] = "Свободен" if o1.a.busy_time[i] <= 1e-5 else "Занят"
         label16[i]["text"] = "Видит цель" if o.flag_vision[i] else "Не видит цель"
 
     draw_simplified_app_diagram(o1)
@@ -174,8 +171,6 @@ def get_app_diagram_x(r_0, Dr, indent, flag_start, flag_fly, flag_beam, flag_to_
 def full_assembly():
     global root, o, vedo_pic, canvas2, frame_canvas2, label16
     global N_app, label11, label12, label13, label14, label15, back_yes, back_no, frame2, label_time_1, label_time_2
-    # from main import iteration_func, time_is, iteration_timer, button_func, run_it_all
-    from main_non_interface import iteration_timer
     f_tmp = open("storage/params.txt", "r")
     for line in f_tmp:
         lst = line.split()
@@ -216,7 +211,7 @@ def full_assembly():
                           is_saving=is_saving, if_testing_mode=if_testing_mode, save_rate=save_rate, dt=dt, k_p=k_p,
                           N_apparatus=N_app, T_max=T_max, u_max=u_max, du_impulse_max=du_impulse_max, w_max=w_max,
                           V_max=V_max, R_max=R_max, j_max=j_max, a_pid_max=a_max, d_to_grab=d_to_grab,
-                          d_crash=d_crash, if_avoiding=True, if_talk=True)
+                          d_crash=d_crash, if_avoiding=True, if_talk=True, file_reset=False)
 
     frame_canvas = Frame(root)
     frame_canvas.grid(row=3, column=0, columnspan=3, pady=(5, 0), sticky='nw')
@@ -254,17 +249,17 @@ def full_assembly():
     label15 = [get_simple_label("Занят", frame) for _ in range(N_app)]
     label16 = [get_simple_label("Не видит", frame) for _ in range(N_app)]
     for i in range(N_app):
-        label11[i]["background"] = back_yes if o.X_app.flag_fly[i] else back_no
-        label12[i]["background"] = back_yes if o.X_app.flag_start[i] else back_no
-        label13[i]["background"] = back_yes if o.X_app.flag_beam[i] is not None else back_no
-        label14[i]["background"] = back_yes if o.X_app.flag_hkw[i] else back_no
-        label15[i]["background"] = back_yes if o.X_app.busy_time[i] <= 1e-5 else back_no
+        label11[i]["background"] = back_yes if o.a.flag_fly[i] else back_no
+        label12[i]["background"] = back_yes if o.a.flag_start[i] else back_no
+        label13[i]["background"] = back_yes if o.a.flag_beam[i] is not None else back_no
+        label14[i]["background"] = back_yes if o.a.flag_hkw[i] else back_no
+        label15[i]["background"] = back_yes if o.a.busy_time[i] <= 1e-5 else back_no
         label16[i]["background"] = back_yes if o.flag_vision[i] else back_no
-        label11[i]["text"] = "Полёт" if o.X_app.flag_fly[i] else "Захват"
-        label12[i]["text"] = "Старт" if o.X_app.flag_start[i] else "Не старт"
-        label13[i]["text"] = "Стержень [-]" if o.X_app.flag_beam[i] is None else f"Стержень [{o.X_app.flag_beam[i]}]"
-        label14[i]["text"] = "Хку" if o.X_app.flag_hkw[i] else "Шаг по t"
-        label15[i]["text"] = "Свободен" if o.X_app.busy_time[i] <= 1e-5 else "Занят"
+        label11[i]["text"] = "Полёт" if o.a.flag_fly[i] else "Захват"
+        label12[i]["text"] = "Старт" if o.a.flag_start[i] else "Не старт"
+        label13[i]["text"] = "Стержень [-]" if o.a.flag_beam[i] is None else f"Стержень [{o.a.flag_beam[i]}]"
+        label14[i]["text"] = "Хку" if o.a.flag_hkw[i] else "Шаг по t"
+        label15[i]["text"] = "Свободен" if o.a.busy_time[i] <= 1e-5 else "Занят"
         label16[i]["text"] = "Видит цель" if o.flag_vision[i] else "Не видит цель"
         label1[i].grid(row=row_count, column=i, padx='7', pady='7', sticky=EW)
         label11[i].grid(row=row_count+1, column=i, padx='7', pady='7', sticky=EW)
