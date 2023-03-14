@@ -24,7 +24,7 @@ def call_crash_internal_func(r, r1, r2, diam, return_force=False):
     f2 = np.dot(a, b) / (np.linalg.norm(b) * diam)
 
     if return_force:
-        return forse_from_beam(a, diam, n, tau, b, f0, f1, f2)
+        return forсe_from_beam(a, diam, n, tau, b, f0, f1, f2)
     if not ((f0 > -1) and (f0 < 1) and (f1**2 + f2**2 < 1)):
         return False
     return True
@@ -68,11 +68,11 @@ def call_inertia(o, id_s=np.array([]), app_y=None, app_n=None):
     -> app_n - номера аппаратов, которых не стоит учитывать при расчёте инерции;    \n
     Output:                                                                         \n
     -> Тензор инерции, вектор центра масс. """
-    J = np.double(np.zeros((3, 3)))
+    J = np.zeros((3, 3))
     N_points_m = 10                                                 # количество материальных точек на стержень
     N_m = N_points_m * (o.N_beams + o.N_cont_beams)                 # материальных точек всего
-    m = np.double([0. for _ in range(N_m + o.N_app)])
-    r = np.double([[0., 0., 0.] for _ in range(N_m + o.N_app)])
+    m = [0. for _ in range(N_m + o.N_app)]
+    r = [np.zeros(3) for _ in range(N_m + o.N_app)]
 
     # Выделение координат стержня - на месте или в грузовом отсеке
     for n in range(o.N_beams):
@@ -112,8 +112,8 @@ def call_inertia(o, id_s=np.array([]), app_y=None, app_n=None):
             r[N_m + a] = o.a.target[a]
 
     # Вычисление центра масс
-    tmp_numerator = np.double(np.zeros(3))
-    tmp_denominator = np.double(np.zeros(3))
+    tmp_numerator = np.zeros(3)
+    tmp_denominator = np.zeros(3)
     for k in range(N_m):
         tmp_numerator += m[k] * np.array(r[k])
         tmp_denominator += m[k]
@@ -156,7 +156,7 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False)
     Других аппаратов и их решения она не учитывает;                                         \n
     Input:                                                                                  \n
     -> o - AllObjects класс;                                                                \n
-    -> u0 - начальная скорость аппарата (ССК при interaction=True, ОСК иначе)               \n
+    -> u - начальная скорость аппарата (ССК при interaction=True, ОСК иначе)                \n
     -> T_max - время эпизода                                                                \n
     -> id_app - номер аппарата                                                              \n
     -> interaction - происходит ли при импульсе отталкивание аппарата от конструкции        \n
@@ -173,45 +173,19 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False)
     o_lcl = o.copy()
 
     w_max, V_max, R_max, j_max, f_mean = np.zeros(5)
-    f_min = np.array([1e10, 0, 0])
-    r = np.array(o.a.r[id_app])
     n_crashes = 0
-    r0 = o.o_b(r)
     line = []
 
-    id_beam = o.a.flag_beam[id_app]
-    '''m_beam = 0. if (id_beam is None) else o.s.mass[id_beam]
-    m_extra = 0. if (id_beam is None) else o.s.mass[id_beam] * len(o.taken_beams)
-    M_without = o.M - m_beam - m_extra
-    m_extra = o.a.mass[id_app] + m_beam'''
-    m_beam = 0. if (id_beam is None) else o.s.mass[id_beam]
-    M_without = o.M - m_beam
-    m_extra = o.a.mass[id_app] + m_beam
-
     if interaction:
-        J_p, r_center_p = call_inertia(o, o.taken_beams_p, app_y=id_app)
-        J, r_center = call_inertia(o, o.taken_beams, app_n=id_app)
-        J_1 = np.linalg.inv(J)
-        R_p = o_lcl.R.copy()
-        V_p = o_lcl.V.copy()
-        o_lcl.R = R_p + o_lcl.S.T @ (r_center - r_center_p)                 # ORF
-        u_rot = my_cross(o_lcl.w, o_lcl.S.T @ r0)                           # ORF
-        V_rot = my_cross(o_lcl.w, o_lcl.S.T @ (r_center - r_center_p))      # ORF
-        V0 = - u * m_extra / M_without                                      # BRF
-        u = V_p + o_lcl.S.T @ u + u_rot                                     # ORF
-        o_lcl.V = V_p + o_lcl.S.T @ V0 + V_rot                              # ORF
-        o_lcl.w = o_lcl.b_o(J_1, o_lcl.S) @ (                               # ORF
-                o_lcl.b_o(J_p, o_lcl.S) @ o_lcl.w - m_extra * my_cross(r, u) +
-                (M_without + m_extra) * my_cross(R_p, V_p) - M_without * my_cross(o_lcl.R, o_lcl.V))
+        o_lcl.repulsion_change_params(id_app=id_app, u0=u)
 
-    o_lcl.om_update()
-    o_lcl.C_r[id_app] = get_C_hkw(r, u, o.w_hkw)
-    o_lcl.C_R = get_C_hkw(o_lcl.R, o_lcl.V, o.w_hkw)
+    f_min = o_lcl.S @ o_lcl.get_discrepancy(id_app=id_app, vector=True) if interaction else \
+            o_lcl.get_discrepancy(id_app=id_app, vector=True)
 
     # Iterations
     for i in range(int(T_max // o_lcl.dt)):
         # Writing parameters
-        f = o_lcl.o_b(o_lcl.get_discrepancy(id_app=id_app, vector=True)) if interaction else \
+        f = o_lcl.S @ o_lcl.get_discrepancy(id_app=id_app, vector=True) if interaction else \
             o_lcl.get_discrepancy(id_app=id_app, vector=True)
         if np.linalg.norm(f_min) > np.linalg.norm(f):
             f_min = f.copy()
@@ -243,22 +217,11 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False)
     if (o_lcl.iter - o.iter) > 0:
         f_mean /= (o_lcl.iter - o.iter)
 
-    if interaction is False:
-        V_p = np.array(v_HKW(o_lcl.C_R, o.mu, o.w_hkw, o_lcl.t))
-        u_p = np.array(v_HKW(o_lcl.C_r[id_app], o.mu, o.w_hkw, o_lcl.t))
-        J_p, r_center_p = call_inertia(o, o_lcl.taken_beams_p, app_n=id_app)
-        J, r_center = call_inertia(o, o_lcl.taken_beams, app_y=id_app)
-        R_p = o_lcl.R.copy()
-        o_lcl.R += o_lcl.S.T @ (r_center - r_center_p)
-        V = (V_p * M_without + u_p * m_extra) / (M_without + m_extra)
-        w_after = np.linalg.inv(o_lcl.b_o(J, o_lcl.S)) @ (o_lcl.b_o(J_p, o_lcl.S) @ o_lcl.w -
-                                                          (M_without + m_extra) * my_cross(o_lcl.R, V) +
-                                                          m_extra * my_cross(r, u_p) + M_without * my_cross(R_p, V_p))
-        w_max = np.linalg.norm(w_after)
-        o_lcl.Om = o_lcl.U.T @ w_after + o.W_hkw
-        o_lcl.C_R = get_C_hkw(o_lcl.R, V, o.w_hkw)
-        V_max = np.linalg.norm(V)
+    if interaction is False:   # Пристыковка
+        o_lcl.capturing_change_params(id_app)
+        V_max = np.linalg.norm(o_lcl.V)
         R_max = np.linalg.norm(o_lcl.R)
+        w_max = np.linalg.norm(o_lcl.w)
 
         for i in range(int((o_lcl.iter - o.iter) // 20)):
             o_lcl.time_step()
@@ -276,7 +239,7 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False)
 
 def f_to_capturing(u, *args):
     o, T_max, id_app, interaction, return_to_shooting_method = args
-    # u = o.cases['repulse_vel_control'](u)
+    u = o.cases['repulse_vel_control'](u)
     dr, _, w, V, R, j, _ = calculation_motion(o=o, u=u, T_max=T_max, id_app=id_app, interaction=interaction)
     reserve_rate = 1.5
     e_w = 0. if (o.w_max/reserve_rate - w) > 0 else abs(w - o.w_max/reserve_rate)
@@ -329,11 +292,13 @@ def find_repulsion_velocity(o, id_app: int, target=None, interaction: bool = Tru
 
     if interaction and not o.control or not interaction:
         func = f_to_capturing
-        tol = 0.5
+        tol = o.d_to_grab
+        o.my_print(f"Попадание: tol={tol}", test=True)
     else:
         func = f_to_detour
-        tol = 20
-    mtd = 'SLSQP'  # 'trust-constr'
+        tol = o.a.r_0[0]
+        o.my_print(f"Огибание: tol={tol}, cont={o.s.container_length}", test=True)
+    mtd = 'trust-constr'  # 'SLSQP'
     res = scipy.optimize.minimize(func, u, args=(o, o.T_max, id_app, interaction, False), tol=tol, method=mtd,
                                   constraints=nonlinear_constraint)
     u = o.cases['repulse_vel_control'](res.x)
@@ -403,10 +368,8 @@ def calc_shooting(o, id_app, r_right, interaction=True):
 def repulsion(o, id_app, u_a_priori=None):
     """Input:                                                                   \n
     -> o - AllObjects класс                                                     \n
-    -> t - время принятия решения (для расчёта положения и скорости ХКУ)        \n
     -> id_app - номер аппарата                                                  \n
-    -> u_a_priori - заданный вектор скорости (на случай вынужденного решения,   \n
-    используется для быстрой отладки алгоритмов управления"""
+    -> u_a_priori - заданный вектор скорости (для отладки управления)"""
 
     # Параметры до отталкивания
     J_p, r_center_p = call_inertia(o, o.taken_beams, app_y=id_app)
@@ -431,7 +394,7 @@ def repulsion(o, id_app, u_a_priori=None):
         tmp_id = o.s.call_possible_transport(o.taken_beams)[0]
         r_1 = np.array(o.s.r_st[tmp_id] - np.array([o.s.length[tmp_id], 0.0, 0.0]))
 
-    if o.a.flag_start[id_app] or (not o.a.flag_to_mid[id_app]):
+    if o.a.flag_start[id_app] or not o.a.flag_to_mid[id_app]:
         m = call_middle_point(o.c, r_1)
         if np.linalg.norm(o.a.target[id_app] - np.array(o.c.r1[m]) / 2 - np.array(o.c.r2[m]) / 2) > 1e-2:
             r_1 = np.array(o.c.r1[m]) / 2 + np.array(o.c.r2[m]) / 2
@@ -446,45 +409,18 @@ def repulsion(o, id_app, u_a_priori=None):
     o.a.flag_start[id_app] = False
     o.a.flag_fly[id_app] = True
     o.a.flag_hkw[id_app] = False if (o.if_PID_control or o.if_LQR_control) else True
+    o.a.r_0[id_app] = o.get_discrepancy(id_app)
+    o.flag_vision[id_app] = False
 
-    # Нахождение вектора скорости отталкивания
     u0 = u_a_priori if (u_a_priori is not None) else \
         find_repulsion_velocity(o=o, id_app=id_app, target=r_1, interaction=True)
     # calc_shooting(o=o, id_app=id_app, r_right=r_1, interaction=True)
 
-    R_p = o.R.copy()
-    V_p = o.V.copy()
-    o.J, o.r_center = call_inertia(o, o.taken_beams, app_n=id_app)
-    o.J_1 = np.linalg.inv(o.J)
-    m_beam = 0. if (id_beam is None) else o.s.mass[id_beam]
-    M_without = o.M - m_beam
-    m_extra = o.a.mass[id_app] + m_beam
-    R = R_p + o.S.T @ (o.r_center - r_center_p)
-    r = np.array(o.a.r[id_app])
-    r0 = o.o_b(r, S=o.S, R=R_p, r_center=r_center_p) 
+    o.repulsion_change_params(id_app=id_app, u0=u0)
 
-    u_rot = my_cross(o.w, o.S.T @ r0)                         # ORF
-    V_rot = my_cross(o.w, o.S.T @ (o.r_center - r_center_p))  # ORF
-    V0 = - u0 * m_extra / M_without                           # BRF
-    u = V_p + o.S.T @ u0 + u_rot                              # ORF
-    V = V_p + o.S.T @ V0 + V_rot                              # ORF
-    o.w = o.b_o(o.J_1) @ (
-            o.b_o(J_p) @ o.w - m_extra * my_cross(r, u) +
-            (M_without + m_extra) * my_cross(R_p, V_p) - M_without * my_cross(R, V))  # ORF
-    o.om_update()
-    o.C_r[id_app] = get_C_hkw(r, u, o.w_hkw)
-    o.C_R = get_C_hkw(R, V, o.w_hkw)
-    o.flag_vision[id_app] = False
-    o.t_start[0] = o.t
-    o.t_start[o.N_app] = o.t
-
-    o.a.r[id_app] = r
-    o.a.v[id_app] = u
-    o.a.r_0[id_app] = o.get_discrepancy(id_app)
-    o.my_print(f"App id:{id_app} pushed off with u={np.linalg.norm(u)}, w={np.linalg.norm(o.w)}", mode="b", test=True)
+    o.my_print(f"App id:{id_app} pushed off with u={np.linalg.norm(u0)}, w={np.linalg.norm(o.w)}", mode="b", test=True)
     o.my_print(f"Taken beams list: {o.taken_beams}", mode="g", test=True)
     talk_decision(o.if_talk)
-    print(f"rep o.s.mass    :{o.s.mass}")
 
     return u0
 
@@ -518,22 +454,5 @@ def capturing(o, id_app):
         if o.a.target[id_app][0] < -0.6:  # Если "слева" нет промежуточных точек, то окей
             o.my_print(f'Аппарат id:{id_app} в грузовом отсеке')
             o.a.flag_start[id_app] = True
-    
-    # Пересчёт параметров 
-    o.J, o.r_center = call_inertia(o, o.taken_beams, app_y=id_app)
-    o.J_1 = np.linalg.inv(o.J)
-    o.R += o.S.T @ (o.r_center - r_center_p)
-    o.V = (V_p * M_without + u_p * m_extra) / (M_without + m_extra)
-    o.w = o.b_o(o.J_1, o.S) @ (o.b_o(J_p, o.S) @ o.w - (M_without + m_extra) * my_cross(o.R, o.V) +
-                               m_extra * my_cross(r, u_p) + M_without * my_cross(R_p, V_p))
-    o.om_update()
-    o.C_R = get_C_hkw(o.R, o.V, o.w_hkw)
 
-    o.a.busy_time[id_app] = o.time_to_be_busy
-    o.a.flag_hkw[id_app] = True
-    o.a.flag_fly[id_app] = False
-    o.t_reaction_counter = o.t_reaction
-    o.t_start[o.N_app] = o.t
-    o.flag_impulse = True
-    o.taken_beams_p = o.taken_beams.copy()
-    print(f"cap o.s.mass    :{o.s.mass}")
+    o.capturing_change_params(id_app)

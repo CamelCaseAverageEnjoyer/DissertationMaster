@@ -141,6 +141,7 @@ class Structure(object):
                                     for i in range(self.n_beams)])
             self.container_length = np.max(self.length) + 0.5
             self.mass = self.length * mass_per_length
+            self.mass = self.length * mass_per_length
             if choice != '1':
                 self.flag = np.array([np.array([int(complete), int(complete)]) for _ in range(self.n_beams)])
                 self.r_st = np.array([np.array([-self.x_start - self.container_length + self.length[i], y_st[i], z_st[i]])

@@ -123,11 +123,11 @@ def test_runge_kutta(order, o=None, dt=1., w=0.001, T_max=1000.):
     o.om_update()
     r = np.array([random.uniform(-10, 10), random.uniform(-10, 10), random.uniform(-10, 10)])
     v = np.array([random.uniform(-0.1, 0.1), random.uniform(-0.1, 0.1), random.uniform(-0.1, 0.1)])
-    c = get_C_hkw(r, v, o.w_hkw)
+    c = get_c_hkw(r, v, o.w_hkw)
     for i in range(int(T_max/dt)):
         r, v = o.rk4_acceleration(r, v, [0, 0, 0])
-    r_h = r_HKW(c, o.mu, o.w_hkw, T_max)
-    v_h = v_HKW(c, o.mu, o.w_hkw, T_max)
+    r_h = r_hkw(c, o.mu, o.w_hkw, T_max)
+    v_h = v_hkw(c, o.mu, o.w_hkw, T_max)
     for i in range(3):
         if abs(r[i] / r_h[i]) < e:
             result = False

@@ -13,14 +13,15 @@ o_global = AllProblemObjects(if_impulse_control=False,
                              if_testing_mode=True,
                              choice_complete=False,
 
-                             dt=3.,
-                             choice='1',
-                             T_max=400.,
-                             u_max=0.4,
+                             dt=1., T_max=1000.,
+                             u_max=0.2, k_u=1e-1,
+                             choice='3',
+                             d_crash=0.3,
                              N_apparatus=1,
                              file_reset=True)
 
 def iteration_func(o):
+    x = 1
     o.time_step()
     o.line_str = np.append(o.line_str, o.R)
 
@@ -49,7 +50,7 @@ def iteration_func(o):
         o.line_app_orf[id_app] = np.append(o.line_app_orf[id_app], o.a.r[id_app])
     return o
 
-def iteration_timer():
+def iteration_timer(eventId=None):
     global o_global, vedo_picture, fig_view
     if o_global.t <= o_global.T_total:
         o_global = iteration_func(o_global)

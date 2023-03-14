@@ -38,8 +38,8 @@ def pd_control(o, id_app):
     dr = o.get_discrepancy(id_app, vector=True)
     dv = (dr - o.dr_p[id_app]) / o.dt
     o.dr_p[id_app] = dr.copy()
-    R_pd = r - r_HKW(o.C_R, o.mu, o.w_hkw, o.t - o.t_start[o.N_app])
-    V_pd = v - v_HKW(o.C_R, o.mu, o.w_hkw, o.t - o.t_start[o.N_app])
+    R_pd = r - o.R
+    V_pd = v - o.V
     r1 = o.a.target[id_app] - o.r_center
     '''a_pid = -o.k_p * dr - o.k_d * dv                                                               \
             + (my_cross(o.e, R_pd) + my_cross(o.w, my_cross(o.w, R_pd)) + 2 * my_cross(o.w, V_pd)) \
@@ -103,7 +103,7 @@ def impulse_control(o, id_app):
             o.t_start[id_app] = o.t
             talk_shoot(o.if_talk)
             o.flag_impulse = not target_is_reached
-    o.C_r[id_app] = get_C_hkw(o.a.r[id_app], u, o.w_hkw)
+    o.C_r[id_app] = get_c_hkw(o.a.r[id_app], u, o.w_hkw)
 
 def control_condition(o, id_app):
     o.a_self[id_app] = np.array(np.zeros(3))  # the only reset a_self
