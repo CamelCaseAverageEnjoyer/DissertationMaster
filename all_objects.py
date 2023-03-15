@@ -276,19 +276,19 @@ class AllProblemObjects(object):
         self.iter += 1
         self.t = self.iter * self.dt
 
-        # Вращение конструкции по Эйлеру
+        # Euler rotation
         self.La, self.Om = self.rk4_w(self.La, self.Om, self.J, self.t)
         self.U, self.S, self.A, self.R_e = self.call_rotation_matrix()
         tmp = self.w.copy()
         self.w_update()
         self.e = (self.w - tmp) / self.dt
 
-        # Поступательное движение конструкции
+        # Translational movement of the structure
         self.R = r_hkw(self.C_R, self.w_hkw, self.t - self.t_start[self.N_app])
         self.V = v_hkw(self.C_R, self.w_hkw, self.t - self.t_start[self.N_app])
         self.A_orbital = self.orbital_acceleration(np.append(self.R, self.V))
 
-        # Поступательное движение аппаратов
+        # Translational movement of devices
         for id_app in self.a.id:
             if self.a.flag_fly[id_app] == 1:
                 if self.a.flag_hkw[id_app]:
@@ -305,17 +305,13 @@ class AllProblemObjects(object):
             self.a.v[id_app] = v
             self.a_orbital[id_app] = self.orbital_acceleration(np.append(r, v))
 
-            txt = "Вы допустили потерю дорогостоящего обмундирования. Его стоимость будет вычтена из " \
-                  "вашего жалованья, и вы будете служить, пока вам не исполнится пятьсот десять лет, " \
-                  "потому что вам понадобится именно столько лет, чтобы оплатить комплект Силовой боевой " \
-                  "брони модель II, который вы потеряли!"
             if self.warning_message and self.main_numerical_simulation and (self.t - self.t_start[id_app]) > 10:
                 if self.survivor:
                     self.survivor = call_crash(o=self, r_sat=r, R=self.R, S=self.S, taken_beams=self.taken_beams)
                     if not self.survivor:
-                        self.my_print(txt, mode='y')
+                        self.my_print(get_angry_message(), mode='y')
         if not self.survivor and self.warning_message and self.iter % 200 == 0 and self.if_testing_mode:
-            self.my_print(txt, mode='r')
+            self.my_print(get_angry_message(), mode='r')
 
     def control_step(self, id_app):
         """ Функция ускорения бортового двигателя / подачи импульса двигателя.

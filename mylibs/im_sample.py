@@ -509,6 +509,11 @@ def rand_txt():
         
         ])
 
+def get_angry_message():
+    return "Вы допустили потерю дорогостоящего обмундирования. Его стоимость будет вычтена из " \
+           "вашего жалованья, и вы будете служить, пока вам не исполнится пятьсот десять лет, " \
+           "потому что вам понадобится именно столько лет, чтобы оплатить комплект Силовой боевой " \
+           "брони модель II, который вы потеряли!"
 
 def talk_aloud(txt):
     s = gTTS(txt, lang='ru')
@@ -516,41 +521,38 @@ def talk_aloud(txt):
     playsound('storage/sample.mp3')
     os.remove('storage/sample.mp3')
 
-
 def talk(aloud=True):
     txt = rand_txt()
     print(Fore.LIGHTCYAN_EX + txt)
     if aloud:
         talk_aloud(txt)
 
-
 def talk_decision(cnd=True):
     if cnd:
         talk_aloud(random.choice(['Давай работай!',
-        'Попутного ветра',
-        'А то вздумал отлынивать']))
-
+                                  'Вот хуй!',
+                                  'Ща порву тебя нахуй!',
+                                  'Да йобушки воробушки',
+                                  'Попутного ветра',
+                                  'А то вздумал отлынивать']))
 
 def talk_notice(cnd=True):
     if cnd:
-        talk_aloud(random.choice(['Вон вон вон он!',
+        talk_aloud(random.choice(['Вон вон вон он сука!',
         'Мне показалось?',
         'Там что-то есть',
         'Нет, мне не кажется']))
 
-
 def talk_flyby(cnd=True):
     if cnd:
         talk_aloud(random.choice(['Ты там где?',
-        'Ща найду тебя!']))
-
+        'Ща найду тебя, и пиздец бля!']))
 
 def talk_shoot(cnd=True):
     if cnd:
         talk_aloud(random.choice(['Всё, приземляйся!',
         'Присядь.',
         'Дай бог попадёт']))
-
 
 def talk_success(cnd=True):
     if cnd:
@@ -566,8 +568,3 @@ def okonchanye(N):
     if ((N % 10) >= 5) or ((N > 9) and (N < 21)):
         return "ов"
     return "ов"
-
-
-if __name__ == "__main__":
-    while True:
-        talk(aloud=True)

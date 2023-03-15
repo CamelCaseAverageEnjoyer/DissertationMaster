@@ -117,17 +117,30 @@ def plot_params_while_main(filename: str):
         for i in range(len(dr[id_app]) - 1):
             axs[0].plot([t[id_app][i], t[id_app][i+1]], np.array([dr[id_app][i], dr[id_app][i+1]]),
                         c=clr[2 * id_app + 2 * m[id_app][i]])
-        axs[0].plot(t[id_app], np.zeros(len(t[id_app])), c='khaki')
         axs[1].plot(t[id_app], [1 for _ in range(len(t[id_app]))], c='gray')
         axs[2].plot(range(len(a[id_app])), a[id_app], c='c')
-        axs[0].plot(range(len(a[id_app])), np.zeros(len(a[id_app])), c='khaki')
+        axs[0].plot(t[id_app], np.zeros(len(t[id_app])), c='khaki')
+        axs[2].plot(range(len(a[id_app])), np.zeros(len(a[id_app])), c='khaki')
     id_app = 0
-    axs[1].plot(t[id_app], np.array(w[id_app]) / o.w_max, c='teal', label='w')
-    axs[1].plot(t[id_app], np.array(j[id_app]) / o.j_max, c='tan', label='угол')
-    axs[1].plot(t[id_app], np.array(V[id_app]) / o.V_max, c='g', label='V')
-    axs[1].plot(t[id_app], np.array(R[id_app]) / o.R_max, c='brown', label='R')
+    clr = [['skyblue', 'bisque', 'palegreen', 'darksalmon'], ['teal', 'tan', 'g', 'brown']]
+    axs[1].plot([t[id_app][0], t[id_app][1]], [np.array(w[id_app][0]) / o.w_max, np.array(w[id_app][1]) /
+                                                 o.w_max], c=clr[1][0], label='w')
+    axs[1].plot([t[id_app][0], t[id_app][1]], [np.array(j[id_app][0]) / o.j_max, np.array(j[id_app][1]) /
+                                                 o.j_max], c=clr[1][1], label='угол')
+    axs[1].plot([t[id_app][0], t[id_app][1]], [np.array(V[id_app][0]) / o.V_max, np.array(V[id_app][1]) /
+                                                 o.V_max], c=clr[1][2], label='V')
+    axs[1].plot([t[id_app][0], t[id_app][1]], [np.array(R[id_app][0]) / o.R_max, np.array(R[id_app][1]) /
+                                                 o.R_max], c=clr[1][3], label='R')
+    for i in range(len(t[id_app]) - 1):
+        axs[1].plot([t[id_app][i], t[id_app][i+1]], [np.array(w[id_app][i]) / o.w_max, np.array(w[id_app][i+1]) /
+                                                     o.w_max], c=clr[m[id_app][i]][0])
+        axs[1].plot([t[id_app][i], t[id_app][i+1]], [np.array(j[id_app][i]) / o.j_max, np.array(j[id_app][i+1]) /
+                                                     o.j_max], c=clr[m[id_app][i]][1])
+        axs[1].plot([t[id_app][i], t[id_app][i+1]], [np.array(V[id_app][i]) / o.V_max, np.array(V[id_app][i+1]) /
+                                                     o.V_max], c=clr[m[id_app][i]][2])
+        axs[1].plot([t[id_app][i], t[id_app][i+1]], [np.array(R[id_app][i]) / o.R_max, np.array(R[id_app][i+1]) /
+                                                     o.R_max], c=clr[m[id_app][i]][3])
 
-    # axs[0].legend()
     axs[1].legend()
 
     if filename != '[Название]':

@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 
 def package_beams(N, h):
     ast = 2 * h / np.sqrt(3)
-    x = np.linspace(0., 5., N)
-    y = np.linspace(0., 5., N)
+    x = np.zeros(N)
+    y = np.zeros(N)
     flag = 0
     count = 0
     max_count = 0
@@ -52,7 +52,7 @@ def package_beams(N, h):
 
 
 class Structure(object):
-    def __init__(self, choice: str = '1', complete: bool = False, floor: int = 5, mass_per_length: float = 1.,
+    def __init__(self, choice: str = '1', complete: bool = False, floor: int = 25, mass_per_length: float = 1.,
                  testing=False):
         if floor < 1:
             raise "Поменяй параметры конструкции: floor должен быть равным 1 или больше"
@@ -271,7 +271,8 @@ class Structure(object):
             self.id = np.array(self.id)
             self.r1 = np.array(self.r1)
             self.r2 = np.array(self.r2)
-            self.id_node = np.array([np.array([self.id_node_1[i], self.id_node_2[2]]) for i in range(self.n_nodes)])
+            self.id_node = np.array([np.array([int(self.id_node_1[i]), int(self.id_node_2[2])])
+                                     for i in range(self.n_nodes)])
             self.flag = np.array([np.array([int(complete)] * 2) for i in range(self.n_beams)])
             self.length = np.array([np.linalg.norm(self.r1[i] - self.r2[i]) for i in range(self.n_beams)])
             self.container_length = np.max(self.length) + 0.1
@@ -367,14 +368,14 @@ class Container(object):
             self.id = np.arange([0])
             self.mass = np.array([5])
             self.diam = np.array([0.5])
-            self.r1 = np.array([np.array([5., 0., 0.])])
-            self.r2 = np.array([np.array([10., 0., 0.])])
+            self.r1 = np.array([np.array([10., 0., 0.])])
+            self.r2 = np.array([np.array([15., 0., 0.])])
             self.flag_grab = np.array([True])
 
         if choice == '1':
             self.n = 7
             self.id = np.arange(self.n)
-            self.mass = np.array([5., 1., 1., 1., 1., 1., 1.])
+            self.mass = np.array([10.] + [1.] * 6)
             self.diam = np.array([5.0, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
             self.r1 = np.array([np.array([0.0, 0.0, 0.0]),
                                 np.array([-s.x_start / 2, 1.0, 6.0]),
