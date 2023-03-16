@@ -3,7 +3,7 @@ from mylibs.im_sample import *
 import scipy
 
 
-def call_crash_internal_func(r, r1, r2, diam, return_force=False):
+def call_crash_internal_func(r, r1, r2, diam, return_force=False, k_av=None):
     """ Дополнительная функция для функции call_crash; \n
     Проверяет наличие точки r в цилиндре с концами r1,r2, диаметром diam; \n
     Возвращает {True,False} соответственно при отсутствии и наличии. """
@@ -24,7 +24,7 @@ def call_crash_internal_func(r, r1, r2, diam, return_force=False):
     f2 = np.dot(a, b) / (np.linalg.norm(b) * diam)
 
     if return_force:
-        return forсe_from_beam(a, diam, n, tau, b, f0, f1, f2)
+        return forсe_from_beam(a, diam, n, tau, b, f0, f1, f2, k_av)
     if not ((f0 > -1) and (f0 < 1) and (f1**2 + f2**2 < 1)):
         return False
     return True
@@ -126,6 +126,7 @@ def call_inertia(o, id_s=np.array([]), app_y=None, app_n=None):
             for j in range(3):
                 J[i][j] += m[k] * (
                         kronoker(i, j) * (r[k][0] ** 2 + r[k][1] ** 2 + r[k][2] ** 2) - r[k][i] * r[k][j])
+
     return J, np.array(r_mass_center)
 
 
@@ -180,7 +181,7 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False)
         o_lcl.repulsion_change_params(id_app=id_app, u0=u)
 
     f_min = o_lcl.S @ o_lcl.get_discrepancy(id_app=id_app, vector=True) if interaction else \
-            o_lcl.get_discrepancy(id_app=id_app, vector=True)
+        o_lcl.get_discrepancy(id_app=id_app, vector=True)
 
     # Iterations
     for i in range(int(T_max // o_lcl.dt)):
@@ -252,45 +253,30 @@ def f_to_capturing(u, *args):
         o.mu_e * (e_w/o.w_max + e_V/o.V_max + e_R/o.R_max + e_j/o.j_max)
     if return_to_shooting_method:
         return anw, np.linalg.norm(dr)
-    # print(f"Точность:{np.linalg.norm(dr)}, целевая функция {np.linalg.norm(anw)}")
     return np.linalg.norm(anw)
 
 
 def f_to_detour(u, *args):
     o, T_max, id_app, interaction, return_vec = args
+    print(f"скорость: {np.linalg.norm(u)}")
     u = o.cases['repulse_vel_control'](u)
     dr, dr_average, w, V, R, j, n_crashes = calculation_motion(o, u, T_max, id_app, interaction=interaction)
 
     if (o.w_max - w > 0) and (o.V_max - V > 0) and (o.R_max - R > 0) and (o.j_max - j > 0):  # Constraint's fulfillment
         anw = dr - o.mu_ipm * (np.log(o.w_max - w) + np.log(o.V_max - V) +
                                np.log(o.R_max - R) + np.log(o.j_max - j)) + \
-              np.array([1e50, 1e50, 1e50]) * n_crashes
+              np.array([1e3, 1e3, 1e3]) * n_crashes
     else:
-        anw = np.array([1e5, 1e5, 1e5]) * \
+        anw = np.array([1e2, 1e2, 1e2]) * \
               (clip(10*(w - o.w_max), 0, 1) + clip(10*(V - o.V_max), 0, 1) +
                clip(1e-1 * (R - o.R_max), 0, 1) + clip(1e-2 * (j - o.j_max), 0, 1)) + \
-              np.array([1e50, 1e50, 1e50]) * n_crashes
+              np.array([1e3, 1e3, 1e3]) * n_crashes
     if return_vec:
         return anw
     return np.linalg.norm(anw)
 
 
-def find_repulsion_velocity(o, id_app: int, target=None, interaction: bool = True):
-    # Initialization
-    if interaction:
-        target = o.a.target[id_app] if target is None else target
-        tmp = target - np.array(o.o_b(o.a.r[id_app]))
-    else:
-        target = o.b_o(o.a.target[id_app]) if target is None else target
-        tmp = o.b_o(target) - np.array(o.a.r[id_app])
-    u = o.u_min * tmp / np.linalg.norm(tmp)
-
-    # Solution
-    def cons_f(x):
-        return np.linalg.norm(x)
-
-    nonlinear_constraint = scipy.optimize.NonlinearConstraint(fun=cons_f, lb=o.u_min, ub=o.u_max)
-
+def find_repulsion_velocity(o, id_app: int, target=None, interaction: bool = True, method: str = 'trust-constr'):
     if interaction and not o.control or not interaction:
         func = f_to_capturing
         tol = o.d_to_grab
@@ -299,10 +285,25 @@ def find_repulsion_velocity(o, id_app: int, target=None, interaction: bool = Tru
         func = f_to_detour
         tol = o.a.r_0[0]
         o.my_print(f"Огибание: tol={tol}, cont={o.s.container_length}", test=True)
-    mtd = 'trust-constr'  # 'SLSQP' 'TNC'
-    opt = {'verbose': 3, 'xtol': o.u_max * o.k_u, 'gtol': tol}
-    res = scipy.optimize.minimize(func, u, args=(o, o.T_max, id_app, interaction, False), tol=tol, method=mtd,
-                                  constraints=nonlinear_constraint, options=opt)
+
+    if interaction:
+        target = o.a.target[id_app] if target is None else target
+        tmp = target - np.array(o.o_b(o.a.r[id_app]))
+    else:
+        target = o.b_o(o.a.target[id_app]) if target is None else target
+        tmp = o.b_o(target) - np.array(o.a.r[id_app])
+    u = o.u_min * tmp / np.linalg.norm(tmp)
+    mtd = method  # 'SLSQP' 'TNC' 'trust-constr'
+    opt = {'verbose': 3, 'xtol': o.u_max, 'gtol': tol}  # ,
+    T_max = 2 * (np.linalg.norm(tmp) / o.u_min)
+
+    nonlinear_constraint = scipy.optimize.NonlinearConstraint(fun=lambda x: np.linalg.norm(x), lb=o.u_min, ub=o.u_max)
+    res = scipy.optimize.minimize(func, u, args=(o, T_max, id_app, interaction, False),
+                                  tol=tol, method=mtd, options=opt,
+                                  bounds=((0, o.u_max), (0, o.u_max), (0, o.u_max)),
+                                  constraints={'type': 'ineq',
+                                               'fun': lambda x: (np.linalg.norm(x) - o.u_min) / (o.u_max - o.u_min)})
+    # constraints=nonlinear_constraint
     u = o.cases['repulse_vel_control'](res.x)
     # u = res.x
     return u
@@ -343,7 +344,7 @@ def calc_shooting(o, id_app, r_right, interaction=True):
         dr_y, _ = f_to_capturing(u + u_i[:, 1], o, T_max, id_app, interaction, True)
         dr_z, _ = f_to_capturing(u + u_i[:, 2], o, T_max, id_app, interaction, True)
         o.my_print(f"Точность пристрелки {tol}, разрешённое время {T_max} секунд", mode=None)
-        if tol < o.d_to_grab*0.98:  # and not (c or cx or cy or cz):
+        if o.d_to_grab is not None and tol < o.d_to_grab*0.98:  # and not (c or cx or cy or cz):
             break
 
         Jacobian = np.array([[dr_x[0] - dr[0], dr_y[0] - dr[0], dr_z[0] - dr[0]],
@@ -375,9 +376,7 @@ def repulsion(o, id_app, u_a_priori=None):
     -> o - AllObjects класс                                                     \n
     -> id_app - номер аппарата                                                  \n
     -> u_a_priori - заданный вектор скорости (для отладки управления)"""
-
     # Параметры до отталкивания
-    J_p, r_center_p = call_inertia(o, o.taken_beams, app_y=id_app)
     o.taken_beams_p = o.taken_beams.copy()
 
     # Алгоритм выбора цели
@@ -418,8 +417,8 @@ def repulsion(o, id_app, u_a_priori=None):
     o.flag_vision[id_app] = False
 
     u0 = u_a_priori if (u_a_priori is not None) else \
-        find_repulsion_velocity(o=o, id_app=id_app, target=r_1, interaction=True)
-    # calc_shooting(o=o, id_app=id_app, r_right=r_1, interaction=True)
+        (calc_shooting(o=o, id_app=id_app, r_right=r_1, interaction=True) if o.method == 'shooting' else
+         find_repulsion_velocity(o=o, id_app=id_app, target=r_1, interaction=True))
 
     o.repulsion_change_params(id_app=id_app, u0=u0)
 

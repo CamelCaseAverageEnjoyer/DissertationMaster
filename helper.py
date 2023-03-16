@@ -1,5 +1,5 @@
-from all_objects import *
+from mylibs.result_show_functions import *
 
-a = np.array([1., 2., 3.])
-b = np.array([0.1, 0.2, 0.3])
-print(a * b)
+# reader_avoid_field_params_search
+_ = plot_avoid_field_params_search()
+# plot_repulsion_error()

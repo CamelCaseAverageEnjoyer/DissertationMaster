@@ -45,6 +45,7 @@ class AllProblemObjects(object):
 
                  choice='3',                    # Тип конструкции
                  choice_complete=False,         # Уже собранная конструкция (для отладки)
+                 floor=5,
 
                  if_talk=True,                  # Мне было скучно
                  if_multiprocessing=True,       # Многопроцессорность
@@ -58,10 +59,12 @@ class AllProblemObjects(object):
 
                  k_p=1e-4,                      # Коэффициент ПД-регулятора
                  k_u=1e-1,                      # Коэффициент разброса скорости
+                 k_av=1e-5,                     # Коэффициент при поле отталкивания
                  s=None,                        # готовый объект класса Structure
                  c=None,                        # готовый объект класса Container
                  a=None,                        # готовый объект класса Apparatus
                  file_reset=False,
+                 method='trust-const',
                  La=np.array(q_dot([1/np.sqrt(2), 1/np.sqrt(2), 0., 0.], [1/np.sqrt(2), 0., 1/np.sqrt(2), 0.]))):
 
         # Init
@@ -125,17 +128,15 @@ class AllProblemObjects(object):
         self.k_p = k_p
         self.k_d = kd_from_kp(k_p)
         self.k_u = k_u
+        self.k_av = k_av
         self.La = La
 
         self.choice = choice
         if s is None:
-            self.s, self.c, self.a = get_all_components(choice=choice, complete=choice_complete, n_app=N_apparatus)
+            self.s, self.c, self.a = get_all_components(choice=choice, complete=choice_complete, n_app=N_apparatus,
+                                                        floor=floor)
             if file_reset:
                 f = open(self.file_name, 'w')
-                f.close()
-            else:
-                f = open(self.file_name, 'a')
-                f.write("--------------------------------------\n")
                 f.close()
         else:
             self.s = s
@@ -175,6 +176,8 @@ class AllProblemObjects(object):
         self.e = np.zeros(3)
         self.tg_tmp = np.array([100., 0., 0.])
         self.flag_vision = [False for _ in range(self.N_app)]
+
+        self.method = method
 
         # Выбор значений в зависимости от аргументов
         self.cases = dict({'diff_vel_control': lambda a, cnd: ((a if np.linalg.norm(a) < self.u_max else
@@ -576,5 +579,7 @@ class AllProblemObjects(object):
         slf.w = copy.deepcopy(self.w)
         slf.Om = copy.deepcopy(self.Om)
         slf.tg_tmp = copy.deepcopy(self.tg_tmp)
+
+        slf.method = self.method
 
         return slf

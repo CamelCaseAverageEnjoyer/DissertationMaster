@@ -10,15 +10,14 @@ def velocity_spread(u, k_u):
 def kd_from_kp(k):
     return 2 * np.sqrt(k)
 
-def forсe_from_beam(a, diam, n, tau, b, f0, f1, f2):
+def forсe_from_beam(a, diam, n, tau, b, f0: float, f1: float, f2: float, k_av: float = 1e-5):
     """Возвращает в ССК!"""
-    rate = 1e-5
     if (f0 > -1) and (f0 < 1):
         a1 = a - f0 * n / 2
     else:
         a1 = a - np.sign(f0) * n / 2
         # tmp = rate * / (np.linalg.norm(a1) - np.linalg.norm(n)/2)**5  # **5  # np.sqrt
-    tmp = rate / (np.linalg.norm(a1) - diam) ** 5  # np.sqrt
+    tmp = k_av / (np.linalg.norm(a1) - diam) ** 5  # np.sqrt
     return a1 / np.linalg.norm(a1) * tmp
 
 

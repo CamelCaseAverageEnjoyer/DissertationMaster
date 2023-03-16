@@ -52,10 +52,11 @@ def package_beams(N, h):
 
 
 class Structure(object):
-    def __init__(self, choice: str = '1', complete: bool = False, floor: int = 25, mass_per_length: float = 1.,
+    def __init__(self, choice: str = '1', complete: bool = False, floor: int = 5, mass_per_length: float = 1.,
                  testing=False):
         if floor < 1:
             raise "Поменяй параметры конструкции: floor должен быть равным 1 или больше"
+        self.floor = floor
         self.choice = choice
         self.container_length = 12.
         self.h = 0.15
@@ -144,8 +145,11 @@ class Structure(object):
             self.mass = self.length * mass_per_length
             if choice != '1':
                 self.flag = np.array([np.array([int(complete), int(complete)]) for _ in range(self.n_beams)])
-                self.r_st = np.array([np.array([-self.x_start - self.container_length + self.length[i], y_st[i], z_st[i]])
-                                      for i in range(self.n_beams)])
+                self.r_st = np.array([np.array([-self.x_start - self.container_length + self.length[i],
+                                                y_st[i], z_st[i]]) for i in range(self.n_beams)])
+            # УДАЛИТЬ
+            '''for j in range(100):
+                self.flag[j] = np.array([1, 1])'''
 
         if choice == '3':
             length = 5
@@ -308,7 +312,7 @@ class Structure(object):
         check_length()
 
     def copy(self):
-        s = Structure(choice=self.choice)
+        s = Structure(choice=self.choice, floor=self.floor)
         s.n_beams = self.n_beams
         s.x_start = self.x_start
         s.n_nodes = self.n_nodes
@@ -530,9 +534,10 @@ class Apparatus(object):
         return a
 
 
-def get_all_components(choice: str = '1', testing: bool = False, complete=False, n_app=1):
+def get_all_components(choice: str = '1', testing: bool = False, complete: bool = False, n_app: int = 1,
+                       floor: int = 5):
     """Функция инициализирует классы конструкции и аппаратов"""
-    s = Structure(choice=choice, testing=testing, complete=complete)
+    s = Structure(choice=choice, testing=testing, complete=complete, floor=floor)
     c = Container(s=s, choice=choice)
     a = Apparatus(s, n=n_app)
     return s, c, a

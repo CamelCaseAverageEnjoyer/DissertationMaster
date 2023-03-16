@@ -62,8 +62,7 @@ def plot_params_while_main0():
 
 
 def plot_a_avoid0():
-    global entry_t3
-    plot_a_avoid(entry_t3.get())
+    plot_a_avoid()
 
 
 def copy_k_p():
@@ -77,7 +76,7 @@ def copy_k_p():
 
 def click_button_plot():
     global root, entry_main, dt, N
-    global label1, entry1, label2, entry2, label3, entry3, entry_t2, entry_t3
+    global label1, entry1, label2, entry2, label3, entry3, entry_t2
     global label_t1, back_yes, back_run
     root = Tk()
     root.title("Проект Г.И.Б.О.Н.: показательные результаты")
@@ -137,6 +136,18 @@ def click_button_plot():
     btn1.grid(row=row_count, column=2, padx='7', pady='7')
     label1.grid(row=row_count, column=3, padx='7', pady='7')
 
+    def create_result_show_button(name: str, ):
+        btn = Button(frame_buttons, text="Подбор к-в ПД-регулятора", command=pd_control_params_search0,
+                        image=photo_operation, compound=LEFT)
+        label = ttk.Label(frame_buttons, text="Не начато", background="#9E9E9E", foreground="#E0EEE0", padding=8,
+                             width=30)
+        btn_copy = Button(frame_buttons, text="Ctrl-C", command=copy_k_p)
+        b_s1 = Label(frame_buttons, image=img_stat)
+        btn_t1.grid(row=row_count, column=4, padx='7', pady='7', sticky=EW)
+        label_t1.grid(row=row_count, column=5, padx='7', pady='7', sticky=NSEW)
+        btn_t1_copy.grid(row=row_count, column=6, padx='7', pady='7', sticky=EW)
+        b_s1.grid(row=row_count, column=7, sticky=W)
+
     btn_t1 = Button(frame_buttons, text="Подбор к-в ПД-регулятора", command=pd_control_params_search0, image=photo_operation, compound=LEFT)
     label_t1 = ttk.Label(frame_buttons, text="Не начато", background="#9E9E9E", foreground="#E0EEE0", padding=8, width=30)
     btn_t1_copy = Button(frame_buttons, text="Ctrl-C", command=copy_k_p)
@@ -176,10 +187,8 @@ def click_button_plot():
     label3.grid(row=row_count, column=3, padx='7', pady='7')
 
     btn_t3 = Button(frame_buttons, text="Эпюра огибающих ускорений", command=plot_a_avoid0, image=photo_operation, compound=LEFT)
-    entry_t3 = EntryWithPlaceholder(frame_buttons, '[Название]')
     b_s3 = Label(frame_buttons, image=img_stat)
     btn_t3.grid(row=row_count, column=4, padx='7', pady='7', sticky=EW)
-    entry_t3.grid(row=row_count, column=5, padx='7', pady='7')
     b_s3.grid(row=row_count, column=7, sticky=W)
 
     ############################################################################################

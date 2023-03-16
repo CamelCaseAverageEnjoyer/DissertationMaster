@@ -115,5 +115,7 @@ def create_choice(name: str, default_value: str, n_row: int, n_vars: int, cmd, f
     label_choice_extra.grid(row=n_row, rowspan=4, column=2, padx='7', pady='7')
     return n_row + n_vars, choice, label_choice, label_choice_extra, img_label
 
+
+
 def get_simple_label(name: str, frame):
     return ttk.Label(frame, text=name, background="#828282", foreground="#E0EEE0", padding=8, width=20)
