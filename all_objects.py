@@ -60,6 +60,7 @@ class AllProblemObjects(object):
                  k_p=1e-4,                      # Коэффициент ПД-регулятора
                  k_u=1e-1,                      # Коэффициент разброса скорости
                  k_av=1e-5,                     # Коэффициент при поле отталкивания
+                 k_ac=0.,                       # Коэффициент паразитного ускорения
                  s=None,                        # готовый объект класса Structure
                  c=None,                        # готовый объект класса Container
                  a=None,                        # готовый объект класса Apparatus
@@ -129,6 +130,7 @@ class AllProblemObjects(object):
         self.k_d = kd_from_kp(k_p)
         self.k_u = k_u
         self.k_av = k_av
+        self.k_ac = k_ac
         self.La = La
 
         self.choice = choice
@@ -164,18 +166,20 @@ class AllProblemObjects(object):
         self.tmp_numer_frame = 0
 
         self.C_R = get_c_hkw(self.R, np.zeros(3), self.w_hkw)
-        self.C_r = [get_c_hkw(self.a.r[i], self.a.v[i], self.w_hkw) for i in range(self.N_app)]
+        self.C_r = [get_c_hkw(self.a.r[i], self.a.v[i], self.w_hkw) for i in range(self.a.n)]
 
-        self.v_p = [np.zeros(3) for _ in range(N_apparatus)]
-        self.dr_p = [np.zeros(3) for _ in range(N_apparatus)]
-        self.a_orbital = [np.zeros(3) for _ in range(N_apparatus)]  # Ускорение
+        self.v_p = [np.zeros(3) for _ in range(self.a.n)]
+        self.dr_p = [np.zeros(3) for _ in range(self.a.n)]
+        self.a_orbital = [np.zeros(3) for _ in range(self.a.n)]  # Ускорение
         self.A_orbital = np.zeros(3)  # Ускорение
-        self.a_self = [np.zeros(3) for _ in range(self.N_app)]  # Ускорение
+        self.a_self = [np.zeros(3) for _ in range(self.a.n)]  # Ускорение
+        self.a_wrong = np.random.rand(3)
+        self.a_wrong = k_ac * self.a_wrong / np.linalg.norm(self.a_wrong)
         self.w = np.zeros(3)
         self.Om = self.U.T @ self.w + self.W_hkw
         self.e = np.zeros(3)
         self.tg_tmp = np.array([100., 0., 0.])
-        self.flag_vision = [False for _ in range(self.N_app)]
+        self.flag_vision = [False for _ in range(self.a.n)]
 
         self.method = method
 
@@ -241,8 +245,8 @@ class AllProblemObjects(object):
                          2 * self.w_hkw * rv[3] + 3 * self.w_hkw ** 2 * rv[2]])
 
     def rv_right_part(self, rv, a):
-        a_orbit = self.orbital_acceleration(rv)
-        return np.array([rv[3], rv[4], rv[5], a_orbit[0] + a[0], a_orbit[1] + a[1], a_orbit[2] + a[2]])
+        a_ext = self.orbital_acceleration(rv) + self.a_wrong
+        return np.array([rv[3], rv[4], rv[5], a_ext[0] + a[0], a_ext[1] + a[1], a_ext[2] + a[2]])
 
     def rk4_acceleration(self, r, v, a):
         rv = np.append(r, v)

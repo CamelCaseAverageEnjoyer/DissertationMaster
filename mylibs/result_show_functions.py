@@ -3,52 +3,75 @@ from vedo import *
 from datetime import datetime
 
 
-def pd_control_params_search(dt=1., N=5, T_max=2000., k_min=1e-4, k_max=1e-2):
-    filename = 'storage/pid_koeff.txt'
-    f = open(filename, 'w')
+def reader_pd_control_params(name: str = ''):
+    filename = 'storage/pid_koeff_' + name + '.txt'
+    f = open(filename, 'r')
+    k_p, k_a, tol, col = ([], [], [], [])
+    for line in f:
+        lst = line.split()
+        k_p += float(lst[0])
+        k_a += float(lst[1])
+        tol += float(lst[2])
+        col += int(lst[3])
     f.close()
-    k_p_list = np.exp(np.linspace(np.log(k_min), np.log(k_max), N))  # Logarithmic scale
-    tolerance_list = []
+
+    clr = ['skyblue', 'orchid']
+    plt.title("Подбор коэффициентов ПД-регулятора")
+    for i in range(len(tol)):
+        plt.scatter(k_p[i], tol[i], c=clr[col[i]])
+    plt.show()
+
+def pd_control_params_search(name: str = '', dt=5., n_p=5, n_a=5, T_max=1000., k_min=1e-4, k_max=1e-2):
+    """Функция ищет смысл жизни(его нет) / зависимость невязки/столкновения от """
+    k_p_list = np.exp(np.linspace(np.log(k_min), np.log(k_max), n_p))  # Logarithmic scale
+    k_ac_list = [0.01, 0.02, 0.05, 0.1, 0.2]
+    k_p_best = 0
+    tolerance_best = 1e5
+
+    filename = 'storage/pid_koeff_' + name + '.txt'
+    f = open(filename, 'w')
     start_time = datetime.now()
     tmp_count = 0
     collide = False
 
     for k_p in k_p_list:
-        tmp_count += 1
-        id_app = 0
-        tolerance = None
-        print(Fore.CYAN + f'Подбор ПД-к-в: {tmp_count}/{N}; время={datetime.now() - start_time}' + Style.RESET_ALL)
-        o = AllProblemObjects(if_PID_control=True,
-                              dt=dt, k_p=k_p,
-                              T_max=T_max,
-                              if_talk=False,
-                              if_any_print=False,
-                              choice='3')
+        tol_count = 0.
+        for k_a in k_ac_list:
+            for _ in range(n_a):
+                tmp_count += 1
+                id_app = 0
+                tolerance = None
+                print(Fore.CYAN + f'Подбор ПД-к-в: {tmp_count}/{n_p * n_a * len(k_ac_list)};'
+                                  f' время={datetime.now() - start_time}' + Style.RESET_ALL)
+                o = AllProblemObjects(if_PID_control=True,
+                                      dt=dt, k_p=k_p, k_ac=k_a,
+                                      T_max=T_max,
+                                      if_talk=False,
+                                      if_any_print=False,
+                                      choice='3')
 
-        for i_time in range(int(T_max // dt)):
-            # Repulsion
-            o.a.loc[id_app, 'busy_time'] -= o.dt if o.a.busy_time[id_app] >= 0 else 0
-            if o.a.flag_fly[id_app] == 0 and o.a.busy_time[id_app] < 0:
-                _ = repulsion(o, id_app, u_a_priori=np.array([0.00749797, 0.00605292, 0.08625441]))
+                for i_time in range(int(T_max // dt)):
+                    # Repulsion
+                    o.a.loc[id_app, 'busy_time'] -= o.dt if o.a.busy_time[id_app] >= 0 else 0
+                    if o.a.flag_fly[id_app] == 0 and o.a.busy_time[id_app] < 0:
+                        _ = repulsion(o, id_app, u_a_priori=np.array([0.00749797, 0.00605292, 0.08625441]))
 
-            o.control_step(id_app)
+                    o.control_step(id_app)
 
-            target_orf = o.b_o(o.a.target[id_app])
-            tmp = (np.linalg.norm(target_orf - np.array(o.a.r[id_app])))
-            collide = collide or call_crash(o, o.a.r[id_app], o.R, o.S, o.taken_beams)
-            if tolerance is None or tmp < tolerance:
-                tolerance = -1 if collide else tmp
-        tolerance_list.append(tolerance)
-        f = open(filename, 'a')
-        f.write(f'{k_p} {tolerance}\n')
-        f.close()
-    plt.title("Подбор коэффициентов ПД-регулятора")
-    plt.plot(k_p_list, tolerance_list, c='#009ACD', label='невязка, м')
-    plt.scatter(k_p_list, tolerance_list, c='#009ACD')
-    plt.legend()
-    plt.show()
-    return k_p_list[np.argmin(tolerance_list)]
-
+                    target_orf = o.b_o(o.a.target[id_app])
+                    tmp = (np.linalg.norm(target_orf - np.array(o.a.r[id_app])))
+                    collide = call_crash(o, o.a.r[id_app], o.R, o.S, o.taken_beams)
+                    if collide:
+                        break
+                tol_count += tolerance
+                f.write(f'{k_p} {k_a} {tolerance} {int(collide)}\n')
+        tol_count /= n_a * len(k_ac_list)
+        if tol_count < tolerance_best:
+            tolerance_best = tol_count
+            k_p_best = k_p
+    f.close()
+    reader_pd_control_params(name=name)
+    return k_p_best
 
 def plot_params_while_main(filename: str):
     f = open('storage/main.txt', 'r')
@@ -166,44 +189,57 @@ def plot_a_avoid(x_boards: list = np.array([-10, 5]), z_boards: list = np.array(
     arrows.append(plot_iterations_new(o).color("silver"))
     show(arrows, __doc__, viewup="z", axes=1, bg='bb', zoom=1, size=(1920, 1080)).close()
 
-def reader_avoid_field_params_search():
-    filename = 'storage/pid_const5_avoiding.txt'
+def reader_avoid_field_params_search(name: str = '', lng: str = 'ru'):
+    # Init
+    filename = 'storage/pid_const5_avoiding_' + name + '.txt'
     f = open(filename, 'r')
-    k_p = []
-    k_a = []
-    res = []
+    k_p, k_a, res = ([], [], [])
     for line in f:
         lst = line.split()
-        k_p.append(float(lst[0]))
-        k_a.append(float(lst[1]))
-        res.append(int(lst[2]))
+        k_p += [float(lst[0])]
+        k_a += [float(lst[1])]
+        res += [int(lst[2])]
     f.close()
-    plt.title("Подбор коэффициентов ПД-регулятора, поля отталкивания")
+
+    # Titles
+    if lng == 'ru':
+        title = "Подбор коэффициентов ПД-регулятора, поля отталкивания"
+        state_list = ['преследование', 'столкновение', 'попадание']
+        xlabel = "коэффициент ПД-регулятора"
+        ylabel = "коэффициент поля уклонения"
+    else:
+        title = ""
+        state_list = ['', 'collision', 'reaching']
+        xlabel = "PD-controller coeffitient"
+        ylabel = "avoiding field coeffitient"
+
+    # Plotting
     clr = ['lightblue', 'deeppink', 'palegreen']
-    state_list = ['преследование', 'столкновение', 'попадание']
-    flag = [False, False, False]
+    flag = [True] * 3
     for i in range(len(res)):
         state = int(res[i] + 1)
-        if not flag[state]:
+        if flag[state]:
             plt.scatter(k_p[i], k_a[i], c=clr[state], label=state_list[state])
-            flag[state] = True
+            flag[state] = False
         else:
             plt.scatter(k_p[i], k_a[i], c=clr[state])
         print(k_p[i], k_a[i], state)
+    plt.title(title)
     plt.yscale("log")
     plt.xscale("log")
-    plt.xlabel('коэффициент ПД-регулятора')
-    plt.xlabel('коэффициент поля уклонения')
+    plt.xlabel(xlabel)
+    plt.xlabel(ylabel)
     plt.legend()
     plt.show()
 
-def plot_avoid_field_params_search(dt=1., N=5, T_max=1000., k_p_min=1e-4, k_p_max=1e-2, k_a_min=1e-5, k_a_max=1e-3):
+def plot_avoid_field_params_search(name: str = '', dt=1., N=30, T_max=1000., k_p_min=1e-4, k_p_max=1e-3,
+                                   k_a_min=1e-8, k_a_max=1e-1):
     """Фунция тестит коэффициенты ПД-регулятора и коэффициент отталкивания на конструкции 5.
     Результат - точки на пространстве {k_PD, k_avoid}, разделящиеся на классы:
     -> попадание в цель res=1
     -> столкновение res=0
     -> преследование res=-1"""
-    filename = 'storage/pid_const5_avoiding.txt'
+    filename = 'storage/pid_const5_avoiding_' + name + '.txt'
     f = open(filename, 'w')
     f.close()
     k_p_list = np.exp(np.linspace(np.log(k_p_min), np.log(k_p_max), N))  # Logarithmic scale
@@ -228,7 +264,7 @@ def plot_avoid_field_params_search(dt=1., N=5, T_max=1000., k_p_min=1e-4, k_p_ma
             for i_time in range(int(T_max // dt)):
                 # Repulsion
                 if o.a.flag_fly[id_app] == 0:
-                    _ = repulsion(o, id_app, u_a_priori=np.array([0.3, 0., 0.]))
+                    _ = repulsion(o, id_app, u_a_priori=np.array([random.uniform(0.1, 0.5), 0., 0.]))
 
                 # Control
                 o.time_step()
@@ -246,11 +282,11 @@ def plot_avoid_field_params_search(dt=1., N=5, T_max=1000., k_p_min=1e-4, k_p_ma
             f.write(f'{k_p} {k_a} {res}\n')
             print(f"{k_p} {k_a} {res}")
             f.close()
-    reader_avoid_field_params_search()
+    reader_avoid_field_params_search(name=name)
 
-def plot_repulsion_error(N: int = 3, dt: float = 5., T_max: float = 1000.):
+def plot_repulsion_error(name: str = '', N: int = 3, dt: float = 5., T_max: float = 1000.):
     start_time = datetime.now()
-    filename = 'storage/repulsion_error.txt'
+    filename = 'storage/repulsion_error_' + name + '.txt'
     f = open(filename, 'w')
     k_u_list = [0.01, 0.02, 0.05, 0.1, 0.2]
     errors = [[[] for _ in range(4)] for _ in range(len(k_u_list))]
@@ -290,6 +326,3 @@ def plot_repulsion_error(N: int = 3, dt: float = 5., T_max: float = 1000.):
     plt.legend()
     plt.show()
     f.close()
-
-def plot_acceleration_error(dt=1., T_max=1000.):
-    k_ac_list = [0.01, 0.02, 0.05, 0.1, 0.2]

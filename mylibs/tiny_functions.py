@@ -17,7 +17,7 @@ def forсe_from_beam(a, diam, n, tau, b, f0: float, f1: float, f2: float, k_av: 
     else:
         a1 = a - np.sign(f0) * n / 2
         # tmp = rate * / (np.linalg.norm(a1) - np.linalg.norm(n)/2)**5  # **5  # np.sqrt
-    tmp = k_av / (np.linalg.norm(a1) - diam) ** 5  # np.sqrt
+    tmp = k_av / (np.linalg.norm(a1) - diam) ** 2  # np.sqrt
     return a1 / np.linalg.norm(a1) * tmp
 
 

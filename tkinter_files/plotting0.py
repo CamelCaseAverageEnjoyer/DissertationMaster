@@ -51,7 +51,7 @@ def pd_control_params_search0():
     global label_t1, back_yes, back_run, dt, T_max, N, k_p
     label_t1["background"] = back_run
     label_t1["text"] = "Смотри график"
-    k_p = pd_control_params_search(dt=dt, T_max=T_max, N=N)
+    k_p = pd_control_params_search(dt=dt, T_max=T_max, n_p=N)
     label_t1["background"] = back_yes
     label_t1["text"] = f"k={k_p}"
 

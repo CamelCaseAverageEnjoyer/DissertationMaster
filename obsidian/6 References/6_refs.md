@@ -1,0 +1,5 @@
+[[OnOrbitAssembly_0.pdf | [1] ]] Piskorz D, Jones K. On-orbit assembly of space assets: A path to affordable and adaptable space infrastructure. The Aerospace Corporation 2018.
+[[STRATEGIES FOR ON-ORBIT ASSEMBLY OF MODULAR SPACECRAFT.pdf | [2] ]] Gralla E., De Weck O. Strategies for on-orbit assembly of modular spacecraft. JBIS, vol. 60, 2007. pp. 219–227.
+[[Autonomous_In-Orbit_Satellite_Assembly_from_a_Modu.pdf | [3] ]] Rebecca C. Foust, E. Sorina Lupu, Yashwanth K. Nakka, Soon-Jo Chung, Fred Y. Hadaegh "Autonomous in-orbit satellite assembly from a modular heterogeneous swarm" // Acta Astronautica. Sci. 2020. Vol. 44.
+[[Tutorial_Review_on_Space_Manipulators_for_Space_De.pdf | [4] ]] Ellery A. Tutorial review on space manipulators for space debris mitigation. Robotics. Sci. 2019. Vol. 52.
+[5] Clohessy W.H., Wiltshire R.S. Terminal Guidance System for Satellite Rendezvous. Astronaut. Sci. 1960. Vol. 27, № 9. pp. 653–678.
