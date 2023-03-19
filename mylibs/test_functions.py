@@ -22,7 +22,7 @@ def test_full_energy(order, w=0.001, dt=1., T_max=1000.):
     E_list = [E_0]
     t = [0.]
     for i in range(int(T_max/dt)):
-        o.time_step(i * dt)
+        o.time_step()
         if i % 10 == 0:
             T.append(o.get_kinetic_energy())
             U.append(o.get_potential_energy() - U0)
@@ -54,7 +54,7 @@ def test_rotation(order, o=None, dt=1., w=0.001, T_max=1000.):
     o.w = np.array([0, -w, 0])
     o.om_update()
     for i in range(int(T_max/dt)):
-        o.time_step(i * dt)
+        o.time_step()
         if i % 10 == 0:
             for j in range(3):
                 if o.U.T[0][j] > e:
@@ -126,8 +126,8 @@ def test_runge_kutta(order, o=None, dt=1., w=0.001, T_max=1000.):
     c = get_c_hkw(r, v, o.w_hkw)
     for i in range(int(T_max/dt)):
         r, v = o.rk4_acceleration(r, v, [0, 0, 0])
-    r_h = r_hkw(c, o.mu, o.w_hkw, T_max)
-    v_h = v_hkw(c, o.mu, o.w_hkw, T_max)
+    r_h = r_hkw(c, o.w_hkw, T_max)
+    v_h = v_hkw(c, o.w_hkw, T_max)
     for i in range(3):
         if abs(r[i] / r_h[i]) < e:
             result = False

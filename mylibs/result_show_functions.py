@@ -1,30 +1,69 @@
 from all_objects import *
 from vedo import *
 from datetime import datetime
+k_ac_list = [0.01, 0.02, 0.05, 0.1, 0.2]
 
 
-def reader_pd_control_params(name: str = ''):
+def reader_pd_control_params(name: str = '', eps: float = 1e-1, lng: str = 'ru'):
+    global k_ac_list
     filename = 'storage/pid_koeff_' + name + '.txt'
     f = open(filename, 'r')
     k_p, k_a, tol, col = ([], [], [], [])
     for line in f:
         lst = line.split()
-        k_p += float(lst[0])
-        k_a += float(lst[1])
-        tol += float(lst[2])
-        col += int(lst[3])
+        k_p += [float(lst[0])]
+        k_a += [int(lst[1])]
+        tol += [float(lst[2])]
+        col += [int(lst[3])]
     f.close()
 
-    clr = ['skyblue', 'orchid']
-    plt.title("Подбор коэффициентов ПД-регулятора")
+    tol_line = [[] for _ in range(len(k_ac_list))]
+    count = [0 for _ in range(len(k_ac_list))]
+    k_p_max = 0.
+    k_p_list = []
     for i in range(len(tol)):
-        plt.scatter(k_p[i], tol[i], c=clr[col[i]])
+        if k_p_max < k_p[i]:
+            k_p_max = k_p[i]
+            k_p_list += [k_p[i]]
+            for k in range(len(k_ac_list)):
+                if count[k_a[i]] > 0:
+                    tol_line[k][len(k_p_list) - 2] /= count[k]
+                tol_line[k].append(0.)
+            count = [0 for _ in range(len(k_ac_list))]
+        else:
+            tol_line[k_a[i]][len(k_p_list) - 1] += tol[i]
+            count[k_a[i]] += 1
+    for k in range(len(k_ac_list)):
+        tol_line[k][len(k_p_list) - 1] /= count[k]
+
+    if lng == 'ru':
+        title = "Подбор коэффициентов ПД-регулятора"
+        x_label = "Коэффициент k_p"
+        y_label = "Точность"
+    else:
+        title = "PD-controller coeffitient enumeration"
+        x_label = "k_p coeffitient"
+        y_label = "Tolerance"
+
+    clr = [['aqua', 'violet', 'limegreen', 'gold', 'lightcoral'],
+           ['steelblue', 'purple', 'green', 'goldenrod', 'firebrick']]
+    plt.title(title)
+    for i in range(len(k_ac_list)):
+        plt.plot(k_p_list, tol_line[i], c=clr[0][i], label=k_ac_list[i])
+        for kp in k_p_list:
+            plt.plot([kp * (1 + eps * (i - 2))] * 2, [0., 20.], c=clr[0][i])
+    for i in range(len(tol)):
+        plt.scatter(k_p[i] * (1 + eps * (k_a[i] - 2)), tol[i], c=clr[col[i]][k_a[i]])
+    plt.xscale("log")
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
+    plt.legend()
     plt.show()
 
-def pd_control_params_search(name: str = '', dt=5., n_p=5, n_a=5, T_max=1000., k_min=1e-4, k_max=1e-2):
+def pd_control_params_search(name: str = '', dt=1., n_p=5, n_a=20, T_max=1000., k_min=1e-4, k_max=1e-2):
     """Функция ищет смысл жизни(его нет) / зависимость невязки/столкновения от """
+    global k_ac_list
     k_p_list = np.exp(np.linspace(np.log(k_min), np.log(k_max), n_p))  # Logarithmic scale
-    k_ac_list = [0.01, 0.02, 0.05, 0.1, 0.2]
     k_p_best = 0
     tolerance_best = 1e5
 
@@ -36,7 +75,7 @@ def pd_control_params_search(name: str = '', dt=5., n_p=5, n_a=5, T_max=1000., k
 
     for k_p in k_p_list:
         tol_count = 0.
-        for k_a in k_ac_list:
+        for k_a_i in range(len(k_ac_list)):
             for _ in range(n_a):
                 tmp_count += 1
                 id_app = 0
@@ -44,7 +83,7 @@ def pd_control_params_search(name: str = '', dt=5., n_p=5, n_a=5, T_max=1000., k
                 print(Fore.CYAN + f'Подбор ПД-к-в: {tmp_count}/{n_p * n_a * len(k_ac_list)};'
                                   f' время={datetime.now() - start_time}' + Style.RESET_ALL)
                 o = AllProblemObjects(if_PID_control=True,
-                                      dt=dt, k_p=k_p, k_ac=k_a,
+                                      dt=dt, k_p=k_p, k_ac=k_ac_list[k_a_i],
                                       T_max=T_max,
                                       if_talk=False,
                                       if_any_print=False,
@@ -52,19 +91,21 @@ def pd_control_params_search(name: str = '', dt=5., n_p=5, n_a=5, T_max=1000., k
 
                 for i_time in range(int(T_max // dt)):
                     # Repulsion
-                    o.a.loc[id_app, 'busy_time'] -= o.dt if o.a.busy_time[id_app] >= 0 else 0
+                    o.a.busy_time[id_app] -= o.dt if o.a.busy_time[id_app] >= 0 else 0
                     if o.a.flag_fly[id_app] == 0 and o.a.busy_time[id_app] < 0:
-                        _ = repulsion(o, id_app, u_a_priori=np.array([0.00749797, 0.00605292, 0.08625441]))
+                        _ = repulsion(o, id_app, u_a_priori=np.array([-0.00749797, 0.00605292, 0.08625441]))
 
+                    o.time_step()
                     o.control_step(id_app)
 
-                    target_orf = o.b_o(o.a.target[id_app])
-                    tmp = (np.linalg.norm(target_orf - np.array(o.a.r[id_app])))
+                    tmp = o.get_discrepancy(id_app)
                     collide = call_crash(o, o.a.r[id_app], o.R, o.S, o.taken_beams)
+                    if tolerance is None or tolerance > tmp:
+                        tolerance = tmp
                     if collide:
                         break
                 tol_count += tolerance
-                f.write(f'{k_p} {k_a} {tolerance} {int(collide)}\n')
+                f.write(f'{k_p} {k_a_i} {tolerance} {int(collide)}\n')
         tol_count /= n_a * len(k_ac_list)
         if tol_count < tolerance_best:
             tolerance_best = tol_count
@@ -73,7 +114,7 @@ def pd_control_params_search(name: str = '', dt=5., n_p=5, n_a=5, T_max=1000., k
     reader_pd_control_params(name=name)
     return k_p_best
 
-def plot_params_while_main(filename: str):
+def plot_params_while_main(filename: str, trial_episodes: bool = False):
     f = open('storage/main.txt', 'r')
     o = AllProblemObjects()
 

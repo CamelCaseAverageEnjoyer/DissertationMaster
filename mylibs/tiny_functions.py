@@ -13,10 +13,9 @@ def kd_from_kp(k):
 def forсe_from_beam(a, diam, n, tau, b, f0: float, f1: float, f2: float, k_av: float = 1e-5):
     """Возвращает в ССК!"""
     if (f0 > -1) and (f0 < 1):
-        a1 = a - f0 * n / 2
+        a1 = a - f0 * n / 2 if (f1**2 + f2**2 > 1) else np.zeros(3)
     else:
         a1 = a - np.sign(f0) * n / 2
-        # tmp = rate * / (np.linalg.norm(a1) - np.linalg.norm(n)/2)**5  # **5  # np.sqrt
     tmp = k_av / (np.linalg.norm(a1) - diam) ** 2  # np.sqrt
     return a1 / np.linalg.norm(a1) * tmp
 

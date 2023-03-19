@@ -62,12 +62,19 @@ class Icons:
         self.save = PhotoImage(file="icons/save.png").subsample(10, 10)
         self.down = PhotoImage(file="icons/download.png").subsample(10, 10)
         self.next = PhotoImage(file="icons/next.png").subsample(10, 10)
+        self.stat = PhotoImage(file="icons/statistics.png").subsample(10, 10)
+        self.oper = PhotoImage(file="icons/operation.png").subsample(10, 10)
+        self.proc = PhotoImage(file="icons/processing.png").subsample(10, 10)
+        self.anim = PhotoImage(file="icons/animation.png").subsample(10, 10)
         self.app_1 = Image.open("icons/space2.png")
         self.app_1 = self.app_1.resize((50, 50))
         self.plus = Image.open("icons/plus.png")
         self.plus = self.plus.resize((22, 22))
         self.back = PhotoImage(file="icons/back.png").subsample(10, 10)
         self.what = PhotoImage(file="icons/what.png").subsample(10, 10)
+        self.back_yes = "#1E90FF"
+        self.back_no = "#8B5F65"
+        self.back_run = "#483D8B"
 
 def create_check(name: str, default_value: bool, n_row: int, cmd, frame):
     """Добавление флажка на окно                                                                \n
@@ -97,6 +104,7 @@ def create_entry(name: str, default_value: [float, int], n_row: int, cmd, frame)
     entry.grid(row=n_row, column=1, padx='7', pady='7')
     btn.grid(row=n_row, column=2, padx='7', pady='7')
     label.grid(row=n_row, column=3, padx='7', pady='7')
+    btn.bind("<Return>", cmd)
     return n_row + 1, label, entry
 
 def create_choice(name: str, default_value: str, n_row: int, n_vars: int, cmd, frame, size=(230, 150)):
@@ -116,6 +124,9 @@ def create_choice(name: str, default_value: str, n_row: int, n_vars: int, cmd, f
     return n_row + n_vars, choice, label_choice, label_choice_extra, img_label
 
 
-
 def get_simple_label(name: str, frame):
     return ttk.Label(frame, text=name, background="#828282", foreground="#E0EEE0", padding=8, width=20)
+
+def local_label(name: str, n_row: int, n_col: int, column_span: int, frame: any):
+    label = ttk.Label(frame, text=name, background="#828282", foreground="#E0EEE0", padding=8)
+    label.grid(row=n_row, column=n_col, padx='7', pady='7', columnspan=column_span, sticky=EW)

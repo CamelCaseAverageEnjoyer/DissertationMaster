@@ -1,201 +1,134 @@
 from tkinter_files.tk_functions import *
 from mylibs.result_show_functions import *
 import subprocess
-from tkinter import *
-from tkinter import ttk
-global w, dt, T_max, N, k_p
-dt = 1.
-w = 3e-3
-T_max = 1000.
-N = 5
-k_p = 1e-4
+params = {'dt': 10., 'w': 3e-3, 'T_max': 500., 'N': 2, 'k_p': 1e-4}
 
 
-def return_home0():
+def return_home0(event=None):
     from main_interface import return_home
     global root
     root.destroy()
     return_home()
 
-
 def animate_images():
     global entry_main
-    params = entry_main.get().split()
-    name = params[0]
-    framerate = int(params[1])
+    params_local = entry_main.get().split()
+    name = params_local[0]
+    framerate = int(params_local[1])
     subprocess.Popen(["cd", "img"])
     subprocess.call(["ffmpeg", "-f", "image2", "-framerate", framerate, "-start_number", 1, "-i", "gibbon_%04d.png",
                     "-s", "1834x1051", "-b", "v", "10000k", f"../{name}.avi"])
     subprocess.call(["cd", ".."])
 
+def rewrite_dt(event=None):
+    global label_1, entry_1, params
+    params['dt'] = float(entry_1.get())
+    label_1["text"] = f"{params['dt']} секунд"
 
-def rewrite_dt():
-    global label1, entry1, dt
-    dt = float(entry1.get())
-    label1["text"] = f"{dt} секунд"
+def rewrite_t(event=None):
+    global label_2, entry_2, params
+    params['T_max'] = float(entry_2.get())
+    label_2["text"] = f"{params['T_max']} секунд"
 
+def rewrite_n(event=None):
+    global label_3, entry_3, params
+    params['N'] = int(entry_3.get())
+    label_3["text"] = f"{params['N']}"
 
-def rewrite_T():
-    global label2, entry2, T_max
-    T_max = float(entry2.get())
-    label2["text"] = f"{T_max} секунд"
-
-
-def rewrite_N():
-    global label3, entry3, N
-    N = int(entry3.get())
-    label3["text"] = f"{N}"
-
+def rewrite_w(event=None):
+    global label_4, entry_4, params
+    params['w'] = float(entry_4.get())
+    label_4["text"] = f"{params['w']}"
 
 def pd_control_params_search0():
-    global label_t1, back_yes, back_run, dt, T_max, N, k_p
-    label_t1["background"] = back_run
+    global label_t1, params, icons
+    label_t1["background"] = icons.back_run
     label_t1["text"] = "Смотри график"
-    k_p = pd_control_params_search(dt=dt, T_max=T_max, n_p=N)
-    label_t1["background"] = back_yes
-    label_t1["text"] = f"k={k_p}"
-
-
-def plot_params_while_main0():
-    global entry_t2
-    plot_params_while_main(entry_t2.get())
-
-
-def plot_a_avoid0():
-    plot_a_avoid()
-
+    params['k_p'] = pd_control_params_search(dt=params['dt'], T_max=params['T_max'], n_p=params['N'])
+    label_t1["background"] = icons.back_yes
+    label_t1["text"] = f"k={params['k_p']}"
 
 def copy_k_p():
-    # import pyperclip
     import clipboard
-    global k_p
-    # pyperclip.copy(str(k_p))
-    # pyperclip.paste()
-    clipboard.copy(str(k_p))
+    global params
+    clipboard.copy(str(params['k_p']))
 
 
 def click_button_plot():
-    global root, entry_main, dt, N
-    global label1, entry1, label2, entry2, label3, entry3, entry_t2
-    global label_t1, back_yes, back_run
+    global root, entry_main, params, icons
+    global label_1, entry_1, label_2, entry_2, label_3, entry_3, label_4, entry_4
+    global label_t1
     root = Tk()
+    icons = Icons()
+
     root.title("Проект Г.И.Б.О.Н.: показательные результаты")
     root.geometry("1980x1080+0+0")
     root.minsize(1000, 685)
     root.maxsize(1980, 1080)
-    photo_home = PhotoImage(file="icons/home.png").subsample(10, 10)
-    photo_operation = PhotoImage(file="icons/operation.png").subsample(10, 10)
-    photo_processing = PhotoImage(file="icons/processing.png").subsample(10, 10)
-    img_stat = PhotoImage(file="icons/statistics.png").subsample(10, 10)
-    photo_save = PhotoImage(file="icons/save.png").subsample(10, 10)
-    photo_anim = PhotoImage(file="icons/animation.png").subsample(10, 10)
-    photo_down = PhotoImage(file="icons/download.png").subsample(10, 10)
-    back_yes = "#1E90FF"
-    back_no = "#8B5F65"
-    back_run = "#483D8B"
 
-    btn_home = Button(text="На главную", command=return_home0, image=photo_home, compound=LEFT)
-    btn_main = Button(text="Анимировать результаты", command=animate_images, image=photo_anim, compound=LEFT)
+    btn_home = Button(text="На главную", command=return_home0, image=icons.home, compound=LEFT)
+    btn_main = Button(text="Анимировать результаты", command=animate_images, image=icons.anim, compound=LEFT)
     entry_main = EntryWithPlaceholder(root, '[Название] [Частота кадров]')
     btn_home.grid(row=0, column=0, padx='7', pady='7', sticky=EW)
     btn_main.grid(row=0, column=1, padx='7', pady='7', sticky=EW)
     entry_main.grid(row=0, column=2, padx='7', pady='7', sticky=NSEW)
+    root.bind("h", return_home0)
 
-    ############################################################################################
     frame_canvas = Frame(root)
     frame_canvas.grid(row=1, column=0, columnspan=3, pady=(5, 0), sticky='nw')
     frame_canvas.grid_rowconfigure(0, weight=1)
     frame_canvas.grid_columnconfigure(0, weight=1)
     frame_canvas.grid_propagate(False)
-    canvas = Canvas(frame_canvas)  # , bg="yellow")
+    frame_canvas.configure(background='#458B74')
+    canvas = Canvas(frame_canvas)
     canvas.grid(row=0, column=0, sticky="news")
-    # vsb = Scrollbar(frame_canvas, orient="vertical", command=canvas.yview)
-    # vsb.grid(row=0, column=1, sticky='ns')
-    # vsb2 = Scrollbar(frame_canvas, orient="horizontal", command=canvas.xview)
-    # vsb2.grid(row=1, column=0, sticky='ew')
-    canvas.configure()  # xscrollcommand=vsb2.set)  # , yscrollcommand=vsb.set)
-    frame_buttons = Frame(canvas)  # , bg="blue")
-    canvas.create_window((0, 0), window=frame_buttons, anchor='nw')
-    ############################################################################################
-    row_count = 0
-    labe1 = ttk.Label(frame_buttons, text="Параметры управления", background="#828282", foreground="#E0EEE0",
-                      padding=8)
-    labe1.grid(row=row_count, column=0, padx='7', pady='7', columnspan=4, sticky=EW)
-    labe2 = ttk.Label(frame_buttons, text="Делаем дела", background="#828282", foreground="#E0EEE0",
-                      padding=8)
-    labe2.grid(row=row_count, column=4, padx='7', pady='7', columnspan=4, sticky=EW)
+    canvas.configure()
+    frame = Frame(canvas)
+    frame.configure(background='#458B74')
+    canvas.create_window((0, 0), window=frame, anchor='nw')
 
-    row_count += 1
-    txt1 = ttk.Label(frame_buttons, text="Шаг по времени", background="#9E9E9E", foreground="#E0EEE0", padding=8)
-    entry1 = ttk.Entry(frame_buttons)
-    entry1.insert(0, dt)
-    btn1 = Button(frame_buttons, text="Записать", command=rewrite_dt)
-    label1 = ttk.Label(frame_buttons, text=f"{dt} секунд", padding=8)
-    txt1.grid(row=row_count, column=0, padx='7', pady='7', sticky=EW)
-    entry1.grid(row=row_count, column=1, padx='7', pady='7')
-    btn1.grid(row=row_count, column=2, padx='7', pady='7')
-    label1.grid(row=row_count, column=3, padx='7', pady='7')
+    def create_result_show_button(name: str, cmd: any, extra: str = None,
+                                  btn_2_name: list = None, btn_2_cmd: list = None):
+        button = Button(frame, text=name, command=cmd, image=icons.oper, compound=LEFT)
+        button.grid(row=row, column=4, padx='7', pady='7', sticky=EW)
+        b_stat = Label(frame, image=icons.stat)
+        b_stat.grid(row=row, column=8, sticky=W)
+        if btn_2_name is not None:
+            for i in range(len(btn_2_name)):
+                btn_2 = Button(frame, text=btn_2_name[i], command=btn_2_cmd[i])
+                btn_2.grid(row=row, column=6 + i, padx='7', pady='7', sticky=EW)
+        if extra == 'label':
+            label = ttk.Label(frame, text="Не начато", background="#9E9E9E", foreground="#E0EEE0", padding=8, width=30)
+            label.grid(row=row, column=5, padx='7', pady='7', sticky=NSEW)
+            return label
+        elif extra == 'entry':
+            entry = EntryWithPlaceholder(frame, '[Название]')
+            entry.grid(row=row, column=5, padx='7', pady='7')
+            return entry
 
-    def create_result_show_button(name: str, ):
-        btn = Button(frame_buttons, text="Подбор к-в ПД-регулятора", command=pd_control_params_search0,
-                        image=photo_operation, compound=LEFT)
-        label = ttk.Label(frame_buttons, text="Не начато", background="#9E9E9E", foreground="#E0EEE0", padding=8,
-                             width=30)
-        btn_copy = Button(frame_buttons, text="Ctrl-C", command=copy_k_p)
-        b_s1 = Label(frame_buttons, image=img_stat)
-        btn_t1.grid(row=row_count, column=4, padx='7', pady='7', sticky=EW)
-        label_t1.grid(row=row_count, column=5, padx='7', pady='7', sticky=NSEW)
-        btn_t1_copy.grid(row=row_count, column=6, padx='7', pady='7', sticky=EW)
-        b_s1.grid(row=row_count, column=7, sticky=W)
+    row = 0
+    local_label("Параметры управления", row, 0, 4, frame)
+    local_label("Делаем дела", row, 4, 5, frame)
+    row += 1
 
-    btn_t1 = Button(frame_buttons, text="Подбор к-в ПД-регулятора", command=pd_control_params_search0, image=photo_operation, compound=LEFT)
-    label_t1 = ttk.Label(frame_buttons, text="Не начато", background="#9E9E9E", foreground="#E0EEE0", padding=8, width=30)
-    btn_t1_copy = Button(frame_buttons, text="Ctrl-C", command=copy_k_p)
-    b_s1 = Label(frame_buttons, image=img_stat)
-    btn_t1.grid(row=row_count, column=4, padx='7', pady='7', sticky=EW)
-    label_t1.grid(row=row_count, column=5, padx='7', pady='7', sticky=NSEW)
-    btn_t1_copy.grid(row=row_count, column=6, padx='7', pady='7', sticky=EW)
-    b_s1.grid(row=row_count, column=7, sticky=W)
+    label_t1 = create_result_show_button("Подбор к-в ПД-регулятора", pd_control_params_search0, 'label',
+                                         ["Ctrl-C", "show"], [copy_k_p, reader_pd_control_params])
+    row, label_1, entry_1 = create_entry("Шаг по времени", params['dt'], row, rewrite_dt, frame)
+    rewrite_dt()
 
-    row_count += 1
-    txt2 = ttk.Label(frame_buttons, text="Время эпизода", background="#9E9E9E", foreground="#E0EEE0", padding=8)
-    entry2 = ttk.Entry(frame_buttons)
-    entry2.insert(0, T_max)
-    btn2 = Button(frame_buttons, text="Записать", command=rewrite_T)
-    label2 = ttk.Label(frame_buttons, text=f"{T_max}", padding=8)
-    txt2.grid(row=row_count, column=0, padx='7', pady='7', sticky=EW)
-    entry2.grid(row=row_count, column=1, padx='7', pady='7')
-    btn2.grid(row=row_count, column=2, padx='7', pady='7')
-    label2.grid(row=row_count, column=3, padx='7', pady='7')
+    create_result_show_button("График движения аппаратов", plot_params_while_main)
+    row, label_2, entry_2 = create_entry("Время эпизода", params['T_max'], row, rewrite_t, frame)
+    rewrite_t()
 
-    btn_t2 = Button(frame_buttons, text="График движения аппаратов", command=plot_params_while_main0, image=photo_operation, compound=LEFT)
-    entry_t2 = EntryWithPlaceholder(frame_buttons, '[Название]')
-    b_s2 = Label(frame_buttons, image=img_stat)
-    btn_t2.grid(row=row_count, column=4, padx='7', pady='7', sticky=EW)
-    entry_t2.grid(row=row_count, column=5, padx='7', pady='7')
-    b_s2.grid(row=row_count, column=7, sticky=W)
+    create_result_show_button("Эпюра огибающих ускорений", plot_a_avoid)
+    row, label_3, entry_3 = create_entry("Число N", params['N'], row, rewrite_n, frame)
+    rewrite_n()
+    row, label_4, entry_4 = create_entry("Угловая скорость", params['w'], row, rewrite_w, frame)
+    rewrite_w()
 
-    row_count += 1
-    txt3 = ttk.Label(frame_buttons, text="Число N", background="#9E9E9E", foreground="#E0EEE0", padding=8)
-    entry3 = ttk.Entry(frame_buttons)
-    entry3.insert(0, N)
-    btn3 = Button(frame_buttons, text="Записать", command=rewrite_N)
-    label3 = ttk.Label(frame_buttons, text=f"{N}", padding=8)
-    txt3.grid(row=row_count, column=0, padx='7', pady='7', sticky=EW)
-    entry3.grid(row=row_count, column=1, padx='7', pady='7')
-    btn3.grid(row=row_count, column=2, padx='7', pady='7')
-    label3.grid(row=row_count, column=3, padx='7', pady='7')
-
-    btn_t3 = Button(frame_buttons, text="Эпюра огибающих ускорений", command=plot_a_avoid0, image=photo_operation, compound=LEFT)
-    b_s3 = Label(frame_buttons, image=img_stat)
-    btn_t3.grid(row=row_count, column=4, padx='7', pady='7', sticky=EW)
-    b_s3.grid(row=row_count, column=7, sticky=W)
-
-    ############################################################################################
-    frame_buttons.update_idletasks()
-    frame_canvas.config(width=1915,
-                        height=920)
+    frame.update_idletasks()
+    frame_canvas.config(width=1915, height=920)
     canvas.config(scrollregion=canvas.bbox("all"))
-
+    root.focus_force()
     root.mainloop()
 

@@ -1,7 +1,7 @@
 from tkinter_files.tk_functions import *
 
 
-def return_home0():
+def return_home0(event=None):
     from main_interface import return_home
     global root
     root.destroy()
@@ -19,6 +19,8 @@ def click_button_info():
 
     btn_home = Button(text="На главную", command=return_home0, image=photo_home, compound=LEFT)
     btn_home.grid(row=0, column=0, padx='7', pady='7', sticky=W)
+    btn_home.bind("<Return>", return_home0)
+    root.bind("h", return_home0)
 
     img = ImageTk.PhotoImage(Image.open("icons/info.png"))
     b = Label(image=img)
@@ -36,4 +38,5 @@ def click_button_info():
     label = ttk.Label(text=T)
     label.grid(row=1, column=0)
 
+    root.focus_force()
     root.mainloop()

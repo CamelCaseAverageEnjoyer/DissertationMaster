@@ -174,7 +174,7 @@ class AllProblemObjects(object):
         self.A_orbital = np.zeros(3)  # Ускорение
         self.a_self = [np.zeros(3) for _ in range(self.a.n)]  # Ускорение
         self.a_wrong = np.random.rand(3)
-        self.a_wrong = k_ac * self.a_wrong / np.linalg.norm(self.a_wrong)
+        self.a_wrong = self.a_pid_max * k_ac * self.a_wrong / np.linalg.norm(self.a_wrong)
         self.w = np.zeros(3)
         self.Om = self.U.T @ self.w + self.W_hkw
         self.e = np.zeros(3)

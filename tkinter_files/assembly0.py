@@ -50,7 +50,7 @@ def change_check_3():
     if_testing_mode = True if check_var_3.get() > 0 else False
     check_label_3["text"] = check_var_3.get()
 
-def return_home0():
+def return_home0(event=None):
     from main_interface import return_home
     global root
     root.destroy()
@@ -125,7 +125,7 @@ def download_params():
     label_6["text"] = f"{du_impulse_max} м/с"
     label_7["text"] = f"{int(100 * d_crash)} см"
     label_8["text"] = f"{int(d_to_grab * 100)} см"
-    label_9["text"] = f"{T_max} секунд, {int(100 * T_max / (2 * np.pi / o.w_hkw))}% оборота"
+    label_9["text"] = f"{T_max} секунд, {int(100 * T_max / (2 * np.pi / o_global.w_hkw))}% оборота"
     label_10["text"] = f"{u_max * 100} см/с"
     label_11["text"] = f"{w_max} рад/с, оборот раз в {2 * np.pi / w_max} секунд"
     label_12["text"] = f"{j_max} градусов"
@@ -201,7 +201,7 @@ def change_entry_8():
 def change_entry_9():
     global label_9, entry_9, T_max, o_global
     T_max = float(entry_9.get())
-    label_9["text"] = f"{T_max} секунд, {int(100 * T_max / (2 * np.pi / o.w_hkw))}% оборота"
+    label_9["text"] = f"{T_max} секунд, {int(100 * T_max / (2 * np.pi / o_global.w_hkw))}% оборота"
 
 
 def change_entry_10():
@@ -281,6 +281,7 @@ def click_button_assembly():
     btn_next = Button(text="Далее", command=full_assembly0, image=icons.next, compound=LEFT)
     btn_home.grid(row=0, column=0, padx='7', pady='7', sticky=EW)
     btn_next.grid(row=0, column=1, padx='7', pady='7', sticky=EW)
+    root.bind("h", return_home0)
 
     frame_canvas = Frame(root)
     frame_canvas.grid(row=1, column=0, columnspan=2, pady=(5, 0), sticky='nw')
@@ -358,4 +359,5 @@ def click_button_assembly():
                         height=920)
     canvas.config(scrollregion=canvas.bbox("all"))
 
+    root.focus_force()
     root.mainloop()

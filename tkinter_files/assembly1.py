@@ -95,10 +95,10 @@ def run_local():
 
 
 def draw_simplified_app_diagram(o1):
-    canvas = Canvas(frame_canvas2)  # , bg="yellow")
+    canvas = Canvas(frame_canvas2)
     canvas.grid(row=0, column=0, sticky="news")
     canvas.configure()
-    frame = Frame(canvas2)  # , bg="blue")
+    frame = Frame(canvas2)
     canvas.create_window((0, 0), window=frame, anchor='nw')
 
     total_H = 590
@@ -232,6 +232,7 @@ def full_assembly():
     btn_home.grid(row=0, column=0, padx='7', pady='7', sticky=EW)
     btn_back.grid(row=0, column=1, padx='7', pady='7', sticky=EW)
     btn_run.grid(row=0, column=2, padx='7', pady='7', sticky=EW)
+    root.bind("h", return_home0)
 
     label_time_1 = ttk.Label(text=f"Время расчётное:                 {print_time(0, simple=True)}")
     label_time_2 = ttk.Label(text=f"Время работы программы:  {print_time(0, simple=True)}")
@@ -274,4 +275,5 @@ def full_assembly():
     canvas.config(scrollregion=canvas.bbox("all"))
 
     draw_simplified_app_diagram(o)
+    root.focus_force()
     root.mainloop()

@@ -1,7 +1,7 @@
 """Assembling general problem solution"""
 from all_objects import *
 
-vedo_picture = False
+vedo_picture = True
 o_global = AllProblemObjects(if_impulse_control=False,
                              if_PID_control=True,
                              if_LQR_control=False,
@@ -14,12 +14,13 @@ o_global = AllProblemObjects(if_impulse_control=False,
                              choice_complete=False,
 
                              dt=5., T_max=400.,
-                             u_max=0.2, k_u=1e-1,
-                             choice='2', floor=25,
+                             u_max=0.2, k_u=1e-1, k_ac=0.1,
+                             choice='3', floor=25,
                              d_crash=0.3,
                              N_apparatus=1,
                              file_reset=True)
-
+# for j in range(100):
+#     o_global.s.flag[j] = np.array([1, 1])
 print(f"Количество стержней: {o_global.s.n_beams}")
 
 def iteration_func(o):
@@ -30,7 +31,7 @@ def iteration_func(o):
         # Repulsion
         o.a.busy_time[id_app] -= o.dt if o.a.busy_time[id_app] >= 0 else 0
         if (not o.a.flag_fly[id_app]) and o.a.busy_time[id_app] < 0:
-            u = repulsion(o, id_app)
+            u = repulsion(o, id_app, u_a_priori=np.array([-0.00749797, 0., 0.08625441]))
             o.file_save(f'отталкивание {id_app} {u[0]} {u[1]} {u[2]}')
 
         # Motion control
