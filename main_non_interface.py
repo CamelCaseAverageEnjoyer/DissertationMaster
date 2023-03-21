@@ -5,7 +5,7 @@ vedo_picture = True
 o_global = AllProblemObjects(if_impulse_control=False,
                              if_PID_control=True,
                              if_LQR_control=False,
-                             if_avoiding=False,
+                             if_avoiding=True,
 
                              is_saving=False,
                              save_rate=1,
@@ -13,9 +13,9 @@ o_global = AllProblemObjects(if_impulse_control=False,
                              if_testing_mode=True,
                              choice_complete=False,
 
-                             dt=5., T_max=400.,
+                             dt=1., T_max=400.,
                              u_max=0.2, k_u=1e-1, k_ac=0.1,
-                             choice='3', floor=25,
+                             choice='5', floor=25,
                              d_crash=0.3,
                              N_apparatus=1,
                              file_reset=True)
@@ -31,7 +31,8 @@ def iteration_func(o):
         # Repulsion
         o.a.busy_time[id_app] -= o.dt if o.a.busy_time[id_app] >= 0 else 0
         if (not o.a.flag_fly[id_app]) and o.a.busy_time[id_app] < 0:
-            u = repulsion(o, id_app, u_a_priori=np.array([-0.00749797, 0., 0.08625441]))
+            # u = repulsion(o, id_app, u_a_priori=np.array([-0.00749797, 0., 0.08625441]))
+            u = repulsion(o, id_app, u_a_priori=np.array([-0.05, 0., 0.]))
             o.file_save(f'отталкивание {id_app} {u[0]} {u[1]} {u[2]}')
 
         # Motion control
@@ -69,7 +70,7 @@ if __name__ == "__main__":
     global timerId, fig_view, button, evnetId
     if vedo_picture:
         timerId = 1
-        fig_view = Plotter(bg='bb', size=(1920, 1080))
+        fig_view = Plotter(bg='white', size=(1920, 1080))
         button = fig_view.add_button(button_func, states=["Play ", "Pause"], size=20,
                                      font='Bongas', bold=True, pos=[0.9, 0.9])
         fig_view.timer_callback("destroy", timerId)

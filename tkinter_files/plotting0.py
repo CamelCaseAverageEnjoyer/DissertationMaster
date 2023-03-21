@@ -48,6 +48,14 @@ def pd_control_params_search0():
     label_t1["background"] = icons.back_yes
     label_t1["text"] = f"k={params['k_p']}"
 
+def plot_avoid_field_params():
+    global label_t4, params, icons
+    label_t4["background"] = icons.back_run
+    label_t4["text"] = "Смотри график"
+    plot_avoid_field_params_search(dt=params['dt'], T_max=params['T_max'], N=params['N'])
+    label_t4["background"] = icons.back_yes
+    label_t4["text"] = f"Посчитано"
+
 def copy_k_p():
     import clipboard
     global params
@@ -57,7 +65,7 @@ def copy_k_p():
 def click_button_plot():
     global root, entry_main, params, icons
     global label_1, entry_1, label_2, entry_2, label_3, entry_3, label_4, entry_4
-    global label_t1
+    global label_t1, label_t4
     root = Tk()
     icons = Icons()
 
@@ -79,12 +87,10 @@ def click_button_plot():
     frame_canvas.grid_rowconfigure(0, weight=1)
     frame_canvas.grid_columnconfigure(0, weight=1)
     frame_canvas.grid_propagate(False)
-    frame_canvas.configure(background='#458B74')
     canvas = Canvas(frame_canvas)
     canvas.grid(row=0, column=0, sticky="news")
     canvas.configure()
     frame = Frame(canvas)
-    frame.configure(background='#458B74')
     canvas.create_window((0, 0), window=frame, anchor='nw')
 
     def create_result_show_button(name: str, cmd: any, extra: str = None,
@@ -112,7 +118,7 @@ def click_button_plot():
     row += 1
 
     label_t1 = create_result_show_button("Подбор к-в ПД-регулятора", pd_control_params_search0, 'label',
-                                         ["Ctrl-C", "show"], [copy_k_p, reader_pd_control_params])
+                                         ["Ctrl-C", "Show"], [copy_k_p, reader_pd_control_params])
     row, label_1, entry_1 = create_entry("Шаг по времени", params['dt'], row, rewrite_dt, frame)
     rewrite_dt()
 
@@ -123,8 +129,13 @@ def click_button_plot():
     create_result_show_button("Эпюра огибающих ускорений", plot_a_avoid)
     row, label_3, entry_3 = create_entry("Число N", params['N'], row, rewrite_n, frame)
     rewrite_n()
+
+    label_t4 = create_result_show_button("Эпюра огибающих ускорений", plot_avoid_field_params, 'label',
+                                         ["Show"], [reader_avoid_field_params_search])
     row, label_4, entry_4 = create_entry("Угловая скорость", params['w'], row, rewrite_w, frame)
     rewrite_w()
+
+    #### ДОБАВТЬЬ plot_repulsion_error
 
     frame.update_idletasks()
     frame_canvas.config(width=1915, height=920)

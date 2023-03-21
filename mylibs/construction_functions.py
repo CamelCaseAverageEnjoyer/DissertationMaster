@@ -81,13 +81,14 @@ class Structure(object):
         if choice == '0':
             self.n_beams = 1
             self.n_nodes = 2
-            self.mass = np.array([10.])
-            self.length = np.array([10.])
+            self.mass = np.array([0.])
+            self.length = np.array([5.])
+            self.id = np.array([0])
             self.id_node = np.array([np.array([0, 1])])
-            self.r1 = np.array([np.array([-5., 0., 0.])])
-            self.r2 = np.array([np.array([5., 0., 0.])])
+            self.r1 = np.array([np.array([1., 0., 0.])])
+            self.r2 = np.array([np.array([6., 0., 0.])])
             self.flag = np.array([np.array([1, 1])])
-            self.r_st = np.array(np.zeros(3))
+            self.r_st = np.array([np.zeros(3)])
 
         if choice == '1':
             floor = 3
@@ -147,9 +148,6 @@ class Structure(object):
                 self.flag = np.array([np.array([int(complete), int(complete)]) for _ in range(self.n_beams)])
                 self.r_st = np.array([np.array([-self.x_start - self.container_length + self.length[i],
                                                 y_st[i], z_st[i]]) for i in range(self.n_beams)])
-            # УДАЛИТЬ
-            '''for j in range(100):
-                self.flag[j] = np.array([1, 1])'''
 
         if choice == '3':
             length = 5
@@ -287,7 +285,8 @@ class Structure(object):
         if choice == '5':
             direction = ['+2', '-0', '+1', '+0', '-2', '-0', '-1', '-2', '+0', '-1', '+0', '+1', '+2', '-1', '+2',
                          '-0', '-2', '-0', '+2', '+2', '+1', '+0', '+1', '+0', '-1', '-2', '+1', '-2', '+1', '-0',
-                         '-2', '-1', '-0', '+1', '+2', '-0', '-1', '+2', '+1', '+0', '+2', '+0', '-2', '+0', '+2']
+                         '-2', '-1', '-0', '+1', '+2', '-0', '-1', '+2', '+1', '+0', '+2', '+0', '-2', '+0', '+2',
+                         '+0', '-1', '-2', '+1', '+0', '-1']
             r1 = []
             r2 = []
             point = np.zeros(3)
@@ -369,12 +368,12 @@ class Container(object):
 
         if choice == '0':
             self.n = 1
-            self.id = np.arange([0])
-            self.mass = np.array([5])
-            self.diam = np.array([0.5])
-            self.r1 = np.array([np.array([10., 0., 0.])])
-            self.r2 = np.array([np.array([15., 0., 0.])])
-            self.flag_grab = np.array([True])
+            self.id = np.array([0, 1, 2])
+            self.mass = np.array([5, 5, 5])
+            self.diam = np.array([0.5, 0.5, 0.5])
+            self.r1 = np.array([np.array([-6., 0., 0.]), np.array([1., 0., 0.]), np.array([0., 0., 5.])])
+            self.r2 = np.array([np.array([-1., 0., 0.]), np.array([6., 0., 0.]), np.array([0., 0., 10.])])
+            self.flag_grab = np.array([True, False, False])
 
         if choice == '1':
             self.n = 7
@@ -468,7 +467,11 @@ class Container(object):
         if choice == '5':
             direction = ['+2', '-0', '+1', '+0', '-2', '-0', '-1', '-2', '+0', '-1', '+0', '+1', '+2', '-1', '+2',
                          '-0', '-2', '-0', '+2', '+2', '+1', '+0', '+1', '+0', '-1', '-2', '+1', '-2', '+1', '-0',
-                         '-2', '-1', '-0', '+1', '+2', '-0', '-1', '+2', '+1', '+0', '+2', '+0', '-2', '+0', '+2']
+                         '-2', '-1', '-0', '+1', '+2', '-0', '-1', '+2', '+1', '+0', '+2', '+0', '-2', '+0', '+2',
+                         '+0', '-1', '-2', '+1', '+0', '-1', '-2', '-0', '-1', '+2', '-1', '+2', '+1', '+0', '-2',
+                         '-1', '-2', '-0', '-2', '+0', '+1', '-0', '+1', '+1', '+2', '+0', '-2', '-1', '+0', '-1',
+                         '+2', '+1', '+2', '+1', '+2', '-0', '-1', '+0', '-1', '-2', '-1', '-2', '+0', '+1', '+2',
+                         '-1', '+2', '-0']
             self.n = len(direction) + 1
             self.id = np.arange(self.n)
             self.mass = np.array([50.] * self.n)

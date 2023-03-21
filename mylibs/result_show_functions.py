@@ -9,6 +9,7 @@ def reader_pd_control_params(name: str = '', eps: float = 1e-1, lng: str = 'ru')
     filename = 'storage/pid_koeff_' + name + '.txt'
     f = open(filename, 'r')
     k_p, k_a, tol, col = ([], [], [], [])
+    box_k_p = [[] for _ in range(5)]
     for line in f:
         lst = line.split()
         k_p += [float(lst[0])]
@@ -60,7 +61,7 @@ def reader_pd_control_params(name: str = '', eps: float = 1e-1, lng: str = 'ru')
     plt.legend()
     plt.show()
 
-def pd_control_params_search(name: str = '', dt=1., n_p=5, n_a=20, T_max=1000., k_min=1e-4, k_max=1e-2):
+def pd_control_params_search(name: str = '', dt=0.2, n_p=5, n_a=10, T_max=700., k_min=1e-4, k_max=1e-2):
     """Функция ищет смысл жизни(его нет) / зависимость невязки/столкновения от """
     global k_ac_list
     k_p_list = np.exp(np.linspace(np.log(k_min), np.log(k_max), n_p))  # Logarithmic scale
@@ -194,12 +195,12 @@ def plot_params_while_main(filename: str, trial_episodes: bool = False):
     plt.show()
 
 
-def plot_a_avoid(x_boards: list = np.array([-10, 5]), z_boards: list = np.array([3, 10])):
-    o = AllProblemObjects(choice='3')
+def plot_a_avoid(x_boards: list = np.array([-10, 10]), z_boards: list = np.array([-5, 10])):
+    o = AllProblemObjects(choice='0', N_apparatus=0)
 
     # x_boards: list = [-15, 15], z_boards: list = [1, 10]
-    nx = 30
-    nz = 15
+    nx = 60
+    nz = 60
     x_list = np.linspace(x_boards[0], x_boards[1], nx)
     z_list = np.linspace(z_boards[0], z_boards[1], nz)
 
@@ -222,24 +223,24 @@ def plot_a_avoid(x_boards: list = np.array([-10, 5]), z_boards: list = np.array(
             if force is not False:
                 print(f"force: {force}")
                 l1 = [np.array([x, 0, z]), np.array([x, 0, z]) + force]
-                l2 = [np.array([x + 0.1*force[2], 0, z + 0.1*force[0]]),
-                      np.array([x + 0.1*force[2], 0, z + 0.1*force[0]]) + force]
+                l2 = [np.array([x - 0.1*force[2], 0, z + 0.1*force[0]]),
+                      np.array([x - 0.1*force[2], 0, z + 0.1*force[0]]) + force]
                 farr = FlatArrow(l1, l2, tip_size=1, tip_width=1).c(color='c', alpha=0.9)
                 arrows.append(farr)
 
     arrows.append(plot_iterations_new(o).color("silver"))
-    show(arrows, __doc__, viewup="z", axes=1, bg='bb', zoom=1, size=(1920, 1080)).close()
+    show(arrows, __doc__, viewup="z", axes=1, bg='white', zoom=1, size=(1920, 1080)).close()
 
-def reader_avoid_field_params_search(name: str = '', lng: str = 'ru'):
+def reader_avoid_field_params_search(filename: str = '', lng: str = 'ru'):
     # Init
-    filename = 'storage/pid_const5_avoiding_' + name + '.txt'
     f = open(filename, 'r')
-    k_p, k_a, res = ([], [], [])
+    k_p, k_a, lvl, res = ([], [], [], [])
     for line in f:
         lst = line.split()
         k_p += [float(lst[0])]
         k_a += [float(lst[1])]
-        res += [int(lst[2])]
+        lvl += [int(lst[2])]
+        res += [int(lst[3])]
     f.close()
 
     # Titles
@@ -249,7 +250,7 @@ def reader_avoid_field_params_search(name: str = '', lng: str = 'ru'):
         xlabel = "коэффициент ПД-регулятора"
         ylabel = "коэффициент поля уклонения"
     else:
-        title = ""
+        title = "?"
         state_list = ['', 'collision', 'reaching']
         xlabel = "PD-controller coeffitient"
         ylabel = "avoiding field coeffitient"
@@ -258,72 +259,70 @@ def reader_avoid_field_params_search(name: str = '', lng: str = 'ru'):
     clr = ['lightblue', 'deeppink', 'palegreen']
     flag = [True] * 3
     for i in range(len(res)):
-        state = int(res[i] + 1)
+        state = int(res[i]  + 1)
         if flag[state]:
             plt.scatter(k_p[i], k_a[i], c=clr[state], label=state_list[state])
             flag[state] = False
         else:
             plt.scatter(k_p[i], k_a[i], c=clr[state])
-        print(k_p[i], k_a[i], state)
     plt.title(title)
     plt.yscale("log")
     plt.xscale("log")
     plt.xlabel(xlabel)
-    plt.xlabel(ylabel)
+    plt.ylabel(ylabel)
     plt.legend()
     plt.show()
 
-def plot_avoid_field_params_search(name: str = '', dt=1., N=30, T_max=1000., k_p_min=1e-4, k_p_max=1e-3,
+def plot_avoid_field_params_search(name: str = '', dt=1., N=20, T_max=1000., k_p_min=1e-4, k_p_max=1e-3,
                                    k_a_min=1e-8, k_a_max=1e-1):
     """Фунция тестит коэффициенты ПД-регулятора и коэффициент отталкивания на конструкции 5.
     Результат - точки на пространстве {k_PD, k_avoid}, разделящиеся на классы:
     -> попадание в цель res=1
     -> столкновение res=0
     -> преследование res=-1"""
-    filename = 'storage/pid_const5_avoiding_' + name + '.txt'
-    f = open(filename, 'w')
-    f.close()
     k_p_list = np.exp(np.linspace(np.log(k_p_min), np.log(k_p_max), N))  # Logarithmic scale
     k_av_list = np.exp(np.linspace(np.log(k_a_min), np.log(k_a_max), N))  # Logarithmic scale
     start_time = datetime.now()
     tmp_count = 0
+    for lvl in [222]:
+        filename = 'storage/pid_const5_avoiding_' + name + '_' + str(lvl) + '.txt'
+        # f = open(filename, 'a')
+        f = open(filename, 'w')
 
-    for k_p in k_p_list:
-        for k_a in k_av_list:
-            res = -1
-            tmp_count += 1
-            id_app = 0
-            print(Fore.CYAN + f'Подбор ПД-к-в: {tmp_count}/{N**2}; время={datetime.now() - start_time}'
-                  + Style.RESET_ALL)
-            o = AllProblemObjects(if_PID_control=True,
-                                  dt=dt, k_p=k_p, k_av=k_a,
-                                  T_max=T_max,
-                                  if_talk=False,
-                                  if_any_print=False,
-                                  choice='5')
+        for k_p in k_p_list:
+            for k_a in k_av_list:
+                res = -1
+                tmp_count += 1
+                id_app = 0
+                print(Fore.CYAN + f'Подбор ПД-к-в: {tmp_count}/{N**2 * 4}; время={datetime.now() - start_time}'
+                    + Style.RESET_ALL)
+                o = AllProblemObjects(if_PID_control=True, if_avoiding=True,
+                                    dt=dt, k_p=k_p, k_av=k_a,
+                                    T_max=T_max, level_avoid=lvl,
+                                    if_talk=False,
+                                    if_any_print=False,
+                                    choice='5')
 
-            for i_time in range(int(T_max // dt)):
-                # Repulsion
-                if o.a.flag_fly[id_app] == 0:
-                    _ = repulsion(o, id_app, u_a_priori=np.array([random.uniform(0.1, 0.5), 0., 0.]))
+                for _ in range(int(T_max // dt)):
+                    # Repulsion
+                    if o.a.flag_fly[id_app] == 0:
+                        _ = repulsion(o, id_app, u_a_priori=np.array([-random.uniform(0.01, 0.05), 0., 0.]))
 
-                # Control
-                o.time_step()
-                o.control_step(0)
+                    # Control
+                    o.time_step()
+                    o.control_step(0)
 
-                # Docking
-                res = 0 if call_crash(o, o.a.r[0], o.R, o.S, o.taken_beams) else res
-                if not res:
-                    break
-                if o.get_discrepancy(id_app=0) < o.d_to_grab:
-                    res = 1
-                    break
+                    # Docking
+                    res = 0 if call_crash(o, o.a.r[0], o.R, o.S, o.taken_beams) else res
+                    if not res:
+                        break
+                    if o.get_discrepancy(id_app=0) < o.d_to_grab:
+                        res = 1
+                        break
 
-            f = open(filename, 'a')
-            f.write(f'{k_p} {k_a} {res}\n')
-            print(f"{k_p} {k_a} {res}")
-            f.close()
-    reader_avoid_field_params_search(name=name)
+                f.write(f'{k_p} {k_a} {lvl} {res}\n')
+        # reader_avoid_field_params_search(name=name)
+        f.close()
 
 def plot_repulsion_error(name: str = '', N: int = 3, dt: float = 5., T_max: float = 1000.):
     start_time = datetime.now()
@@ -356,7 +355,7 @@ def plot_repulsion_error(name: str = '', N: int = 3, dt: float = 5., T_max: floa
                     # Control
                     o.control_step(id_app)
                 errors[k][int(choice) - 1].append(f_min)
-                f.write(f"{choice} {k_u_list[k]} {f_min}")
+                f.write(f"{choice} {k_u_list[k]} {f_min}\n")
                 if j == 0:
                     plt.scatter(100 * k_u_list[k], f_min, c=clr[int(choice) - 1], label=choice)
                 else:

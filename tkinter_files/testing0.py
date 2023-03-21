@@ -1,6 +1,6 @@
 from mylibs.test_functions import *
 from tkinter_files.tk_functions import *
-params = {'order': 5, 'dt': 1., 'w': 3e-3, 'T_max': 1000.}
+params = {'order': 5, 'dt': 1., 'w': 3e-3, 'T_max': 1000., 'N': 10}
 o = AllProblemObjects()
 
 
@@ -41,6 +41,9 @@ def test_rk():
     label_t3["background"] = icons.back_yes if res else icons.back_no
     label_t3["text"] = "Всё хорошо" if res else "Ничего хорошего"
 
+def test_collision():
+    global params
+    test_collision_map(n=params['N'])
 
 def rewrite_order():
     global label_1, entry_1
@@ -66,6 +69,12 @@ def rewrite_t():
     label_4["text"] = f"{params['T_max']} секунд, {int(100 * params['T_max'] / (2 * np.pi / o.w_hkw))}% оборота"
 
 
+def rewrite_n():
+    global label_5, entry_5
+    params['N'] = int(entry_5.get())
+    label_5["text"] = f"{params['N']}"
+
+
 def save_params():
     global root
 
@@ -81,7 +90,8 @@ def full_test():
 
 def click_button_test():
     global root, label_full, icons, params
-    global label_1, entry_1, label_2, entry_2, label_3, entry_3, label_t1, back_t1, label_4, entry_4
+    global label_1, label_2, label_3, label_t1, back_t1, label_4, label_5
+    global entry_1, entry_2, entry_3, entry_4, entry_5
     global label_t2, back_t2, label_t3, back_t3
     root = Tk()
     icons = Icons()
@@ -144,8 +154,12 @@ def click_button_test():
     row, label_3, entry_3 = create_entry("Начальное вращение", params['w'], row, rewrite_w, frame)
     rewrite_w()
 
+    label_t4 = local_test("Столкновение", row, 4, test_collision, frame, True)
     row, label_4, entry_4 = create_entry("Время эпизода", params['T_max'], row, rewrite_t, frame)
     rewrite_t()
+
+    row, label_5, entry_5 = create_entry("Число N", params['N'], row, rewrite_n, frame)
+    rewrite_n()
 
     frame.update_idletasks()
     frame_canvas.config(width=1915, height=920)

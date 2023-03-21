@@ -61,6 +61,7 @@ class AllProblemObjects(object):
                  k_u=1e-1,                      # Коэффициент разброса скорости
                  k_av=1e-5,                     # Коэффициент при поле отталкивания
                  k_ac=0.,                       # Коэффициент паразитного ускорения
+                 level_avoid=2,
                  s=None,                        # готовый объект класса Structure
                  c=None,                        # готовый объект класса Container
                  a=None,                        # готовый объект класса Apparatus
@@ -131,6 +132,7 @@ class AllProblemObjects(object):
         self.k_u = k_u
         self.k_av = k_av
         self.k_ac = k_ac
+        self.level_avoid = level_avoid
         self.La = La
 
         self.choice = choice
@@ -335,8 +337,8 @@ class AllProblemObjects(object):
                 lqr_control(o=self, id_app=id_app)
             if self.if_avoiding:
                 self.a_self[id_app] += avoiding_force(self, id_app)
-                if np.linalg.norm(self.a_self[id_app]) > self.a_pid_max:
-                    self.a_self[id_app] *= self.a_pid_max / np.linalg.norm(self.a_self[id_app])
+        if np.linalg.norm(self.a_self[id_app]) > self.a_pid_max:
+            self.a_self[id_app] *= self.a_pid_max / np.linalg.norm(self.a_self[id_app])
 
     def get_masses(self, id_app: int):
         id_beam = self.a.flag_beam[id_app]

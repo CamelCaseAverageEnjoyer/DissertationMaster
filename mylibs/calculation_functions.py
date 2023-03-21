@@ -3,7 +3,7 @@ from mylibs.im_sample import *
 import scipy
 
 
-def call_crash_internal_func(r, r1, r2, diam, return_force=False, k_av=None):
+def call_crash_internal_func(r, r1, r2, diam, return_force=False, k_av=None, level: int = 5):
     """ Дополнительная функция для функции call_crash; \n
     Проверяет наличие точки r в цилиндре с концами r1,r2, диаметром diam; \n
     Возвращает {True,False} соответственно при отсутствии и наличии. """
@@ -24,7 +24,7 @@ def call_crash_internal_func(r, r1, r2, diam, return_force=False, k_av=None):
     f2 = np.dot(a, b) / (np.linalg.norm(b) * diam)
 
     if return_force:
-        return forсe_from_beam(a, diam, n, tau, b, f0, f1, f2, k_av)
+        return forсe_from_beam(a, diam, n, tau, b, f0, f1, f2, k_av, level)
     if not ((f0 > -1) and (f0 < 1) and (f1**2 + f2**2 < 1)):
         return False
     return True

@@ -10,15 +10,14 @@ def velocity_spread(u, k_u):
 def kd_from_kp(k):
     return 2 * np.sqrt(k)
 
-def forсe_from_beam(a, diam, n, tau, b, f0: float, f1: float, f2: float, k_av: float = 1e-5):
+def forсe_from_beam(a, diam, n, tau, b, f0: float, f1: float, f2: float, k_av: float = 1e-5, level: int = 2):
     """Возвращает в ССК!"""
     if (f0 > -1) and (f0 < 1):
         a1 = a - f0 * n / 2 if (f1**2 + f2**2 > 1) else np.zeros(3)
     else:
         a1 = a - np.sign(f0) * n / 2
-    tmp = k_av / (np.linalg.norm(a1) - diam) ** 2  # np.sqrt
+    tmp = k_av / np.sqrt(np.sqrt(np.linalg.norm(a1) - diam))   # np.sqrt  ** level
     return a1 / np.linalg.norm(a1) * tmp
-
 
 def get_c_hkw(r, v, w):
     """Возвращает константы C[0]..C[5] движения Хилла-Клохесси-Уилтштира"""
@@ -33,7 +32,6 @@ def r_hkw(C, w, t):
                      C[5] * np.cos(w * t) + C[4] * np.sin(w * t),
                      2 * C[0] + C[2] * np.cos(w * t) + C[1] * np.sin(w * t)])
 
-
 def v_hkw(C, w, t):
     """Возвращает вектор скоростей в момент времени t; \n
     Уравнения движения Хилла-Клохесси-Уилтштира; \n
@@ -42,7 +40,6 @@ def v_hkw(C, w, t):
     return np.array([-3 * C[0] * w - 2 * w * C[1] * np.sin(w * t) - 2 * w * C[2] * np.cos(w * t),
                      w * C[4] * np.cos(w * t) - w * C[5] * np.sin(w * t),
                      -w * C[2] * np.sin(w * t) + w * C[1] * np.cos(w * t)])
-
 
 def quart2dcm(L):
     """Функция ищет матрицу поворота из кватерниона поворота; \n
@@ -61,7 +58,6 @@ def quart2dcm(L):
     A[2][2] = 1 - 2 * x ** 2 - 2 * y ** 2
     return A
 
-
 def q_dot(L1, L2):
     """Функция является кватернионным умножением; \n
     Кватернион L1,L2 передаются векторами длины 4; \n
@@ -71,7 +67,6 @@ def q_dot(L1, L2):
                      L1[0]*L2[2] + L1[2]*L2[0] + L1[3]*L2[1] - L1[1]*L2[3],
                      L1[0]*L2[3] + L1[3]*L2[0] + L1[1]*L2[2] - L1[2]*L2[1]])
 
-
 # Не такие умные функции
 def clip(a, bot, top):
     if a < bot:
@@ -80,24 +75,20 @@ def clip(a, bot, top):
         return top
     return a
 
-
 def my_cross(a, b):
     """Функция векторного произведения"""
     return np.array([a[1]*b[2] - a[2]*b[1],
                      a[2]*b[0] - a[0]*b[2],
                      a[0]*b[1] - a[1]*b[0]])
 
-
 def flatten(lst):
     """Функция берёт 2D массив, делает 1D"""
     return [item for sublist in lst for item in sublist]
-
 
 def get_v(v, phi, theta):
     return np.array([v*np.cos(phi)*np.cos(theta),
                      v*np.sin(phi)*np.cos(theta),
                      v*np.sin(theta)])
-
 
 def kronoker(a, b, tolerance=1e-6):
     """Функция является функцией кронокера;"""
