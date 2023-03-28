@@ -4,6 +4,7 @@ from mylibs.plot_functions import *
 from mylibs.tiny_functions import *
 from mylibs.control_function import *
 from mylibs.im_sample import *
+from mylibs.numerical_methods import *
 
 
 class AllProblemObjects(object):
@@ -33,6 +34,7 @@ class AllProblemObjects(object):
                  time_to_be_busy=10.,                   # Время занятости между перелётами
                  u_max=0.2,                             # Максимальная скорость отталкивания
                  du_impulse_max=0.4,                    # Максимальная скорость импульса при импульсном управлении
+                 w_twist=0.,
                  w_max=0.0015,      # Максимально допустимая скорость вращения станции (искуственное ограничение)
                  V_max=0.1,         # Максимально допустимая поступательная скорость станции (искуственное ограничение)
                  R_max=9.,          # Максимально допустимое отклонение станции (искуственное ограничение)
@@ -71,7 +73,7 @@ class AllProblemObjects(object):
 
         # Init
         self.file_name = 'storage/main.txt'
-        self.main_numerical_simulation = True if s is None else False
+        self.main_numerical_simulation = s is None
         self.survivor = True            # Зафиксирован ли проход "через текстуры" / можно сделать вылет программы
         self.warning_message = True     # Если где-то проблема, вместо вылета программы я обозначаю её сообщениями
         self.t_flyby = T_max * 0.95     # Время необходимости облёта
@@ -87,7 +89,7 @@ class AllProblemObjects(object):
         self.if_PID_control = if_PID_control
         self.if_LQR_control = if_LQR_control
         self.if_avoiding = if_avoiding
-        self.control = True if (if_impulse_control or if_PID_control or if_LQR_control) else False
+        self.control = if_impulse_control or if_PID_control or if_LQR_control
 
         self.diff_evolve_vectors = diff_evolve_vectors
         self.diff_evolve_times = diff_evolve_times
@@ -110,7 +112,7 @@ class AllProblemObjects(object):
         self.t_reaction_counter = t_reaction
         self.t_flyby_counter = self.t_flyby
         self.u_max = u_max
-        self.u_min = u_max / 10
+        self.u_min = u_max / 5
         self.du_impulse_max = du_impulse_max
         self.w_max = w_max
         self.V_max = V_max
@@ -141,6 +143,7 @@ class AllProblemObjects(object):
                                                         floor=floor)
             if file_reset:
                 f = open(self.file_name, 'w')
+                f.write(f"ограничения {self.R_max} {self.V_max} {self.j_max} {self.w_max}\n")
                 f.close()
         else:
             self.s = s
@@ -177,7 +180,9 @@ class AllProblemObjects(object):
         self.a_self = [np.zeros(3) for _ in range(self.a.n)]  # Ускорение
         self.a_wrong = np.random.rand(3)
         self.a_wrong = self.a_pid_max * k_ac * self.a_wrong / np.linalg.norm(self.a_wrong)
-        self.w = np.zeros(3)
+        self.w_twist = w_twist
+        self.w = np.array([0., w_twist, 0.])
+        self.w_diff = 0.
         self.Om = self.U.T @ self.w + self.W_hkw
         self.e = np.zeros(3)
         self.tg_tmp = np.array([100., 0., 0.])
@@ -196,9 +201,12 @@ class AllProblemObjects(object):
                                                             if np.linalg.norm(v) > self.u_min else
                                                             v / np.linalg.norm(v) * self.u_min * 1.05})
 
-    def get_discrepancy(self, id_app: int, vector: bool = False):
+    def get_discrepancy(self, id_app: int, vector: bool = False, r = None):
         """Возвращает невязку аппарата с целью"""
-        discrepancy = self.a.r[id_app] - self.b_o(self.a.target[id_app])
+        if r is None:
+            discrepancy = self.a.r[id_app] - self.b_o(self.a.target[id_app])
+        else:
+            discrepancy = r - self.b_o(self.a.target[id_app])
         return discrepancy if vector else np.linalg.norm(discrepancy)
 
     def get_angular_momentum(self):
@@ -267,6 +275,7 @@ class AllProblemObjects(object):
         U, S, A, R_e = self.call_rotation_matrix(La=La + dLa, t=t)
         J1 = np.linalg.inv(J)
         M_external = 3 * self.mu * my_cross(A @ R_e, J @ A @ R_e) / self.Radius_orbit ** 5
+        # M_external = np.zeros(3)
         return np.append(dLa, A.T @ J1 @ (M_external - my_cross(A @ Om, J @ A @ Om)))
 
     def rk4_w(self, La, Om, J, t):
@@ -290,6 +299,7 @@ class AllProblemObjects(object):
         self.U, self.S, self.A, self.R_e = self.call_rotation_matrix()
         tmp = self.w.copy()
         self.w_update()
+        self.w_diff = np.linalg.norm(self.w - np.array([0., self.w_twist, 0.]))
         self.e = (self.w - tmp) / self.dt
 
         # Translational movement of the structure
@@ -314,11 +324,12 @@ class AllProblemObjects(object):
             self.a.v[id_app] = v
             self.a_orbital[id_app] = self.orbital_acceleration(np.append(r, v))
 
-            if self.warning_message and self.main_numerical_simulation and (self.t - self.t_start[id_app]) > 10:
-                if self.survivor:
-                    self.survivor = call_crash(o=self, r_sat=r, R=self.R, S=self.S, taken_beams=self.taken_beams)
-                    if not self.survivor:
-                        self.my_print(get_angry_message(), mode='y')
+            if self.d_crash is not None:
+                if self.warning_message and self.main_numerical_simulation and (self.t - self.t_start[id_app]) > 50:
+                    if self.survivor:
+                        self.survivor = call_crash(o=self, r_sat=r, R=self.R, S=self.S, taken_beams=self.taken_beams)
+                        if not self.survivor:
+                            self.my_print(get_angry_message(), mode='y')
         if not self.survivor and self.warning_message and self.iter % 200 == 0 and self.if_testing_mode:
             self.my_print(get_angry_message(), mode='r')
 
@@ -350,8 +361,6 @@ class AllProblemObjects(object):
     def repulsion_change_params(self, id_app: int, u0):
         if len(u0.shape) != 1 or len(u0) != 3:
             raise Exception("Неправильный входной вектор скорости!")
-        # if self.k_u is not None and not self.main_numerical_simulation:
-        #     u0 = velocity_spread(u0, self.k_u)
         R_p = self.R.copy()
         V_p = self.V.copy()
         J_p, r_center_p = call_inertia(self, self.taken_beams_p, app_y=id_app)

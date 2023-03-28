@@ -1,6 +1,6 @@
 from mylibs.test_functions import *
 from tkinter_files.tk_functions import *
-params = {'order': 5, 'dt': 1., 'w': 3e-3, 'T_max': 1000., 'N': 10}
+params = {'order': 2, 'dt': 0.01, 'w': 3e-7, 'T_max': 5000., 'N': 10}
 o = AllProblemObjects()
 
 

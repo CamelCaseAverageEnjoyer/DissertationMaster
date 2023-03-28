@@ -519,7 +519,7 @@ class Apparatus(object):
         self.target = np.array([(np.array(X.r_st[id_list[i]]) + np.array([-0.3 - X.length[id_list[i]], 0, 0]))
                                 for i in range(n)])
         self.r = copy.deepcopy(self.target)
-        self.r_0 = np.array([mass] * n)
+        self.r_0 = np.array([100. for _ in range(n)])
 
     def copy(self):
         a = Apparatus(X=self.X, n=self.n, mass=self.mass[0])

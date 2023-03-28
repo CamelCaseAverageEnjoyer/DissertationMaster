@@ -15,6 +15,8 @@ import vedo
 # Local libraries
 from mylibs.tiny_functions import *
 
+N_BEAM_ROUND = 4
+
 
 def color_between(tau: float):
     c0 = (0.8, 0.8, 0.8)
@@ -40,7 +42,7 @@ def line_chaos(x_lim: float = 20., y_lim: float = 20., z_lim: float = 20.):
     return line
 
 
-def line_target(r, d: [int, float] = 0.5):
+def line_target(r, d: float = 0.5):
     """Рисует кружочек вокруг цели."""
     line = []
     N = 40
@@ -161,18 +163,18 @@ def draw_reference_frames(o, size: int = 10, showing: bool = False):
 
 def show_beam(r1, r2, flag_non_relative=0, radius_per_len=0.1):
     """Возвращает точки цилиндра стержня"""
-    N_nodes_circle = 8
+    global N_BEAM_ROUND
     L = np.sqrt((r1[0] - r2[0]) ** 2 + (r1[1] - r2[1]) ** 2 + (r1[2] - r2[2]) ** 2)
     if flag_non_relative > 0.5:
         radius = radius_per_len
     else:
         radius = radius_per_len * L
-    x_up = [radius * np.cos(i / N_nodes_circle * 2 * np.pi) for i in range(N_nodes_circle)]
-    y_up = [radius * np.sin(i / N_nodes_circle * 2 * np.pi) for i in range(N_nodes_circle)]
-    z_up = [L for _ in range(N_nodes_circle)]
-    z_down = [0 for _ in range(N_nodes_circle)]
-    vertices_0 = np.array([[0.0, 0.0, 0.0] for _ in range(2 * N_nodes_circle)])
-    for i in range(N_nodes_circle):
+    x_up = [radius * np.cos(i / N_BEAM_ROUND * 2 * np.pi) for i in range(N_BEAM_ROUND)]
+    y_up = [radius * np.sin(i / N_BEAM_ROUND * 2 * np.pi) for i in range(N_BEAM_ROUND)]
+    z_up = [L for _ in range(N_BEAM_ROUND)]
+    z_down = [0 for _ in range(N_BEAM_ROUND)]
+    vertices_0 = np.array([[0.0, 0.0, 0.0] for _ in range(2 * N_BEAM_ROUND)])
+    for i in range(N_BEAM_ROUND):
         vertices_0[2 * i] = [x_up[i], y_up[i], z_up[i]]
         vertices_0[2 * i + 1] = [x_up[i], y_up[i], z_down[i]]
 
@@ -184,11 +186,11 @@ def show_beam(r1, r2, flag_non_relative=0, radius_per_len=0.1):
     quaternion_tmp = np.array(
         [np.cos(phi / 2), tau[0] * np.sin(phi / 2), tau[1] * np.sin(phi / 2), tau[2] * np.sin(phi / 2)])
     A = quart2dcm(quaternion_tmp)
-    vertices = np.array([[0.0, 0.0, 0.0] for _ in range(2 * N_nodes_circle)])
-    for i in range(2 * N_nodes_circle):
+    vertices = np.array([[0.0, 0.0, 0.0] for _ in range(2 * N_BEAM_ROUND)])
+    for i in range(2 * N_BEAM_ROUND):
         vertices[i] = np.linalg.inv(A) @ vertices_0[i] + np.array(r1)
     if (r_tmp[2] < 0) and (phi == np.pi):
-        for i in range(2 * N_nodes_circle):
+        for i in range(2 * N_BEAM_ROUND):
             vertices[i] = vertices_0[i] + np.array(r2)
     return vertices
 

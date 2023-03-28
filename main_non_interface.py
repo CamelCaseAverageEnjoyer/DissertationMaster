@@ -1,11 +1,11 @@
 """Assembling general problem solution"""
 from all_objects import *
 
-vedo_picture = True
+vedo_picture = False
 o_global = AllProblemObjects(if_impulse_control=False,
-                             if_PID_control=True,
-                             if_LQR_control=False,
-                             if_avoiding=True,
+                             if_PID_control=False,
+                             if_LQR_control=True,
+                             if_avoiding=False,
 
                              is_saving=False,
                              save_rate=1,
@@ -13,13 +13,19 @@ o_global = AllProblemObjects(if_impulse_control=False,
                              if_testing_mode=True,
                              choice_complete=False,
 
-                             dt=1., T_max=400.,
-                             u_max=0.2, k_u=1e-1, k_ac=0.1,
-                             choice='5', floor=25,
-                             d_crash=0.3,
+                             w_twist=0.,  # 0005,
+                             w_max=0.0001,
+                             j_max=1e5,
+                             R_max=1000.,
+                             method='shooting',
+
+                             dt=1., T_max=3000.,
+                             u_max=0.2,  # k_u=1e-1, k_ac=0.1,
+                             choice='3', floor=7,
+                             d_crash=None,
                              N_apparatus=1,
                              file_reset=True)
-# for j in range(100):
+# for j in range(184):
 #     o_global.s.flag[j] = np.array([1, 1])
 print(f"Количество стержней: {o_global.s.n_beams}")
 
@@ -31,8 +37,8 @@ def iteration_func(o):
         # Repulsion
         o.a.busy_time[id_app] -= o.dt if o.a.busy_time[id_app] >= 0 else 0
         if (not o.a.flag_fly[id_app]) and o.a.busy_time[id_app] < 0:
-            # u = repulsion(o, id_app, u_a_priori=np.array([-0.00749797, 0., 0.08625441]))
-            u = repulsion(o, id_app, u_a_priori=np.array([-0.05, 0., 0.]))
+            u = repulsion(o, id_app, u_a_priori=np.array([-0.0000749797, 0., 0.0008625441]))
+            # u = repulsion(o, id_app)
             o.file_save(f'отталкивание {id_app} {u[0]} {u[1]} {u[2]}')
 
         # Motion control
@@ -44,18 +50,22 @@ def iteration_func(o):
             capturing(o=o, id_app=id_app)
 
         # Docking
-        o.file_save(f'график {id_app} {discrepancy} {np.linalg.norm(o.w)} '
+        o.file_save(f'график {id_app} {discrepancy} {o.w_diff} '
                     f'{np.linalg.norm(180 / np.pi * np.arccos(clip((np.trace(o.S) - 1) / 2, -1, 1)))} '
                     f'{np.linalg.norm(o.V)} {np.linalg.norm(o.R)} {np.linalg.norm(o.a_self[id_app])}')
         o.line_app[id_app] = np.append(o.line_app[id_app], o.o_b(o.a.r[id_app]))
         o.line_app_orf[id_app] = np.append(o.line_app_orf[id_app], o.a.r[id_app])
+
+        # Stop criteria
+        if np.linalg.norm(o.a.r[id_app]) > 1000:
+            o.t = 2 * o.T_total
     return o
 
 def iteration_timer(eventId=None):
     global o_global, vedo_picture, fig_view
     if o_global.t <= o_global.T_total:
         o_global = iteration_func(o_global)
-    if vedo_picture:
+    if vedo_picture and o_global.iter % o_global.save_rate == 0:
         fig_view = draw_vedo_and_save(o_global, o_global.iter, fig_view, app_diagram=False)
 
 def button_func():

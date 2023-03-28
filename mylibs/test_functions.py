@@ -12,8 +12,8 @@ def test_full_energy(order, w=0.001, dt=1., T_max=1000.):
     # Сохранение полной энергии
     result = True
     e = 10**(-order)
-    o = AllProblemObjects(if_talk=False, dt=dt)
-    o.w = np.array([0, -w, 0])
+    o = AllProblemObjects(if_talk=False, dt=dt, choice='2', floor=10, choice_complete=True, N_apparatus=0)
+    o.w = np.array([0, 0, w])
     o.om_update()
     U0 = o.get_potential_energy()
     T = [o.get_kinetic_energy()]

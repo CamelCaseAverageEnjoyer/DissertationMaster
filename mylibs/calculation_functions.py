@@ -1,5 +1,6 @@
 from mylibs.plot_functions import *
 from mylibs.im_sample import *
+from mylibs.numerical_methods import *
 import scipy
 
 
@@ -190,7 +191,7 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False)
             o_lcl.get_discrepancy(id_app=id_app, vector=True)
         if np.linalg.norm(f_min) > np.linalg.norm(f):
             f_min = f.copy()
-        w_max = max(w_max, np.linalg.norm(o_lcl.w))
+        w_max = max(w_max, o_lcl.w_diff)
         V_max = max(V_max, np.linalg.norm(o_lcl.V))
         R_max = max(R_max, np.linalg.norm(o_lcl.R))
         j_max = max(j_max, 180/np.pi*np.arccos((np.trace(o_lcl.S)-1)/2))
@@ -206,8 +207,12 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False)
                 if call_crash(o, o_lcl.a.r[id_app], o_lcl.R, o_lcl.S, o_lcl.taken_beams):
                     n_crashes += 1
                     break
-        if i % 50 == 0:
-            o_lcl.file_save(f'график {id_app} {np.linalg.norm(f)} {np.linalg.norm(o_lcl.w)} '
+        ##########################################################
+        if not o_lcl.control and np.linalg.norm(o_lcl.a.r[id_app] - o_lcl.b_o(o_lcl.a.target_p[id_app])) > 2 * o_lcl.a.r_0[id_app]:
+            break
+        ##########################################################
+        if i % 5 == 0:
+            o_lcl.file_save(f'график {id_app} {np.linalg.norm(f)} {o_lcl.w_diff} '
                             f'{np.linalg.norm(180 / np.pi * np.arccos(clip((np.trace(o_lcl.S) - 1) / 2, -1, 1)))} '
                             f'{np.linalg.norm(o_lcl.V)} {np.linalg.norm(o_lcl.R)} '
                             f'{np.linalg.norm(o_lcl.a_self[id_app])}')
@@ -238,44 +243,6 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False)
         return f_min, f_mean, w_max, V_max, R_max, j_max, n_crashes
 
 
-def f_to_capturing(u, *args):
-    o, T_max, id_app, interaction, return_to_shooting_method = args
-    u = o.cases['repulse_vel_control'](u)
-    dr, _, w, V, R, j, _ = calculation_motion(o=o, u=u, T_max=T_max, id_app=id_app, interaction=interaction)
-    reserve_rate = 1.5
-    e_w = 0. if (o.w_max/reserve_rate - w) > 0 else abs(w - o.w_max/reserve_rate)
-    e_V = 0. if (o.V_max/reserve_rate - V) > 0 else abs(V - o.V_max/reserve_rate)
-    e_R = 0. if (o.R_max/reserve_rate - R) > 0 else abs(R - o.R_max/reserve_rate)
-    e_j = 0. if (o.j_max/reserve_rate - j) > 0 else abs(j - o.j_max/reserve_rate)
-    anw = dr - \
-        o.mu_ipm * (np.log(o.w_max - w + e_w) + np.log(o.V_max - V + e_V) +
-                    np.log(o.R_max - R + e_R) + np.log(o.j_max - j + e_j)) + \
-        o.mu_e * (e_w/o.w_max + e_V/o.V_max + e_R/o.R_max + e_j/o.j_max)
-    if return_to_shooting_method:
-        return anw, np.linalg.norm(dr)
-    return np.linalg.norm(anw)
-
-
-def f_to_detour(u, *args):
-    o, T_max, id_app, interaction, return_vec = args
-    print(f"скорость: {np.linalg.norm(u)}")
-    u = o.cases['repulse_vel_control'](u)
-    dr, dr_average, w, V, R, j, n_crashes = calculation_motion(o, u, T_max, id_app, interaction=interaction)
-
-    if (o.w_max - w > 0) and (o.V_max - V > 0) and (o.R_max - R > 0) and (o.j_max - j > 0):  # Constraint's fulfillment
-        anw = dr - o.mu_ipm * (np.log(o.w_max - w) + np.log(o.V_max - V) +
-                               np.log(o.R_max - R) + np.log(o.j_max - j)) + \
-              np.array([1e3, 1e3, 1e3]) * n_crashes
-    else:
-        anw = np.array([1e2, 1e2, 1e2]) * \
-              (clip(10*(w - o.w_max), 0, 1) + clip(10*(V - o.V_max), 0, 1) +
-               clip(1e-1 * (R - o.R_max), 0, 1) + clip(1e-2 * (j - o.j_max), 0, 1)) + \
-              np.array([1e3, 1e3, 1e3]) * n_crashes
-    if return_vec:
-        return anw
-    return np.linalg.norm(anw)
-
-
 def find_repulsion_velocity(o, id_app: int, target=None, interaction: bool = True, method: str = 'trust-constr'):
     if interaction and not o.control or not interaction:
         func = f_to_capturing
@@ -294,7 +261,7 @@ def find_repulsion_velocity(o, id_app: int, target=None, interaction: bool = Tru
         tmp = o.b_o(target) - np.array(o.a.r[id_app])
     u = o.u_min * tmp / np.linalg.norm(tmp)
     mtd = method  # 'SLSQP' 'TNC' 'trust-constr'
-    opt = {'verbose': 3, 'xtol': o.u_max, 'gtol': tol}  # ,
+    opt = {'verbose': 3}  # , 'xtol': o.u_max, 'gtol': tol}  # ,
     T_max = 2 * (np.linalg.norm(tmp) / o.u_min)
 
     nonlinear_constraint = scipy.optimize.NonlinearConstraint(fun=lambda x: np.linalg.norm(x), lb=o.u_min, ub=o.u_max)
@@ -306,68 +273,6 @@ def find_repulsion_velocity(o, id_app: int, target=None, interaction: bool = Tru
     # constraints=nonlinear_constraint
     u = o.cases['repulse_vel_control'](res.x)
     # u = res.x
-    return u
-
-
-def calc_shooting(o, id_app, r_right, interaction=True):
-    """ Функция выполняет пристрелочный/спектральный поиск оптимальной скорости отталкивания/импульса аппарата; \n
-    Input:                                                                                  \n
-    -> o - AllObjects класс;                                                                \n
-    -> id_app - номер аппарата                                                              \n
-    -> r_right - радиус-вектор ССК положения цели                                           \n
-    -> interaction - происходит ли при импульсе отталкивание аппарата от конструкции        \n
-    Output:                                                                                 \n
-    -> u - оптимальный вектор скорости отталкивания/импульса (ССК при interaction=True, ОСК иначе)"""
-    shooting_amount = o.shooting_amount_repulsion if interaction else o.shooting_amount_impulse
-    if interaction:
-        tmp = r_right - np.array(o.o_b(o.a.r[id_app]))
-    else:
-        tmp = o.b_o(r_right) - np.array(o.a.r[id_app])
-    mu_e = o.mu_e
-    T_max = 2*(np.linalg.norm(tmp)/o.u_min)  # if o.a.flag_fly[id_app] else o.T_max
-    # T_max = o.T_max
-    # T_max_hard_limit = T_max*16 if o.X_app.flag_fly[id_app] else o.T_max_hard_limit
-    u = o.u_min * tmp / np.linalg.norm(tmp)
-
-    # Метод пристрелки
-    mu_ipm = o.mu_ipm
-    i_iteration = 0
-    while i_iteration < shooting_amount:
-        du = 0.00001
-        u_i = np.eye(3) * du
-        mu_ipm /= 5
-        mu_e /= 2
-        i_iteration += 1
-
-        dr, tol = f_to_capturing(u, o, T_max, id_app, interaction, True)
-        dr_x, _ = f_to_capturing(u + u_i[:, 0], o, T_max, id_app, interaction, True)
-        dr_y, _ = f_to_capturing(u + u_i[:, 1], o, T_max, id_app, interaction, True)
-        dr_z, _ = f_to_capturing(u + u_i[:, 2], o, T_max, id_app, interaction, True)
-        o.my_print(f"Точность пристрелки {tol}, разрешённое время {T_max} секунд", mode=None)
-        if o.d_to_grab is not None and tol < o.d_to_grab*0.98:  # and not (c or cx or cy or cz):
-            break
-
-        Jacobian = np.array([[dr_x[0] - dr[0], dr_y[0] - dr[0], dr_z[0] - dr[0]],
-                             [dr_x[1] - dr[1], dr_y[1] - dr[1], dr_z[1] - dr[1]],
-                             [dr_x[2] - dr[2], dr_y[2] - dr[2], dr_z[2] - dr[2]]]) / du
-        if np.linalg.det(Jacobian):
-            Jacobian_1 = np.linalg.inv(Jacobian)
-            correction = Jacobian_1 @ dr
-            correction = correction/np.linalg.norm(correction)*clip(np.linalg.norm(correction), 0, o.u_max/2)
-        else:
-            correction = u * np.array([random.uniform(-1, 1)] * 3) * np.linalg.norm(u) * o.k_u
-        u = u - correction
-
-        # Ограничение по модулю скорости
-        if np.linalg.norm(u) > o.u_max:
-            if o.if_any_print:
-                print(Style.RESET_ALL + f'attention: shooting speed reduction: {np.linalg.norm(u)/o.u_max*100} %')
-            u = u / np.linalg.norm(u) * o.u_max * 0.9
-
-        if np.linalg.norm(dr) > tol * 1e2:
-            mu_ipm *= 10
-            i_iteration -= 1
-            T_max *= 1.1 if T_max < o.T_max_hard_limit else 1
     return u
 
 
@@ -393,19 +298,19 @@ def repulsion(o, id_app, u_a_priori=None):
             o.my_print(f"Аппарат {id_app} летит установливать стержень {id_beam}", mode="b")
 
     if id_beam is not None:
-        r_1 = np.array(o.s.r1[id_beam])
+        r_1 = o.s.r1[id_beam]
     else:
         tmp_id = o.s.call_possible_transport(o.taken_beams)[0]
-        r_1 = np.array(o.s.r_st[tmp_id] - np.array([o.s.length[tmp_id], 0.0, 0.0]))
+        r_1 = o.s.r_st[tmp_id] - np.array([o.s.length[tmp_id], 0.0, 0.0])
 
-    if o.a.flag_start[id_app] or not o.a.flag_to_mid[id_app]:
+    '''if o.a.flag_start[id_app] or not o.a.flag_to_mid[id_app]:
         m = call_middle_point(o.c, r_1)
-        if np.linalg.norm(o.a.target[id_app] - np.array(o.c.r1[m]) / 2 - np.array(o.c.r2[m]) / 2) > 1e-2:
-            r_1 = np.array(o.c.r1[m]) / 2 + np.array(o.c.r2[m]) / 2
+        if np.linalg.norm(o.a.target[id_app] - o.c.r1[m] / 2 - o.c.r2[m]) / 2 > 1e-2:
+            r_1 = (o.c.r1[m] + o.c.r2[m]) / 2
         o.a.flag_to_mid[id_app] = True
         o.my_print(f"Аппарат {id_app} целится в промежуточный узел захвата", mode="b")
     else:
-        o.a.flag_to_mid[id_app] = False
+        o.a.flag_to_mid[id_app] = False'''
 
     o.a.target_p[id_app] = o.a.target[id_app].copy()
     o.a.target[id_app] = r_1
@@ -416,9 +321,20 @@ def repulsion(o, id_app, u_a_priori=None):
     o.a.r_0[id_app] = o.get_discrepancy(id_app)
     o.flag_vision[id_app] = False
 
-    u0 = u_a_priori if (u_a_priori is not None) else \
-        (calc_shooting(o=o, id_app=id_app, r_right=r_1, interaction=True) if o.method == 'shooting' else
-         find_repulsion_velocity(o=o, id_app=id_app, target=r_1, interaction=True))
+    if o.method == 'shooting+pd':
+        # u0, _ = diff_evolve(f_to_capturing, [[o.u_min, o.u_max] for _ in range(3)], o, o.T_max, id_app, True, False,
+        #                  n_vec=10, chance=0.5, f=0.8, len_vec=3, n_times=4, multiprocessing=False, print_process=True)
+        u0, task_done = calc_shooting(o=o, id_app=id_app, r_right=r_1, interaction=True)  # , u0=np.array(u0))
+        if not task_done:
+            o.my_print('AЛО Я НЕ СПРАВЛЯЮСЬ, ВКЛЮЧАЮ ДВИГАТЕЛЬ', mode="test")
+            o.control = True
+            o.if_PID_control = True
+    else:
+        u0 = u_a_priori if (u_a_priori is not None) else \
+            (calc_shooting(o=o, id_app=id_app, r_right=r_1, interaction=True) if o.method == 'shooting' else
+             find_repulsion_velocity(o=o, id_app=id_app, target=r_1, interaction=True))
+    # u0 = diff_evolve(f_to_capturing, [[o.u_min, o.u_max] for _ in range(3)], o, o.T_max, id_app, True, False, \
+    #     n_vec=25, chance=0.5, f=0.8, len_vec=3, n_times=5, multiprocessing=False)
 
     o.repulsion_change_params(id_app=id_app, u0=u0)
 
@@ -430,6 +346,10 @@ def repulsion(o, id_app, u_a_priori=None):
 
 
 def capturing(o, id_app):
+    if o.method == 'shooting+pd':
+        o.control = False
+        o.if_PID_control = False
+
     if o.if_any_print:
         print(Fore.BLUE + f'Аппарат id:{id_app} захватился')
     o.a_self[id_app] = np.array(np.zeros(3))

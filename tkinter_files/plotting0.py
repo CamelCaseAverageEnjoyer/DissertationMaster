@@ -135,7 +135,9 @@ def click_button_plot():
     row, label_4, entry_4 = create_entry("Угловая скорость", params['w'], row, rewrite_w, frame)
     rewrite_w()
 
-    #### ДОБАВТЬЬ plot_repulsion_error
+    create_result_show_button("Что ты такое чел", plot_repulsion_error) 
+    row += 1
+
 
     frame.update_idletasks()
     frame_canvas.config(width=1915, height=920)
