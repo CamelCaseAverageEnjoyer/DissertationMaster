@@ -13,12 +13,13 @@ def test_full_energy(order, w=0.001, dt=1., T_max=1000.):
     result = True
     e = 10**(-order)
     o = AllProblemObjects(if_talk=False, dt=dt, choice='2', floor=10, choice_complete=True, N_apparatus=0)
-    o.w = np.array([0, 0, w])
+    o.w = np.array([0., w, 0.])
     o.om_update()
+    T0 = o.get_kinetic_energy()
     U0 = o.get_potential_energy()
     T = [o.get_kinetic_energy()]
     U = [o.get_potential_energy() - U0]
-    E_0 = o.get_kinetic_energy() + o.get_potential_energy() - U0
+    E_0 = o.get_kinetic_energy() + o.get_potential_energy() - U0 - T0
     E_list = [E_0]
     t = [0.]
     for i in range(int(T_max/dt)):
@@ -26,7 +27,7 @@ def test_full_energy(order, w=0.001, dt=1., T_max=1000.):
         if i % 10 == 0:
             T.append(o.get_kinetic_energy())
             U.append(o.get_potential_energy() - U0)
-            E = o.get_kinetic_energy() + o.get_potential_energy() - U0
+            E = o.get_kinetic_energy() + o.get_potential_energy() - U0 - T0
             E_list.append(E)
             t.append(o.dt * i)
             E_max = max(abs(E), max(abs(T[len(T) - 1]), abs(U[len(T) - 1])))

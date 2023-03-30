@@ -116,7 +116,7 @@ def pd_control_params_search(name: str = '', dt=0.2, n_p=5, n_a=10, T_max=700., 
     return k_p_best
 
 def plot_params_while_main(filename: str = "", trial_episodes: bool = False, show_rate: int = 1, limit: int = 1e5,
-                           show_probe_episodes=True):
+                           show_probe_episodes=True, dt: float = 1.):
     f = open('storage/main.txt', 'r')
     o = AllProblemObjects()
 
@@ -175,7 +175,7 @@ def plot_params_while_main(filename: str = "", trial_episodes: bool = False, sho
     clr2 = [['skyblue', 'bisque', 'palegreen', 'darksalmon'], ['teal', 'tan', 'g', 'brown']]
     if show_probe_episodes:
         for id_app in range(id_max):
-            t[id_app] = np.linspace(0, len(dr[id_app]), len(dr[id_app]))
+            t[id_app] = np.linspace(0, len(dr[id_app]), len(dr[id_app])) * dt * show_rate
             for i in range(len(dr[id_app]) - 1):
                 axs[0].plot([t[id_app][i], t[id_app][i+1]], np.array([dr[id_app][i], dr[id_app][i+1]]),
                             c=clr[2 * id_app + 2 * m[id_app][i]])
@@ -204,7 +204,7 @@ def plot_params_while_main(filename: str = "", trial_episodes: bool = False, sho
                                                          R_max], c=clr[m[id_app][i]][3])
     else:
         for id_app in range(id_max):
-            t[id_app] = np.linspace(0, len(dr[id_app]), len(dr[id_app]))
+            t[id_app] = np.linspace(0, len(dr[id_app]), len(dr[id_app])) * dt * show_rate
             axs[0].plot(t[id_app], dr[id_app], c=clr[2 * id_app])
             axs[1].plot(t[id_app], [1 for _ in range(len(t[id_app]))], c='gray')
             axs[2].plot(range(len(a[id_app])), a[id_app], c='c')
@@ -472,104 +472,7 @@ def plot_repulsion_error(name: str = '', N: int = 40, dt: float = 1., T_max: flo
                 f.write(f"{w} {k} {f_min}\n")
     f.close()
 
-
-'''current_beam = 0
-current_percentage = 0.
-go_forw = True
-u_crawl = 0.4
-o = AllProblemObjects(choice='2', floor=10)
-
-def get_position_along_beam(o, persentage):
-    global current_beam
-    persentage = clip(persentage, 0, 1)
-    return o.b_o(o.s.r1[current_beam] * (1 - persentage) + o.s.r2[current_beam] * persentage)
-
-def local_iteration_func():
-    global current_beam, u_crawl, o, current_percentage, go_forw
-    o.iter += 1
-    o.t = o.iter * o.dt
-    id_app = 0
-    o.line_str = np.append(o.line_str, o.R)
-    o.line_app[id_app] = np.append(o.line_app[id_app], o.o_b(o.a.r[id_app]))
-    o.line_app_orf[id_app] = np.append(o.line_app_orf[id_app], o.a.r[id_app])
-
-    # Euler rotation
-    o.La, o.Om = o.rk4_w(o.La, o.Om, o.J, o.t)
-    o.U, o.S, o.A, o.R_e = o.call_rotation_matrix()
-    o.w_update()
-
-    if current_percentage == 1 and go_forw or current_percentage == 0 and not go_forw:
-        tmp = o.get_discrepancy(id_app=0)
-        if tmp < 1e-1:
-            go_forw = not go_forw
-            current_percentage = 0.
-            o.a.flag_beam[0] = None
-            o.s.flag[id_beam] = np.array([1., 1.])
-        else:
-            id_node = o.s.id_node[current_beam][0] if np.linalg.norm(o.a.r[id_app] - o.b_o(o.s.r1[current_beam])) < 1e-1 else o.s.id_node[current_beam][1]
-            for j in range(o.s.n_beams):
-                if id_node in o.s.id_node[j]:
-                    tmp1 = o.get_discrepancy(id_app=0, r=o.s.r1[j])
-                    tmp2 = o.get_discrepancy(id_app=0, r=o.s.r2[j])
-                    if tmp > min(tmp1, tmp2):
-                        tmp = min(tmp1, tmp2)
-                        current_beam = j
-                        current_percentage = 0.
-
-    if current_percentage == 1 and not go_forw or current_percentage == 0 and go_forw:
-        if np.linalg.norm(o.a.r[id_app] - o.b_o(o.s.r1[0])) < 1e-1:
-            go_forw = True
-            id_beam = o.s.call_possible_transport(o.taken_beams)[0]
-            o.a.flag_beam[0] = id_beam
-        id_beam = o.a.flag_beam[0]
-        if o.a.flag_beam[0] is None:
-            id_beam = 0
-        o.a.target[0] = o.s.r1[id_beam]
-    percentage_step = o.dt * u_crawl / o.s.length[current_beam]
-
-    r_step_back = get_position_along_beam(o, current_percentage - percentage_step)
-    r_step_forw = get_position_along_beam(o, current_percentage + percentage_step)
-    d_back = o.get_discrepancy(r=r_step_back, id_app=0)
-    d_forw = o.get_discrepancy(r=r_step_forw, id_app=0)
-    if d_back < d_forw:
-        o.a.r[0] = r_step_back 
-        current_percentage = clip(current_percentage - percentage_step, 0, 1)
-    else:
-        o.a.r[0] = r_step_forw
-        current_percentage = clip(current_percentage + percentage_step, 0, 1)
-    print(f"b:{current_beam}, p:{current_percentage}, id:{o.a.flag_beam[0]}")
-
-def iteration_timer(eventId=None):
-    global o, vedo_picture, fig_view
-    if o.t <= o.T_total:
-        local_iteration_func()
-    fig_view = draw_vedo_and_save(o, o.iter, fig_view, app_diagram=False)
-
-def button_func():
-    global timerId
-    fig_view.timer_callback("destroy", timerId)
-    if "Play" in button.status():
-        timerId = fig_view.timer_callback("create")
-    button.switch()'''
-
 def crawling(u_crawl: float = 0.01):
-    '''global timerId, fig_view, button, evnetId, o
-    for j in range(30):
-        o.s.flag[j] = np.array([1, 1])
-    o.a.target[0] = o.b_o(np.zeros(3))
-    o.a.r[0] = o.b_o(np.zeros(3))
-    o.warning_message = False
-
-    timerId = 1
-    fig_view = Plotter(bg='bb', size=(1920, 1080))
-    button = fig_view.add_button(button_func, states=["Play ", "Pause"], size=20,
-                                    font='Bongas', bold=True, pos=[0.9, 0.9])
-    fig_view.timer_callback("destroy", timerId)
-    evnetId = fig_view.add_callback("timer", iteration_timer)
-
-    my_mesh = plot_iterations_new(o).color("silver")
-    app_mesh = plot_apps_new(o)
-    fig_view.show(__doc__, my_mesh + app_mesh, zoom=0.5)'''
     o = AllProblemObjects(choice='2', floor=10)
     total_length = 0.
     for i in range(o.s.n_beams):
@@ -581,3 +484,60 @@ def crawling(u_crawl: float = 0.01):
             total_length += 2 * (o.s.length[0] + o.s.container_length)
         print(f"{total_length / u_crawl} секунд: установлен стержень id:{i}")
     print(f"Время сборки: {total_length / u_crawl} секунд")
+
+def reader_dv_col_noncol_difference(name: str = ''):
+    filename = 'storage/dv_col_noncol_difference_' + name + '.txt'
+    f = open(filename, 'r')
+    x = [[] for _ in range(6)]
+    tmp = []
+    j = 0
+    j_tmp = 0
+    for line in f:
+        lst = line.split()
+        c = int(lst[0]) - 2
+        d = 0 if lst[1] == 'None' else 1
+        if int(lst[2]) == 0:
+            print(tmp)
+            x[j_tmp] = np.sum(tmp) / len(tmp) * float(lst[3])
+            j_tmp += 0
+        else:
+            tmp.append(float(lst[4]))
+    x[j_tmp].append(np.sum(tmp) / len(tmp) * float(lst[3]))
+
+    plt.boxplot(x)
+    plt.show()
+    f.close()
+
+def dv_col_noncol_difference(name: str = '', dt: float = 0.1, t_max: float = 3000, u_max: float = 0.01, times: int = 5):
+    """Функция показывает boxplot затрат характеристической скорости для разных типов конструкций с
+    учётом столкновения и без"""
+    filename = 'storage/dv_col_noncol_difference_' + name + '.txt'
+    f = open(filename, 'w')
+    counter = 0
+    for cnstr in ['2', '3', '4']:
+        for d_crash in [None, 0.2]:
+            for j in range(times):
+                counter += 1
+                o = AllProblemObjects(w_twist=0.,
+                                      e_max=0.0001,
+                                      j_max=1e5,
+                                      R_max=1000.,
+                                      method='shooting+pd',
+
+                                      dt=dt, T_max=t_max, u_max=u_max,
+                                      choice=cnstr, floor=7, d_crash=d_crash,
+                                      N_apparatus=1, if_any_print=False,
+                                      file_reset=False)
+                print(Fore.CYAN + f"Затраты характеричтической скорости: {counter}/{3*2*times}" + Style.RESET_ALL)
+                tmp = random.randint(180, 400) if cnstr == '4' else (random.randint(20, 40) if cnstr == '2' else
+                                                                     random.randint(0, 30))
+                for i in range(tmp):
+                    o.s.flag[i] = np.array([1, 1])
+                u = repulsion(o, 0)
+                for _ in range(o.T_max_hard_limit // dt):
+                    o.control_step(0)
+                    discrepancy = o.get_discrepancy(0)
+                    f.write(f"{cnstr} {d_crash} {j} {dt} {np.linalg.norm(o.a_self)}\n")
+                    if (discrepancy < o.d_to_grab) and o.a.flag_fly[0]:
+                        break
+    f.close()

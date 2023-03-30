@@ -35,11 +35,12 @@ class AllProblemObjects(object):
                  u_max=0.2,                             # Максимальная скорость отталкивания
                  du_impulse_max=0.4,                    # Максимальная скорость импульса при импульсном управлении
                  w_twist=0.,
+                 e_max=0.1,         # ОТНОСИТЕЛЬНАЯ максимальная допустимая отнлонение энергии (иск огр)
                  w_max=0.0015,      # Максимально допустимая скорость вращения станции (искуственное ограничение)
                  V_max=0.1,         # Максимально допустимая поступательная скорость станции (искуственное ограничение)
                  R_max=9.,          # Максимально допустимое отклонение станции (искуственное ограничение)
                  j_max=30.,         # Максимально допустимый след матрицы поворота S (искуственное ограничение)
-                 a_pid_max=0.001,   # Максимальное ускорение при непрерывном управлении
+                 a_pid_max=0.0001,   # Максимальное ускорение при непрерывном управлении
 
                  is_saving=False,               # Сохранение vedo-изображений
                  save_rate=1,                   # Итерации между сохранением vedo-изображений
@@ -114,6 +115,7 @@ class AllProblemObjects(object):
         self.u_max = u_max
         self.u_min = u_max / 5
         self.du_impulse_max = du_impulse_max
+        self.e_max = e_max
         self.w_max = w_max
         self.V_max = V_max
         self.R_max = R_max
@@ -187,6 +189,9 @@ class AllProblemObjects(object):
         self.e = np.zeros(3)
         self.tg_tmp = np.array([100., 0., 0.])
         self.flag_vision = [False for _ in range(self.a.n)]
+        self.U_begin = self.get_potential_energy()
+        self.T_begin = self.get_kinetic_energy()
+        self.E_max = 0.
 
         self.method = method
 
@@ -293,6 +298,7 @@ class AllProblemObjects(object):
     def time_step(self):
         self.iter += 1
         self.t = self.iter * self.dt
+        self.E_max = max(self.E_max, self.get_kinetic_energy() + self.get_potential_energy() - self.U_begin - self.T_begin)
 
         # Euler rotation
         self.La, self.Om = self.rk4_w(self.La, self.Om, self.J, self.t)
@@ -592,6 +598,8 @@ class AllProblemObjects(object):
         slf.a_orbital = copy.deepcopy(self.a_orbital)
         slf.A_orbital = copy.deepcopy(self.A_orbital)
         slf.w = copy.deepcopy(self.w)
+        slf.w_twist = self.w_twist
+        slf.w_diff = self.w_diff
         slf.Om = copy.deepcopy(self.Om)
         slf.tg_tmp = copy.deepcopy(self.tg_tmp)
 

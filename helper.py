@@ -10,6 +10,9 @@ from mylibs.result_show_functions import *
 # plot_repulsion_error()
 # reader_repulsion_error()
 
-plot_params_while_main(show_rate=1, limit=2000, show_probe_episodes=False)
+# dv_col_noncol_difference(dt=10, t_max=500, u_max=0.2, times=5)
+reader_dv_col_noncol_difference()
+
+# plot_params_while_main(dt=1., show_rate=1, limit=5000, show_probe_episodes=False)
 
 # crawling()

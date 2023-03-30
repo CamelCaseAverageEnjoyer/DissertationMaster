@@ -13,18 +13,17 @@ o_global = AllProblemObjects(if_impulse_control=False,
                              if_testing_mode=True,
                              choice_complete=False,
 
-                             w_twist=0.,  # 0005,
-                             w_max=0.0001,
+                             w_twist=0.,  # 0.0005,
+                             w_max=1e5,
+                             e_max=0.1,
                              j_max=1e5,
                              R_max=1000.,
                              method='shooting',
+                             # method='shooting+pd',
 
-                             dt=1., T_max=3000.,
-                             u_max=0.2,  # k_u=1e-1, k_ac=0.1,
-                             choice='3', floor=7,
-                             d_crash=None,
-                             N_apparatus=1,
-                             file_reset=True)
+                             dt=1.0, T_max=1000., u_max=0.2,
+                             choice='2', floor=7, d_crash=None,
+                             N_apparatus=1, file_reset=True)
 # for j in range(184):
 #     o_global.s.flag[j] = np.array([1, 1])
 print(f"Количество стержней: {o_global.s.n_beams}")
