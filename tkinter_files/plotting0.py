@@ -65,7 +65,7 @@ def copy_k_p():
 def click_button_plot():
     global root, entry_main, params, icons
     global label_1, entry_1, label_2, entry_2, label_3, entry_3, label_4, entry_4
-    global label_t1, label_t4
+    global label_t1, label_t4, label_t5
     root = Tk()
     icons = Icons()
 
@@ -138,6 +138,9 @@ def click_button_plot():
     create_result_show_button("Что ты такое чел", plot_repulsion_error) 
     row += 1
 
+    label_t5 = create_result_show_button("Затраты скорости", dv_col_noncol_difference, 'label',
+                                         ["Show"], [reader_dv_col_noncol_difference])
+    row += 1
 
     frame.update_idletasks()
     frame_canvas.config(width=1915, height=920)

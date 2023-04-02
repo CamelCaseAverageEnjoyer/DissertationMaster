@@ -1,3 +1,5 @@
+import matplotlib.pyplot as plt
+
 from all_objects import *
 from vedo import *
 from datetime import datetime
@@ -485,40 +487,45 @@ def crawling(u_crawl: float = 0.01):
         print(f"{total_length / u_crawl} секунд: установлен стержень id:{i}")
     print(f"Время сборки: {total_length / u_crawl} секунд")
 
-def reader_dv_col_noncol_difference(name: str = ''):
+def reader_dv_col_noncol_difference(name: str = '', plot_name: str = ''):
     filename = 'storage/dv_col_noncol_difference_' + name + '.txt'
     f = open(filename, 'r')
     x = [[] for _ in range(6)]
-    tmp = []
-    j = 0
-    j_tmp = 0
+    tmp, j, j_tmp = ([], 0, 0)
     for line in f:
         lst = line.split()
-        c = int(lst[0]) - 2
-        d = 0 if lst[1] == 'None' else 1
-        if int(lst[2]) == 0:
-            print(tmp)
-            x[j_tmp] = np.sum(tmp) / len(tmp) * float(lst[3])
-            j_tmp += 0
-        else:
-            tmp.append(float(lst[4]))
-    x[j_tmp].append(np.sum(tmp) / len(tmp) * float(lst[3]))
-
-    plt.boxplot(x)
+        if int(lst[2]) != j:
+            j = int(lst[2])
+            x[j_tmp].append(np.sum(tmp))
+            if int(lst[2]) == 0:
+                print(f'next: {np.sum(tmp)} / {len(tmp)}')
+                j_tmp += 1
+        tmp.append(float(lst[3]))
+    x[j_tmp].append(np.sum(tmp))
+    labels = []
+    for cnstr in ['2', '3', '4']:
+        for d_crash in [None, 0.2]:
+            labels.append(f"Конструкция {cnstr}\nСтолкновение {d_crash}")
+    plt.title("Затраты характеристической скорости" + plot_name)
+    plt.boxplot(x, labels=labels)  # [i], c=clrs[i])
     plt.show()
     f.close()
 
-def dv_col_noncol_difference(name: str = '', dt: float = 0.1, t_max: float = 3000, u_max: float = 0.01, times: int = 5):
+def dv_col_noncol_difference(name: str = '', dt: float = 0.1, t_max: float = 2000, u_max: float = 0.01, times: int = 5,
+                             w_twist: float = 0.):
     """Функция показывает boxplot затрат характеристической скорости для разных типов конструкций с
     учётом столкновения и без"""
+    from main_non_interface import iteration_func
+    from datetime import datetime
     filename = 'storage/dv_col_noncol_difference_' + name + '.txt'
     f = open(filename, 'w')
+    start_time = datetime.now()
     counter = 0
     for cnstr in ['2', '3', '4']:
         for d_crash in [None, 0.2]:
             for j in range(times):
                 counter += 1
-                o = AllProblemObjects(w_twist=0.,
+                o = AllProblemObjects(w_twist=w_twist,
                                       e_max=0.0001,
                                       j_max=1e5,
                                       R_max=1000.,
@@ -528,16 +535,16 @@ def dv_col_noncol_difference(name: str = '', dt: float = 0.1, t_max: float = 300
                                       choice=cnstr, floor=7, d_crash=d_crash,
                                       N_apparatus=1, if_any_print=False,
                                       file_reset=False)
-                print(Fore.CYAN + f"Затраты характеричтической скорости: {counter}/{3*2*times}" + Style.RESET_ALL)
-                tmp = random.randint(180, 400) if cnstr == '4' else (random.randint(20, 40) if cnstr == '2' else
-                                                                     random.randint(0, 30))
+                print(Fore.CYAN + f"Затраты характеричтической скорости: {counter}/{3*2*times} | "
+                                  f"t:{datetime.now() - start_time}" + Style.RESET_ALL)
+                tmp = random.randint(180, 400) if cnstr == '4' \
+                    else (random.randint(20, 40) if cnstr == '2'
+                          else random.randint(0, 20))
                 for i in range(tmp):
                     o.s.flag[i] = np.array([1, 1])
-                u = repulsion(o, 0)
-                for _ in range(o.T_max_hard_limit // dt):
-                    o.control_step(0)
-                    discrepancy = o.get_discrepancy(0)
-                    f.write(f"{cnstr} {d_crash} {j} {dt} {np.linalg.norm(o.a_self)}\n")
-                    if (discrepancy < o.d_to_grab) and o.a.flag_fly[0]:
+                for _ in range(int(o.T_total // dt)):
+                    iteration_func(o)
+                    f.write(f"{cnstr} {d_crash} {j} {dt * np.linalg.norm(o.a_self)}\n")
+                    if o.s.flag[tmp + times][0]:
                         break
     f.close()

@@ -10,8 +10,8 @@ from mylibs.result_show_functions import *
 # plot_repulsion_error()
 # reader_repulsion_error()
 
-# dv_col_noncol_difference(dt=10, t_max=500, u_max=0.2, times=5)
-reader_dv_col_noncol_difference()
+# dv_col_noncol_difference(name='twist_0001', w_twist=0.0001, dt=10, t_max=500, u_max=0.2, times=6)
+reader_dv_col_noncol_difference(name='twist_0', plot_name=', закрутка 0 рад/с')
 
 # plot_params_while_main(dt=1., show_rate=1, limit=5000, show_probe_episodes=False)
 

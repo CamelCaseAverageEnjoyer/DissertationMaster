@@ -66,7 +66,7 @@ def lqr_control(o, id_app):
     r1 = o.a.target[id_app] - o.r_center
     muRe = o.mu / o.Radius_orbit ** 3
     tmp = 3 / o.Radius_orbit ** 4
-    a = np.array([[0, 0, 0, 1., 0, 0],
+    '''a = np.array([[0, 0, 0, 1., 0, 0],
                   [0, 0, 0, 0, 1., 0],
                   [0, 0, 0, 0, 0, 1.],
                   [(-muRe*o.A[0][0] + o.Om[1]**2 + o.Om[2]**2 + tmp*o.R_e[0]*o.S[0][2]),
@@ -80,14 +80,17 @@ def lqr_control(o, id_app):
                   [(-muRe*o.A[0][2] + o.Om[1] - o.Om[2]*o.Om[0] + tmp*o.R_e[2]*o.S[0][2]),
                    (-muRe*o.A[1][2] - o.Om[0] - o.Om[2]*o.Om[1] + tmp*o.R_e[2]*o.S[1][2]),
                    (-muRe*o.A[2][2] + o.Om[0]**2 + o.Om[1]**2 + tmp*o.R_e[2]*o.S[2][2]),
-                   2*o.Om[1], -2*o.Om[0], 0]])
+                   2*o.Om[1], -2*o.Om[0], 0]])'''
     a = np.array([[0, 0, 0, 1., 0, 0],
                   [0, 0, 0, 0, 1., 0],
                   [0, 0, 0, 0, 0, 1.],
-                  [0, 0, 0, 0., 0, 0],
-                  [0, 0, 0, 0, 0., 0],
-                  [0, 0, 0, 0, 0, 0.]])
-    print(f"a:{a}")
+                  [o.Om[1]**2 + o.Om[2]**2, o.e[2] - o.Om[0]*o.Om[1], -o.e[1] - o.Om[0]*o.Om[2],
+                   0, 2*(o.Om[2] - o.W_hkw[2]), -2*o.w_hkw - 2*(o.Om[1] - o.W_hkw[1])],
+                  [-o.e[2] - o.Om[0]*o.Om[1], o.Om[0]**2 + o.Om[2]**2 - o.w_hkw**2, o.e[0] - o.Om[1]*o.Om[2],
+                   -2*(o.Om[2] - o.W_hkw[2]), 0, 2*(o.Om[0] - o.W_hkw[0])],
+                  [o.e[1] - o.Om[0]*o.Om[2], -o.e[0] - o.Om[1]*o.Om[2], o.Om[0]**2 + o.Om[1]**2 + 3*o.w_hkw**2,
+                   2*o.w_hkw + 2*(o.Om[1] - o.W_hkw[1]), -2*(o.Om[0] - o.W_hkw[0]), 0]])
+    # print(f"a:{a}")
     b = np.array([[0, 0, 0],
                   [0, 0, 0],
                   [0, 0, 0],
@@ -95,14 +98,17 @@ def lqr_control(o, id_app):
                   [0, 1., 0],
                   [0, 0, 1.]])
     x_rate = 1
-    u_rate = 1e8
+    u_rate = 1e9
     q = np.eye(6) * x_rate
     r = np.eye(3) * u_rate
     p = scipy.linalg.solve_continuous_are(a, b, q, r)
-    print(f"k:{np.linalg.inv(r) @ b.T @ p}")
+
+    # print(f"k:{np.linalg.inv(r) @ b.T @ p}")
     a_lqr = - np.linalg.inv(r) @ b.T @ p @ rv
     # a_lqr += tmp * o.R_e * (o.R[2] - (o.S.T @ o.a.target[id_app])[2]) - tmp * o.R_e * o.R[2] - tmp * o.U.T @ o.R * o.R[2] + \
     #          tmp * o.U.T @ o.a.r[id_app] + muRe * o.A.T @ o.a.target[id_app]
+    a_lqr += my_cross(o.W_hkw, my_cross(o.W_hkw, o.R)) + \
+             o.orbital_acceleration(np.append(o.S.T @ (o.a.target[id_app] - o.r_center), o.V + my_cross(o.w, o.a.target[id_app] - o.r_center)))
     print(f"проверка: {np.linalg.norm(a_lqr) / o.a_pid_max * 100}%")
     '''a_lqr = - np.linalg.inv(r) @ b.T @ p @ rv \
             + o.S.T @ (my_cross(o.S @ o.e, r1) + my_cross(o.S @ o.w, my_cross(o.S @ o.w, r1)) +
