@@ -3,29 +3,30 @@ from all_objects import *
 
 vedo_picture = True
 o_global = AllProblemObjects(if_impulse_control=False,
-                             if_PID_control=True,
+                             if_PID_control=False,
                              if_LQR_control=False,
                              if_avoiding=False,
 
                              is_saving=False,
-                             save_rate=1,
+                             save_rate=10,
                              if_talk=False,
                              if_testing_mode=True,
                              choice_complete=False,
 
                              w_twist=0.,  # 0.0005,
                              w_max=1e5,
-                             e_max=0.1,
+                             e_max=5.5,
                              j_max=1e5,
                              R_max=1000.,
-                             method='shooting',
-                             # method='shooting+pd',
+                             # method='shooting',
+                             method='shooting+pd',
+                             # method='shooting+imp',
 
-                             dt=10.0, T_max=1000., u_max=0.2,
-                             choice='2', floor=7, d_crash=None,
+                             dt=10.0, T_max=3000., u_max=0.003,
+                             choice='3', floor=7, d_crash=0.2,
                              N_apparatus=1, file_reset=True)
-for j in range(24):
-    o_global.s.flag[j] = np.array([1, 1])
+'''for j in range(24):
+    o_global.s.flag[j] = np.array([1, 1])'''
 print(f"Количество стержней: {o_global.s.n_beams}")
 
 def iteration_func(o):
@@ -36,8 +37,8 @@ def iteration_func(o):
         # Repulsion
         o.a.busy_time[id_app] -= o.dt if o.a.busy_time[id_app] >= 0 else 0
         if (not o.a.flag_fly[id_app]) and o.a.busy_time[id_app] < 0:
-            u = repulsion(o, id_app, u_a_priori=np.array([-0.000000000749797, 0., 0.000318625441]))
-            # u = repulsion(o, id_app)
+            # u = repulsion(o, id_app, u_a_priori=np.array([-0.000000000749797, 0., 0.000318625441]))
+            u = repulsion(o, id_app)
             o.file_save(f'отталкивание {id_app} {u[0]} {u[1]} {u[2]}')
 
         # Motion control
@@ -49,7 +50,7 @@ def iteration_func(o):
             capturing(o=o, id_app=id_app)
 
         # Docking
-        o.file_save(f'график {id_app} {discrepancy} {o.w_diff} '
+        o.file_save(f'график {id_app} {discrepancy} {o.get_e_deviation()} '
                     f'{np.linalg.norm(180 / np.pi * np.arccos(clip((np.trace(o.S) - 1) / 2, -1, 1)))} '
                     f'{np.linalg.norm(o.V)} {np.linalg.norm(o.R)} {np.linalg.norm(o.a_self[id_app])}')
         o.line_app[id_app] = np.append(o.line_app[id_app], o.o_b(o.a.r[id_app]))

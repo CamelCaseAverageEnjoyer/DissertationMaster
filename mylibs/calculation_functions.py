@@ -174,7 +174,7 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False)
     -> line - линия аппарата ССК (при line_return=True)"""
     o_lcl = o.copy()
 
-    w_max, V_max, R_max, j_max, f_mean = np.zeros(5)
+    e_max, V_max, R_max, j_max, f_mean = np.zeros(5)
     n_crashes = 0
     line = []
 
@@ -191,7 +191,7 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False)
             o_lcl.get_discrepancy(id_app=id_app, vector=True)
         if np.linalg.norm(f_min) > np.linalg.norm(f):
             f_min = f.copy()
-        w_max = max(w_max, o_lcl.w_diff)
+        e_max = max(e_max, o_lcl.get_e_deviation())
         V_max = max(V_max, np.linalg.norm(o_lcl.V))
         R_max = max(R_max, np.linalg.norm(o_lcl.R))
         j_max = max(j_max, 180/np.pi*np.arccos((np.trace(o_lcl.S)-1)/2))
@@ -212,7 +212,7 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False)
             break
         ##########################################################
         if i % 5 == 0:
-            o_lcl.file_save(f'график {id_app} {np.linalg.norm(f)} {o_lcl.w_diff} '
+            o_lcl.file_save(f'график {id_app} {np.linalg.norm(f)} {o_lcl.get_e_deviation()} '
                             f'{np.linalg.norm(180 / np.pi * np.arccos(clip((np.trace(o_lcl.S) - 1) / 2, -1, 1)))} '
                             f'{np.linalg.norm(o_lcl.V)} {np.linalg.norm(o_lcl.R)} '
                             f'{np.linalg.norm(o_lcl.a_self[id_app])}')
@@ -227,20 +227,20 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False)
         o_lcl.capturing_change_params(id_app)
         V_max = np.linalg.norm(o_lcl.V)
         R_max = np.linalg.norm(o_lcl.R)
-        w_max = np.linalg.norm(o_lcl.w)
+        e_max = o_lcl.get_e_deviation()
 
         for i in range(int((o_lcl.iter - o.iter) // 20)):
             o_lcl.time_step()
 
-            w_max = max(w_max, np.linalg.norm(o_lcl.w))
+            e_max = max(e_max, o_lcl.get_e_deviation())
             V_max = max(V_max, np.linalg.norm(o_lcl.V))
             R_max = max(R_max, np.linalg.norm(o_lcl.R))
             j_max = max(j_max, 180/np.pi*np.arccos((np.trace(o_lcl.S)-1)/2))
 
     if line_return:
-        return f_min, f_mean, w_max, V_max, R_max, j_max, n_crashes, line
+        return f_min, f_mean, e_max, V_max, R_max, j_max, n_crashes, line
     else:
-        return f_min, f_mean, w_max, V_max, R_max, j_max, n_crashes
+        return f_min, f_mean, e_max, V_max, R_max, j_max, n_crashes
 
 
 def find_repulsion_velocity(o, id_app: int, target=None, interaction: bool = True, method: str = 'trust-constr'):
@@ -303,15 +303,6 @@ def repulsion(o, id_app, u_a_priori=None):
         tmp_id = o.s.call_possible_transport(o.taken_beams)[0]
         r_1 = o.s.r_st[tmp_id] - np.array([o.s.length[tmp_id], 0.0, 0.0])
 
-    '''if o.a.flag_start[id_app] or not o.a.flag_to_mid[id_app]:
-        m = call_middle_point(o.c, r_1)
-        if np.linalg.norm(o.a.target[id_app] - o.c.r1[m] / 2 - o.c.r2[m]) / 2 > 1e-2:
-            r_1 = (o.c.r1[m] + o.c.r2[m]) / 2
-        o.a.flag_to_mid[id_app] = True
-        o.my_print(f"Аппарат {id_app} целится в промежуточный узел захвата", mode="b")
-    else:
-        o.a.flag_to_mid[id_app] = False'''
-
     o.a.target_p[id_app] = o.a.target[id_app].copy()
     o.a.target[id_app] = r_1
     o.a.flag_beam[id_app] = id_beam
@@ -323,12 +314,17 @@ def repulsion(o, id_app, u_a_priori=None):
 
     if o.method == 'shooting+pd':
         # u0, _ = diff_evolve(f_to_capturing, [[o.u_min, o.u_max] for _ in range(3)], o, o.T_max, id_app, True, False,
-        #                  n_vec=10, chance=0.5, f=0.8, len_vec=3, n_times=4, multiprocessing=False, print_process=True)
-        u0, task_done = calc_shooting(o=o, id_app=id_app, r_right=r_1, interaction=True)  # , u0=np.array(u0))
+        #                    n_vec=5, chance=0.5, f=0.8, len_vec=3, n_times=3, multiprocessing=True, print_process=True)
+        u0, task_done = calc_shooting(o=o, id_app=id_app, r_right=r_1, interaction=True, func=f_to_detour)
         if not task_done:
             o.my_print('AЛО Я НЕ СПРАВЛЯЮСЬ, ВКЛЮЧАЮ ДВИГАТЕЛЬ', mode="test")
             o.control = True
             o.if_PID_control = True
+    elif o.method == 'shooting+imp':
+        u0, task_done = calc_shooting(o=o, id_app=id_app, r_right=r_1, interaction=True)
+        if not task_done:
+            o.control = True
+            o.if_impulse_control = True
     else:
         u0 = u_a_priori if (u_a_priori is not None) else \
             (calc_shooting(o=o, id_app=id_app, r_right=r_1, interaction=True) if o.method == 'shooting' else
@@ -349,6 +345,9 @@ def capturing(o, id_app):
     if o.method == 'shooting+pd':
         o.control = False
         o.if_PID_control = False
+    if o.method == 'shooting+imp':
+        o.control = False
+        o.if_impulse_control = False
 
     if o.if_any_print:
         print(Fore.BLUE + f'Аппарат id:{id_app} захватился')

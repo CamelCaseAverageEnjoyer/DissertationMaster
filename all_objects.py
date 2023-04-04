@@ -40,7 +40,7 @@ class AllProblemObjects(object):
                  V_max=0.1,          # Максимально допустимая поступательная скорость станции (искуственное ограничение)
                  R_max=9.,           # Максимально допустимое отклонение станции (искуственное ограничение)
                  j_max=30.,          # Максимально допустимый след матрицы поворота S (искуственное ограничение)
-                 a_pid_max=0.00008,  # Максимальное ускорение при непрерывном управлении
+                 a_pid_max=10e-6,    # Максимальное ускорение при непрерывном управлении
 
                  is_saving=False,               # Сохранение vedo-изображений
                  save_rate=1,                   # Итерации между сохранением vedo-изображений
@@ -70,7 +70,7 @@ class AllProblemObjects(object):
                  a=None,                        # готовый объект класса Apparatus
                  file_reset=False,
                  method='trust-const',
-                 La=np.array(q_dot([1/np.sqrt(2), 1/np.sqrt(2), 0., 0.], [1/np.sqrt(2), 0., 1/np.sqrt(2), 0.]))):
+                 La=np.array(q_dot([1/np.sqrt(2), 1/np.sqrt(2), 0., 0.], [1/np.sqrt(2), 0., 0., 1/np.sqrt(2)]))):
 
         # Init
         self.file_name = 'storage/main.txt'
@@ -191,6 +191,7 @@ class AllProblemObjects(object):
         self.flag_vision = [False for _ in range(self.a.n)]
         self.U_begin = self.get_potential_energy()
         self.T_begin = self.get_kinetic_energy()
+        self.E = 0.
         self.E_max = 0.
 
         self.method = method
@@ -205,6 +206,12 @@ class AllProblemObjects(object):
                                                              v / np.linalg.norm(v) * self.u_max * 0.95)
                                                             if np.linalg.norm(v) > self.u_min else
                                                             v / np.linalg.norm(v) * self.u_min * 1.05})
+
+    def get_e_deviation(self):
+        if self.E_max > 1e-10:
+            return self.E / self.E_max
+        else:
+            return self.E
 
     def get_discrepancy(self, id_app: int, vector: bool = False, r = None):
         """Возвращает невязку аппарата с целью"""
@@ -242,6 +249,7 @@ class AllProblemObjects(object):
         На вход подаются кватернионы Lu,Ls и скаляр \n
         Заодно считает вектор от центра Земли до центра масс системы в ИСК."""
         La = self.La if (La is None) else La
+        La /= np.linalg.norm(La)
         t = self.t if (t is None) else t
         A = quart2dcm(La)
         U = np.array([[0., 1., 0.],
@@ -277,7 +285,7 @@ class AllProblemObjects(object):
         Используется в методе Рунге-Кутты."""
         La, Om = LaOm[0:4], LaOm[4:7]
         dLa = 1 / 2 * q_dot([0, Om[0], Om[1], Om[2]], La)
-        U, S, A, R_e = self.call_rotation_matrix(La=La + dLa, t=t)
+        U, S, A, R_e = self.call_rotation_matrix(La=La, t=t)
         J1 = np.linalg.inv(J)
         M_external = 3 * self.mu * my_cross(A @ R_e, J @ A @ R_e) / self.Radius_orbit ** 5
         # M_external = np.zeros(3)
@@ -293,12 +301,16 @@ class AllProblemObjects(object):
         k3 = self.lw_right_part(LaOm + k2 * self.dt / 2, t + self.dt / 2, J)
         k4 = self.lw_right_part(LaOm + k3 * self.dt, t + self.dt, J)
         LaOm = self.dt / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
-        return (LaOm[0:4] + La) / np.linalg.norm(LaOm[0:4] + La), LaOm[4:7] + Om
+        # q_dot(LaOm[0:4] / np.linalg.norm(LaOm[0:4]), La)
+        print(np.linalg.norm(LaOm[0:4]))
+        return q_dot(LaOm[0:4], La), LaOm[4:7] + Om
+        # return (LaOm[0:4] + La) / np.linalg.norm(LaOm[0:4] + La), LaOm[4:7] + Om
 
     def time_step(self):
         self.iter += 1
         self.t = self.iter * self.dt
-        self.E_max = max(self.E_max, self.get_kinetic_energy() + self.get_potential_energy() - self.U_begin - self.T_begin)
+        self.E = self.get_kinetic_energy() + self.get_potential_energy() - self.U_begin - self.T_begin
+        self.E_max = max(self.E_max, self.E)
 
         # Euler rotation
         tmp = self.Om.copy()
@@ -330,6 +342,9 @@ class AllProblemObjects(object):
             self.a.v[id_app] = v
             self.a_orbital[id_app] = self.orbital_acceleration(np.append(r, v))
 
+            if np.linalg.norm(self.a_self[id_app]) > 0:
+                print(f"Ускорение: {np.linalg.norm(self.a_self[id_app]) / self.a_pid_max * 100} %")
+
             if self.d_crash is not None:
                 if self.warning_message and self.main_numerical_simulation and (self.t - self.t_start[id_app]) > 50:
                     if self.survivor:
@@ -345,7 +360,7 @@ class AllProblemObjects(object):
         :param id_app: id-номер аппарата
         :return: None
         """
-        if control_condition(o=self, id_app=id_app):
+        if self.control and control_condition(o=self, id_app=id_app):
             if self.if_impulse_control:
                 impulse_control(o=self, id_app=id_app)
             if self.if_PID_control and self.t_reaction_counter < 0:
@@ -602,6 +617,9 @@ class AllProblemObjects(object):
         slf.w_diff = self.w_diff
         slf.Om = copy.deepcopy(self.Om)
         slf.tg_tmp = copy.deepcopy(self.tg_tmp)
+
+        slf.E = self.E
+        slf.E_max = self.E_max
 
         slf.method = self.method
 

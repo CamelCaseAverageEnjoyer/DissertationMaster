@@ -123,11 +123,11 @@ def impulse_control(o, id_app):
         o.t_flyby_counter -= o.dt
         o.t_reaction_counter = o.t_reaction
         if o.t_flyby_counter < 0:  # Облёт конструкции
-            # u = diff_evolve(o=o, T_max=o.T_max, id_app=id_app, interaction=False)
             u = find_repulsion_velocity(o=o, id_app=id_app, interaction=False)
             o.t_flyby_counter = o.t_flyby
             o.t_start[id_app] = o.t
             talk_flyby(o.if_talk)
+            o.C_r[id_app] = get_c_hkw(o.a.r[id_app], u, o.w_hkw)
     else:
         o.t_flyby_counter = o.t_flyby
         o.t_reaction_counter -= o.dt
@@ -138,15 +138,9 @@ def impulse_control(o, id_app):
             o.t_start[id_app] = o.t
             talk_shoot(o.if_talk)
             o.flag_impulse = not target_is_reached
-    o.C_r[id_app] = get_c_hkw(o.a.r[id_app], u, o.w_hkw)
+            o.C_r[id_app] = get_c_hkw(o.a.r[id_app], u, o.w_hkw)
 
 def control_condition(o, id_app):
-    o.a_self[id_app] = np.array(np.zeros(3))  # the only reset a_self
-    o.t_reaction_counter = -1
-    return True
-    if o.method == 'shooting+pd':
-        o.t_reaction_counter = -1
-        return True
     target_orf = o.b_o(o.a.target[id_app])
     see_rate = 1
     not_see_rate = 5

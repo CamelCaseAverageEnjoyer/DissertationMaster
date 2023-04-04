@@ -12,17 +12,16 @@ def f_to_capturing(u, *args):
         args = args[0]
     o, T_max, id_app, interaction, return_to_shooting_method = args
     u = o.cases['repulse_vel_control'](u)
-    dr, _, w, V, R, j, _ = calculation_motion(o=o, u=u, T_max=T_max, id_app=id_app, interaction=interaction)
+    dr, _, e, V, R, j, _ = calculation_motion(o=o, u=u, T_max=T_max, id_app=id_app, interaction=interaction)
     reserve_rate = 1.5
-    w = abs(w - o.w_twist)
-    e_w = 0. if (o.w_max/reserve_rate - w) > 0 else abs(w - o.w_max/reserve_rate)
+    e_e = 0. if (o.e_max/reserve_rate - e) > 0 else abs(e - o.e_max/reserve_rate)
     e_V = 0. if (o.V_max/reserve_rate - V) > 0 else abs(V - o.V_max/reserve_rate)
     e_R = 0. if (o.R_max/reserve_rate - R) > 0 else abs(R - o.R_max/reserve_rate)
     e_j = 0. if (o.j_max/reserve_rate - j) > 0 else abs(j - o.j_max/reserve_rate)
     anw = dr - \
-        o.mu_ipm * (np.log(o.w_max - w + e_w) + np.log(o.V_max - V + e_V) +
+        o.mu_ipm * (np.log(o.e_max - e + e_e) + np.log(o.V_max - V + e_V) +
                     np.log(o.R_max - R + e_R) + np.log(o.j_max - j + e_j)) + \
-        o.mu_e * (e_w/o.w_max + e_V/o.V_max + e_R/o.R_max + e_j/o.j_max)
+        o.mu_e * (e_e/o.w_max + e_V/o.V_max + e_R/o.R_max + e_j/o.j_max)
     if return_to_shooting_method:
         return anw, np.linalg.norm(dr)
     return np.linalg.norm(anw)
@@ -31,26 +30,28 @@ def f_to_detour(u, *args):
     from mylibs.calculation_functions import calculation_motion
     if len(args) == 1:
         args = args[0]
-    o, T_max, id_app, interaction, return_vec = args
-    print(f"скорость: {np.linalg.norm(u)}")
+    o, T_max, id_app, interaction, return_to_shooting_method = args
     u = o.cases['repulse_vel_control'](u)
-    dr, dr_average, w, V, R, j, n_crashes = calculation_motion(o, u, T_max, id_app, interaction=interaction)
-    w = abs(w - o.w_twist)
+    dr, dr_average, e, V, R, j, n_crashes = calculation_motion(o, u, T_max, id_app, interaction=interaction)
 
-    if (o.w_max - w > 0) and (o.V_max - V > 0) and (o.R_max - R > 0) and (o.j_max - j > 0):  # Constraint's fulfillment
-        anw = dr - o.mu_ipm * (np.log(o.w_max - w) + np.log(o.V_max - V) +
+    if (o.e_max - e > 0) and (o.V_max - V > 0) and (o.R_max - R > 0) and (o.j_max - j > 0):  # Constraint's fulfillment
+        anw = dr - o.mu_ipm * (np.log(o.e_max - e) + np.log(o.V_max - V) +
                                np.log(o.R_max - R) + np.log(o.j_max - j)) + \
               np.array([1e3, 1e3, 1e3]) * n_crashes
     else:
         anw = np.array([1e2, 1e2, 1e2]) * \
-              (clip(10*(w - o.w_max), 0, 1) + clip(10*(V - o.V_max), 0, 1) +
+              (clip(10*(e - o.e_max), 0, 1) + clip(10*(V - o.V_max), 0, 1) +
                clip(1e-1 * (R - o.R_max), 0, 1) + clip(1e-2 * (j - o.j_max), 0, 1)) + \
               np.array([1e3, 1e3, 1e3]) * n_crashes
-    if return_vec:
-        return anw
+    if return_to_shooting_method:
+        return anw, np.linalg.norm(dr)
     return np.linalg.norm(anw)
 
-def calc_shooting(o, id_app, r_right, interaction=True, u0=None):
+def calc_shooting_sample(u, o, T_max, id_app, interaction, func):
+    dr, tol = func(u, o, T_max, id_app, interaction, True)
+    return [dr[0], dr[1], dr[2], tol]
+
+def calc_shooting(o, id_app, r_right, interaction=True, u0=None, func=f_to_capturing):
     """ Функция выполняет пристрелочный/спектральный поиск оптимальной скорости отталкивания/импульса аппарата; \n
     Input:                                                                                  \n
     -> o - AllObjects класс;                                                                \n
@@ -66,8 +67,6 @@ def calc_shooting(o, id_app, r_right, interaction=True, u0=None):
         tmp = o.b_o(r_right) - np.array(o.a.r[id_app])
     mu_e = o.mu_e
     T_max = o.T_max  # 2*(np.linalg.norm(tmp)/o.u_min)  # if o.a.flag_fly[id_app] else o.T_max
-    # T_max = o.T_max
-    # T_max_hard_limit = T_max*16 if o.X_app.flag_fly[id_app] else o.T_max_hard_limit
     u = o.u_min * tmp / np.linalg.norm(tmp) if u0 is None else np.array(u0)
 
     # Метод пристрелки
@@ -80,11 +79,21 @@ def calc_shooting(o, id_app, r_right, interaction=True, u0=None):
         mu_e /= 2
         i_iteration += 1
 
-        dr, tol = f_to_capturing(u, o, T_max, id_app, interaction, True)
-        dr_x, _ = f_to_capturing(u + u_i[:, 0], o, T_max, id_app, interaction, True)
-        dr_y, _ = f_to_capturing(u + u_i[:, 1], o, T_max, id_app, interaction, True)
-        dr_z, _ = f_to_capturing(u + u_i[:, 2], o, T_max, id_app, interaction, True)
-        o.my_print(f"Точность пристрелки {tol}, разрешённое время {T_max} секунд", mode=None)
+        anw = p_map(calc_shooting_sample,
+                                  [u, u + u_i[:, 0], u + u_i[:, 1], u + u_i[:, 2]],
+                                  [o for _ in range(4)],
+                                  [T_max for _ in range(4)],
+                                  [id_app for _ in range(4)],
+                                  [interaction for _ in range(4)],
+                                  [func for _ in range(4)])
+
+        dr = np.array(anw[0][0:3])
+        dr_x = np.array(anw[1][0:3])
+        dr_y = np.array(anw[2][0:3])
+        dr_z = np.array(anw[3][0:3])
+        tol = anw[0][3]
+        o.my_print(f"Точность пристрелки {tol}, разрешённое время {T_max} секунд, целевая функция {np.linalg.norm(dr)}",
+                   mode=None)
         if o.d_to_grab is not None and tol < o.d_to_grab*0.98:  # and not (c or cx or cy or cz):
             break
 
@@ -105,11 +114,11 @@ def calc_shooting(o, id_app, r_right, interaction=True, u0=None):
                 print(Style.RESET_ALL + f'attention: shooting speed reduction: {np.linalg.norm(u)/o.u_max*100} %')
             u = u / np.linalg.norm(u) * o.u_max * 0.9
 
-        if np.linalg.norm(dr) > tol * 1e2:
+        if np.linalg.norm(dr) > tol * 1e2 and i_iteration == shooting_amount:
             mu_ipm *= 10
             i_iteration -= 1
             T_max *= 1.1 if T_max < o.T_max_hard_limit else 1
-    if o.method == 'shooting+pd':
+    if o.method in ['shooting+pd', 'shooting+imp']:
         return u, tol < o.d_to_grab*0.98
     return u
 

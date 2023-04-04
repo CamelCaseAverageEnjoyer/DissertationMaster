@@ -1,3 +1,5 @@
+import matplotlib.pyplot as plt
+
 from all_objects import *
 from vedo import *
 
@@ -43,6 +45,8 @@ def test_full_energy(order, w=0.001, dt=1., T_max=1000.):
     plt.plot(t, U, c='#CDC673', label='потенциальная')
     plt.plot(t, T, c='#CD6090', label='вращательная')
     plt.plot(t, E_list, c='#ADFF2F', label='полная')
+    plt.xlabel("время, c")
+    plt.ylabel("энергия, Дж")
     plt.legend()
     draw_reference_frames(o, size=10, showing=True)
     return result

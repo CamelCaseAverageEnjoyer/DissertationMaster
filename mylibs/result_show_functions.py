@@ -1,5 +1,3 @@
-import matplotlib.pyplot as plt
-
 from all_objects import *
 from vedo import *
 from datetime import datetime
@@ -132,8 +130,8 @@ def plot_params_while_main(filename: str = "", trial_episodes: bool = False, sho
     def params_reset():
         return [[[] for _ in range(id_max)] for _ in range(8)]
 
-    dr, w, j, V, R, t, a, m = params_reset()
-    R_max, V_max, j_max, w_max = (1., 1., 1., 1.)
+    dr, e, j, V, R, t, a, m = params_reset()
+    R_max, V_max, j_max, e_max = (1., 1., 1., 1.)
 
     f = open('storage/main.txt', 'r')
     tmp = 0
@@ -146,11 +144,11 @@ def plot_params_while_main(filename: str = "", trial_episodes: bool = False, sho
                     R_max = float(lst[1])
                     V_max = float(lst[2])
                     j_max = float(lst[3])
-                    w_max = float(lst[4])
+                    e_max = float(lst[4])
                 if lst[0] == 'график' and len(lst) == 9 and (show_probe_episodes or bool(int(lst[8]))):
                     id_app = int(lst[1])
                     dr[id_app].append(float(lst[2]))
-                    w[id_app].append(float(lst[3]))
+                    e[id_app].append(float(lst[3]))
                     j[id_app].append(float(lst[4]))
                     V[id_app].append(float(lst[5]))
                     R[id_app].append(float(lst[6]))
@@ -187,8 +185,8 @@ def plot_params_while_main(filename: str = "", trial_episodes: bool = False, sho
             axs[2].plot(range(len(a[id_app])), np.zeros(len(a[id_app])), c='khaki')
         id_app = 0
         clr = [['skyblue', 'bisque', 'palegreen', 'darksalmon'], ['teal', 'tan', 'g', 'brown']]
-        axs[1].plot([t[id_app][0], t[id_app][1]], [np.array(w[id_app][0]) / w_max, np.array(w[id_app][1]) /
-                                                   w_max], c=clr[1][0], label='w')
+        axs[1].plot([t[id_app][0], t[id_app][1]], [np.array(e[id_app][0]) / e_max, np.array(e[id_app][1]) /
+                                                   e_max], c=clr[1][0], label='w')
         axs[1].plot([t[id_app][0], t[id_app][1]], [np.array(j[id_app][0]) / j_max, np.array(j[id_app][1]) /
                                                    j_max], c=clr[1][1], label='угол')
         axs[1].plot([t[id_app][0], t[id_app][1]], [np.array(V[id_app][0]) / V_max, np.array(V[id_app][1]) /
@@ -196,8 +194,8 @@ def plot_params_while_main(filename: str = "", trial_episodes: bool = False, sho
         axs[1].plot([t[id_app][0], t[id_app][1]], [np.array(R[id_app][0]) / R_max, np.array(R[id_app][1]) /
                                                    R_max], c=clr[1][3], label='R')
         for i in range(len(t[id_app]) - 1):
-            axs[1].plot([t[id_app][i], t[id_app][i+1]], [np.array(w[id_app][i]) / w_max, np.array(w[id_app][i+1]) /
-                                                         w_max], c=clr[m[id_app][i]][0])
+            axs[1].plot([t[id_app][i], t[id_app][i+1]], [np.array(e[id_app][i]) / e_max, np.array(e[id_app][i+1]) /
+                                                         e_max], c=clr[m[id_app][i]][0])
             axs[1].plot([t[id_app][i], t[id_app][i+1]], [np.array(j[id_app][i]) / j_max, np.array(j[id_app][i+1]) /
                                                          j_max], c=clr[m[id_app][i]][1])
             axs[1].plot([t[id_app][i], t[id_app][i+1]], [np.array(V[id_app][i]) / V_max, np.array(V[id_app][i+1]) /
@@ -213,7 +211,7 @@ def plot_params_while_main(filename: str = "", trial_episodes: bool = False, sho
             axs[0].plot(t[id_app], np.zeros(len(t[id_app])), c='khaki')
             axs[2].plot(range(len(a[id_app])), np.zeros(len(a[id_app])), c='khaki')
         id_app = 0
-        axs[1].plot(t[id_app], np.array(w[id_app]) / w_max, c=clr2[1][0], label='w')
+        axs[1].plot(t[id_app], np.array(e[id_app]) / e_max, c=clr2[1][0], label='энергия')
         axs[1].plot(t[id_app], np.array(j[id_app]) / j_max, c=clr2[1][1], label='угол')
         axs[1].plot(t[id_app], np.array(V[id_app]) / V_max, c=clr2[1][2], label='V')
         axs[1].plot(t[id_app], np.array(R[id_app]) / R_max, c=clr2[1][3], label='R')
@@ -323,11 +321,11 @@ def plot_avoid_field_params_search(name: str = '', dt=1., N=20, T_max=1000., k_p
                 print(Fore.CYAN + f'Подбор ПД-к-в: {tmp_count}/{N**2 * 4}; время={datetime.now() - start_time}'
                     + Style.RESET_ALL)
                 o = AllProblemObjects(if_PID_control=True, if_avoiding=True,
-                                    dt=dt, k_p=k_p, k_av=k_a,
-                                    T_max=T_max, level_avoid=lvl,
-                                    if_talk=False,
-                                    if_any_print=False,
-                                    choice='5')
+                                      dt=dt, k_p=k_p, k_av=k_a,
+                                      T_max=T_max, level_avoid=lvl,
+                                      if_talk=False,
+                                      if_any_print=False,
+                                      choice='5')
 
                 for _ in range(int(T_max // dt)):
                     # Repulsion
@@ -526,7 +524,7 @@ def dv_col_noncol_difference(name: str = '', dt: float = 0.1, t_max: float = 200
             for j in range(times):
                 counter += 1
                 o = AllProblemObjects(w_twist=w_twist,
-                                      e_max=0.0001,
+                                      e_max=1e5,
                                       j_max=1e5,
                                       R_max=1000.,
                                       method='shooting+pd',
@@ -547,4 +545,68 @@ def dv_col_noncol_difference(name: str = '', dt: float = 0.1, t_max: float = 200
                     f.write(f"{cnstr} {d_crash} {j} {dt * np.linalg.norm(o.a_self)}\n")
                     if o.s.flag[tmp + times][0]:
                         break
+    f.close()
+
+def reader_dv_from_w_twist(name: str = '', plot_name: str = '', y_lim: int = 700):
+    filename = 'storage/dv_from_w_twist_' + name + '.txt'
+    f = open(filename, 'r')
+    tmp, j, i_tmp = ([], 0, 0)
+    w_twist = [0.00001, 0.0001, 0.0002, 0.0005]
+    x = [[[] for _ in range(len(w_twist))] for _ in range(4)]  # x[0] = [[...], [...], [...]] len = w, x[0][0] = boxplot
+    for line in f:
+        lst = line.split()
+        if int(lst[3]) != j:
+            j = int(lst[3])
+            i_tmp = (lst[2] != 'None') + 2 * (lst[0] != '0.1')
+            x[i_tmp][w_twist.index(float(lst[1]))].append(np.sum(tmp))
+            if int(lst[3]) == 0:
+                print(f'next: {np.sum(tmp)}')
+        tmp.append(float(lst[4]))
+    x[i_tmp][w_twist.index(float(lst[1]))].append(np.sum(tmp))
+    plt.title("Затраты характеристической скорости" + plot_name)
+
+    labels = ["e=10%, d=None", "e=10%, d=0.2 м", "e=1%, d=None", "e=1%, d=0.2 м"]
+    for i in range(4):
+        plt.subplot(2, 2, i + 1)
+        plt.boxplot(x[i], labels=w_twist)
+        plt.title(labels[i])
+        plt.xlabel('Угловая скорость закрутки')
+        plt.ylabel('Затраты ΔV')
+        plt.ylim([0, y_lim])
+
+    plt.show()
+    f.close()
+
+def dv_from_w_twist(name: str = '', dt: float = 0.1, t_max: float = 2000, u_max: float = 0.01, times: int = 5):
+    from main_non_interface import iteration_func
+    from datetime import datetime
+    filename = 'storage/dv_from_w_twist_' + name + '.txt'
+    f = open(filename, 'w')
+    start_time = datetime.now()
+    counter = 0
+    for e_max in [0.1, 0.01]:
+        for w_twist in [0.00001, 0.0001, 0.0002, 0.0005]:
+            for d_crash in [None, 0.2]:
+                for j in range(times):
+                    counter += 1
+                    o = AllProblemObjects(w_twist=w_twist,
+                                          e_max=e_max,
+                                          j_max=1e5,
+                                          R_max=1000.,
+                                          method='shooting+pd',
+
+                                          dt=dt, T_max=t_max, u_max=u_max,
+                                          choice='4', floor=7, d_crash=d_crash,
+                                          N_apparatus=1, if_any_print=False,
+                                          file_reset=False)
+                    print(Fore.CYAN + f"Затраты характеричтической скорости: {counter}/{2*4*2*times} | "
+                                      f"t:{datetime.now() - start_time}" + Style.RESET_ALL)
+                    tmp = random.randint(180, 250)
+                    for i in range(tmp):
+                        o.s.flag[i] = np.array([1, 1])
+                    for _ in range(int(o.T_total // dt)):
+                        iteration_func(o)
+                        f.write(f"{e_max} {w_twist} {d_crash} {j} {dt * np.linalg.norm(o.a_self)}\n")
+                        if o.s.flag[tmp + 10][0]:
+                            break
     f.close()
