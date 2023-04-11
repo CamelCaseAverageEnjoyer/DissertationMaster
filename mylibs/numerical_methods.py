@@ -6,6 +6,29 @@ import random
 import copy
 from mylibs.tiny_functions import *
 
+
+def capturing_penalty(o, dr, e, V, R, j):
+    reserve_rate = 1.5
+    e_e = 0. if (o.e_max / reserve_rate - e) > 0 else abs(e - o.e_max / reserve_rate)
+    e_V = 0. if (o.V_max / reserve_rate - V) > 0 else abs(V - o.V_max / reserve_rate)
+    e_R = 0. if (o.R_max / reserve_rate - R) > 0 else abs(R - o.R_max / reserve_rate)
+    e_j = 0. if (o.j_max / reserve_rate - j) > 0 else abs(j - o.j_max / reserve_rate)
+    return dr - o.mu_ipm * (np.log(o.e_max - e + e_e) + np.log(o.V_max - V + e_V) +
+                            np.log(o.R_max - R + e_R) + np.log(o.j_max - j + e_j)) + \
+           o.mu_e * (e_e / o.w_max + e_V / o.V_max + e_R / o.R_max + e_j / o.j_max)
+
+def detour_penalty(o, dr, dr_average, e, V, R, j, n_crashes):
+    if (o.e_max - e > 0) and (o.V_max - V > 0) and (o.R_max - R > 0) and (o.j_max - j > 0):  # Constraint's fulfillment
+        anw = dr - o.mu_ipm * (np.log(o.e_max - e) + np.log(o.V_max - V) +
+                               np.log(o.R_max - R) + np.log(o.j_max - j)) + \
+              np.array([1e3, 1e3, 1e3]) * n_crashes
+    else:
+        anw = np.array([1e2, 1e2, 1e2]) * \
+              (clip(10*(e - o.e_max), 0, 1) + clip(10*(V - o.V_max), 0, 1) +
+               clip(1e-1 * (R - o.R_max), 0, 1) + clip(1e-2 * (j - o.j_max), 0, 1)) + \
+              np.array([1e3, 1e3, 1e3]) * n_crashes
+    return anw
+
 def f_to_capturing(u, *args):
     from mylibs.calculation_functions import calculation_motion
     if len(args) == 1:
@@ -13,15 +36,7 @@ def f_to_capturing(u, *args):
     o, T_max, id_app, interaction, return_to_shooting_method = args
     u = o.cases['repulse_vel_control'](u)
     dr, _, e, V, R, j, _ = calculation_motion(o=o, u=u, T_max=T_max, id_app=id_app, interaction=interaction)
-    reserve_rate = 1.5
-    e_e = 0. if (o.e_max/reserve_rate - e) > 0 else abs(e - o.e_max/reserve_rate)
-    e_V = 0. if (o.V_max/reserve_rate - V) > 0 else abs(V - o.V_max/reserve_rate)
-    e_R = 0. if (o.R_max/reserve_rate - R) > 0 else abs(R - o.R_max/reserve_rate)
-    e_j = 0. if (o.j_max/reserve_rate - j) > 0 else abs(j - o.j_max/reserve_rate)
-    anw = dr - \
-        o.mu_ipm * (np.log(o.e_max - e + e_e) + np.log(o.V_max - V + e_V) +
-                    np.log(o.R_max - R + e_R) + np.log(o.j_max - j + e_j)) + \
-        o.mu_e * (e_e/o.w_max + e_V/o.V_max + e_R/o.R_max + e_j/o.j_max)
+    anw = capturing_penalty(o, dr, e, V, R, j)
     if return_to_shooting_method:
         return anw, np.linalg.norm(dr)
     return np.linalg.norm(anw)
@@ -33,25 +48,28 @@ def f_to_detour(u, *args):
     o, T_max, id_app, interaction, return_to_shooting_method = args
     u = o.cases['repulse_vel_control'](u)
     dr, dr_average, e, V, R, j, n_crashes = calculation_motion(o, u, T_max, id_app, interaction=interaction)
-
-    if (o.e_max - e > 0) and (o.V_max - V > 0) and (o.R_max - R > 0) and (o.j_max - j > 0):  # Constraint's fulfillment
-        anw = dr - o.mu_ipm * (np.log(o.e_max - e) + np.log(o.V_max - V) +
-                               np.log(o.R_max - R) + np.log(o.j_max - j)) + \
-              np.array([1e3, 1e3, 1e3]) * n_crashes
-    else:
-        anw = np.array([1e2, 1e2, 1e2]) * \
-              (clip(10*(e - o.e_max), 0, 1) + clip(10*(V - o.V_max), 0, 1) +
-               clip(1e-1 * (R - o.R_max), 0, 1) + clip(1e-2 * (j - o.j_max), 0, 1)) + \
-              np.array([1e3, 1e3, 1e3]) * n_crashes
+    anw = detour_penalty(o, dr, dr_average, e, V, R, j, n_crashes)
     if return_to_shooting_method:
         return anw, np.linalg.norm(dr)
     return np.linalg.norm(anw)
 
+def f_controlled_const(v, *args):
+    from mylibs.calculation_functions import calculation_motion
+    if len(args) == 1:
+        args = args[0]
+    o, T_max, id_app, interaction, return_to_shooting_method = args
+    u = o.cases['repulse_vel_control'](v[0:3])
+    o.a_self = o.cases['acceleration_control'](v[3:6])
+    dr, dr_average, e, V, R, j, n_crashes = calculation_motion(o, u, T_max, id_app, interaction=True)
+    return capturing_penalty(o, dr, e, V, R, j), np.linalg.norm(dr)
+
 def calc_shooting_sample(u, o, T_max, id_app, interaction, func):
     dr, tol = func(u, o, T_max, id_app, interaction, True)
-    return [dr[0], dr[1], dr[2], tol]
+    if o.method == 'const-propulsion':
+        return [i for i in dr] + [i / o.a_pid_max for i in u[3:6]] + [tol]
+    return [i for i in dr] + [tol]
 
-def calc_shooting(o, id_app, r_right, interaction=True, u0=None, func=f_to_capturing):
+def calc_shooting(o, id_app, r_right, interaction: bool = True, u0: any = None, n: int = 3, func: any = f_to_capturing):
     """ Функция выполняет пристрелочный/спектральный поиск оптимальной скорости отталкивания/импульса аппарата; \n
     Input:                                                                                  \n
     -> o - AllObjects класс;                                                                \n
@@ -67,44 +85,49 @@ def calc_shooting(o, id_app, r_right, interaction=True, u0=None, func=f_to_captu
         tmp = o.b_o(r_right) - np.array(o.a.r[id_app])
     mu_e = o.mu_e
     T_max = o.T_max  # 2*(np.linalg.norm(tmp)/o.u_min)  # if o.a.flag_fly[id_app] else o.T_max
-    u = o.u_min * tmp / np.linalg.norm(tmp) if u0 is None else np.array(u0)
+    u = np.array(u0)
+    u[0:3] = o.u_min * tmp / np.linalg.norm(tmp) if u0 is None or np.linalg.norm(u0) < 1e-5 else u0[0:3]
+    print(f"u: {u}")
 
     # Метод пристрелки
     mu_ipm = o.mu_ipm
     i_iteration = 0
     while i_iteration < shooting_amount:
         du = 0.00001
-        u_i = np.eye(3) * du
+        u_i = np.eye(n) * du
         mu_ipm /= 5
         mu_e /= 2
         i_iteration += 1
 
         anw = p_map(calc_shooting_sample,
-                                  [u, u + u_i[:, 0], u + u_i[:, 1], u + u_i[:, 2]],
-                                  [o for _ in range(4)],
-                                  [T_max for _ in range(4)],
-                                  [id_app for _ in range(4)],
-                                  [interaction for _ in range(4)],
-                                  [func for _ in range(4)])
-
-        dr = np.array(anw[0][0:3])
-        dr_x = np.array(anw[1][0:3])
+                    [u] + [u + u_i[:, i] for i in range(n)],
+                    [o for _ in range(1 + n)],
+                    [T_max for _ in range(1 + n)],
+                    [id_app for _ in range(1 + n)],
+                    [interaction for _ in range(1 + n)],
+                    [func for _ in range(1 + n)])
+        print(f"anw {anw}")
+        dr = np.array(anw[0][0:n])
+        dr_ = [anw[1 + i][0:n] for i in range(n)]
+        '''dr_x = np.array(anw[1][0:3])
         dr_y = np.array(anw[2][0:3])
-        dr_z = np.array(anw[3][0:3])
-        tol = anw[0][3]
+        dr_z = np.array(anw[3][0:3])'''
+        tol = anw[0][n]
         o.my_print(f"Точность пристрелки {tol}, разрешённое время {T_max} секунд, целевая функция {np.linalg.norm(dr)}",
                    mode=None)
         if o.d_to_grab is not None and tol < o.d_to_grab*0.98:  # and not (c or cx or cy or cz):
             break
 
-        Jacobian = np.array([[dr_x[0] - dr[0], dr_y[0] - dr[0], dr_z[0] - dr[0]],
+        '''Jacobian = np.array([[dr_x[0] - dr[0], dr_y[0] - dr[0], dr_z[0] - dr[0]],
                              [dr_x[1] - dr[1], dr_y[1] - dr[1], dr_z[1] - dr[1]],
-                             [dr_x[2] - dr[2], dr_y[2] - dr[2], dr_z[2] - dr[2]]]) / du
+                             [dr_x[2] - dr[2], dr_y[2] - dr[2], dr_z[2] - dr[2]]]) / du'''
+        Jacobian = np.array([[dr_[i][j] - dr[j] for i in range(n)] for j in range(n)]) / du
         if np.linalg.det(Jacobian):
             Jacobian_1 = np.linalg.inv(Jacobian)
             correction = Jacobian_1 @ dr
             correction = correction/np.linalg.norm(correction)*clip(np.linalg.norm(correction), 0, o.u_max/2)
         else:
+            print(f"ВCЁ ПЛОХО ТАК ТО ГОВОРЯ")
             correction = u * np.array([random.uniform(-1, 1)] * 3) * np.linalg.norm(u) * o.k_u
         u = u - correction
 
@@ -134,7 +157,6 @@ def diff_evolve_sample(j: int, func: any, v, target_p, comp_index: list,
     v[j] = mutant.copy() if target < target_p else v[j]
     target_p = target if target < target_p else target_p
     return np.append(v[j], target_p)
-
 
 def diff_evolve(func: any, search_domain: list, *args, **kwargs):
     """Функция дифференциальной эволюции.

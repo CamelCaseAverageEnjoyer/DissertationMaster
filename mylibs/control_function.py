@@ -46,16 +46,11 @@ def pd_control(o, id_app):
     dr = o.get_discrepancy(id_app, vector=True)
     dv = (dr - o.dr_p[id_app]) / o.dt
     o.dr_p[id_app] = dr.copy()
-    R_pd = r - o.R
-    V_pd = v - o.V
     r1 = o.a.target[id_app] - o.r_center
-    '''a_pid = -o.k_p * dr - o.k_d * dv                                                               \
-            + (my_cross(o.e, R_pd) + my_cross(o.w, my_cross(o.w, R_pd)) + 2 * my_cross(o.w, V_pd)) \
-            + o.A_orbital - o.a_orbital[id_app]'''
-    a_pid = -o.k_p * dr - o.k_d * dv  \
-             + o.S.T @ (my_cross(o.S @ o.e, r1) + my_cross(o.S @ o.w, my_cross(o.S @ o.w, r1)) +
+    a_pid = -o.k_p * dr - o.k_d * dv  # \
+    '''         + o.S.T @ (my_cross(o.S @ o.e, r1) + my_cross(o.S @ o.w, my_cross(o.S @ o.w, r1)) +
                         2 * my_cross(o.S @ o.w, o.S @ o.a.v[id_app])) \
-             + o.A_orbital - o.a_orbital[id_app]
+             + o.A_orbital - o.a_orbital[id_app]'''
     o.a_self[id_app] = a_pid.copy()
 
 def lqr_control(o, id_app):
@@ -150,7 +145,7 @@ def control_condition(o, id_app):
     if (o.a.flag_fly[id_app] == 1) and ((o.flag_vision[id_app] and ((o.iter % see_rate) == 0)) or
                                         ((not o.flag_vision[id_app]) and ((o.iter % not_see_rate) == 0))):
         if ((o.if_impulse_control and o.flag_impulse) or o.if_PID_control) and o.a.flag_fly[id_app]:
-            points = 20
+            points = 40
             o.flag_vision[id_app] = True
             for j in range(points):
                 intermediate = (target_orf * j + np.array(o.a.r[id_app]) * (points - j)) / points

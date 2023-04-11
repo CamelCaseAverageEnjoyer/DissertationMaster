@@ -15,7 +15,7 @@ import vedo
 # Local libraries
 from mylibs.tiny_functions import *
 
-N_BEAM_ROUND = 4
+N_BEAM_ROUND = 10
 
 
 def color_between(tau: float):

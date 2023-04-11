@@ -19,6 +19,11 @@ from mylibs.result_show_functions import *
 # dv_from_w_twist(dt=10., t_max=4000., u_max=0.002, times=5)
 # reader_dv_from_w_twist(plot_name='dt=10, t_max=4000, u_max=0.002')
 
-plot_params_while_main(dt=1., show_rate=100, limit=5000, show_probe_episodes=True)
+n_p = 12
+n_t = 8
+# full_bundle_of_trajectories(name='0.1', dt=1., t_max=5000, u0=0.1, n_p=n_p, n_t=n_t)
+# reader_full_bundle_of_trajectories(name='0.1', n_p=n_p, n_t=n_t)
+
+plot_params_while_main(dt=10., show_rate=1, limit=200, show_probe_episodes=True, filename='', energy_show=True)
 
 # crawling()

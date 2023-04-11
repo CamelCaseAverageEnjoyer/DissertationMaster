@@ -10,41 +10,47 @@ def def_o():
     o1.om_update()
     return o1
 
-def test_full_energy(order, w=0.001, dt=1., T_max=1000.):
+def test_full_energy(order, w=0.001, dt=1., T_max=1000., show_rate: int = 10):
     # Сохранение полной энергии
     result = True
     e = 10**(-order)
-    o = AllProblemObjects(if_talk=False, dt=dt, choice='2', floor=10, choice_complete=True, N_apparatus=0)
-    o.w = np.array([0., w, 0.])
-    o.om_update()
-    T0 = o.get_kinetic_energy()
-    U0 = o.get_potential_energy()
-    T = [o.get_kinetic_energy()]
-    U = [o.get_potential_energy() - U0]
-    E_0 = o.get_kinetic_energy() + o.get_potential_energy() - U0 - T0
-    E_list = [E_0]
-    t = [0.]
-    for i in range(int(T_max/dt)):
-        o.time_step()
-        if i % 10 == 0:
-            T.append(o.get_kinetic_energy())
-            U.append(o.get_potential_energy() - U0)
-            E = o.get_kinetic_energy() + o.get_potential_energy() - U0 - T0
-            E_list.append(E)
-            t.append(o.dt * i)
-            E_max = max(abs(E), max(abs(T[len(T) - 1]), abs(U[len(T) - 1])))
-            if E_max > 0 and abs(E - E_0) / E_max > e:
-                result = False
-            if E_max > 0 and abs(E - E_0) / E_max > e:
-                result = False
+    clrs = [['#CDC673', '#CD6090', '#ADFF2F'], ['#8B864E', '#8B3A62', '#00CD00'], ['#008000', '#4B0082', '#008000']]
+    styles = ['-', ':', '--']
+    tmp = -1
+    for begin_rotation in ['xx']:  # , 'xy', 'xz']:
+        tmp += 1
+        o = AllProblemObjects(if_talk=False, dt=dt, choice='2', floor=10, choice_complete=True, N_apparatus=0, begin_rotation=begin_rotation)
+        o.w = np.array([0., w, 0.])
+        o.om_update()
+        T0 = o.get_kinetic_energy()
+        U0 = o.get_potential_energy()
+        T = [o.get_kinetic_energy()]
+        U = [o.get_potential_energy() - U0]
+        E_0 = o.get_kinetic_energy() + o.get_potential_energy() - U0
+        E_list = [E_0]
+        t = [0.]
+        for i in range(int(T_max/dt)):
+            o.time_step()
+            if i % show_rate == 0:
+                T.append(o.get_kinetic_energy())
+                U.append(o.get_potential_energy() - U0)
+                E = o.get_kinetic_energy() + o.get_potential_energy() - U0
+                E_list.append(E)
+                t.append(o.dt * i)
+                E_max = max(abs(E), max(abs(T[len(T) - 1]), abs(U[len(T) - 1])))
+                if E_max > 0 and abs(E - E_0) / E_max > e:
+                    result = False
+                if E_max > 0 and abs(E - E_0) / E_max > e:
+                    result = False
 
-    T1 = 2*np.pi/o.w_hkw
-    for i in range(int(np.floor(T_max / T1))):
-        plt.plot([T1 * (i + 1), T1 * (i + 1)], [np.min(U), np.max(T)], c='#5F9EA0')
+        T1 = 2*np.pi/o.w_hkw
+        for i in range(int(np.floor(T_max / T1))):
+            plt.plot([T1 * (i + 1), T1 * (i + 1)], [np.min(U), np.max(T)], c='#5F9EA0')
+        
+        plt.plot(t, U, c=clrs[tmp][0], label=f'потенциальная {begin_rotation}', linestyle=styles[tmp])
+        plt.plot(t, T, c=clrs[tmp][1], label=f'вращательная {begin_rotation}', linestyle=styles[tmp])
+        plt.plot(t, E_list, c=clrs[tmp][2], label=f'полная {begin_rotation}', linestyle=styles[tmp])
     plt.title("График энергий")
-    plt.plot(t, U, c='#CDC673', label='потенциальная')
-    plt.plot(t, T, c='#CD6090', label='вращательная')
-    plt.plot(t, E_list, c='#ADFF2F', label='полная')
     plt.xlabel("время, c")
     plt.ylabel("энергия, Дж")
     plt.legend()

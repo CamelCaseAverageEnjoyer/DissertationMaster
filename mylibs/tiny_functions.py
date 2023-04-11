@@ -81,6 +81,12 @@ def my_cross(a, b):
                      a[2]*b[0] - a[0]*b[2],
                      a[0]*b[1] - a[1]*b[0]])
 
+def matrix_from_vector(v):
+    """[v]x..."""
+    return np.array([[0, -v[2], v[1]], 
+                     [v[2], 0, -v[0]], 
+                     [-v[1], v[0], 0]])
+
 def flatten(lst):
     """Функция берёт 2D массив, делает 1D"""
     return [item for sublist in lst for item in sublist]

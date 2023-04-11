@@ -1,7 +1,7 @@
 """Assembling general problem solution"""
 from all_objects import *
 
-vedo_picture = True
+vedo_picture = False
 o_global = AllProblemObjects(if_impulse_control=False,
                              if_PID_control=False,
                              if_LQR_control=False,
@@ -13,20 +13,23 @@ o_global = AllProblemObjects(if_impulse_control=False,
                              if_testing_mode=True,
                              choice_complete=False,
 
-                             w_twist=0.,  # 0.0005,
+                             w_twist=0.,
                              w_max=1e5,
-                             e_max=5.5,
+                             e_max=0.2,
                              j_max=1e5,
-                             R_max=1000.,
+                             R_max=1e5,
                              # method='shooting',
-                             method='shooting+pd',
+                             # method='shooting+pd',
                              # method='shooting+imp',
+                             method='const-propulsion',
+                             begin_rotation='xx',
 
-                             dt=10.0, T_max=3000., u_max=0.003,
-                             choice='3', floor=7, d_crash=0.2,
+                             dt=10.0, T_max=5000., u_max=0.05,
+                             choice='2', floor=7, d_crash=0.2,
                              N_apparatus=1, file_reset=True)
 '''for j in range(24):
     o_global.s.flag[j] = np.array([1, 1])'''
+# o_global.a.r[0] = np.array([-10, 0., 0.])
 print(f"Количество стержней: {o_global.s.n_beams}")
 
 def iteration_func(o):
@@ -37,7 +40,7 @@ def iteration_func(o):
         # Repulsion
         o.a.busy_time[id_app] -= o.dt if o.a.busy_time[id_app] >= 0 else 0
         if (not o.a.flag_fly[id_app]) and o.a.busy_time[id_app] < 0:
-            # u = repulsion(o, id_app, u_a_priori=np.array([-0.000000000749797, 0., 0.000318625441]))
+            # u = repulsion(o, id_app, u_a_priori=np.array([-0.01, 0., -0.01]))
             u = repulsion(o, id_app)
             o.file_save(f'отталкивание {id_app} {u[0]} {u[1]} {u[2]}')
 
@@ -80,7 +83,7 @@ if __name__ == "__main__":
     global timerId, fig_view, button, evnetId
     if vedo_picture:
         timerId = 1
-        fig_view = Plotter(bg='white', size=(1920, 1080))
+        fig_view = Plotter(bg='bb', size=(1920, 1080))
         button = fig_view.add_button(button_func, states=["Play ", "Pause"], size=20,
                                      font='Bongas', bold=True, pos=[0.9, 0.9])
         fig_view.timer_callback("destroy", timerId)

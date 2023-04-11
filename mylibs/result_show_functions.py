@@ -2,6 +2,7 @@ from all_objects import *
 from vedo import *
 from datetime import datetime
 k_ac_list = [0.01, 0.02, 0.05, 0.1, 0.2]
+FONTSIZE = 10
 
 
 def reader_pd_control_params(name: str = '', eps: float = 1e-1, lng: str = 'ru'):
@@ -116,8 +117,8 @@ def pd_control_params_search(name: str = '', dt=0.2, n_p=5, n_a=10, T_max=700., 
     return k_p_best
 
 def plot_params_while_main(filename: str = "", trial_episodes: bool = False, show_rate: int = 1, limit: int = 1e5,
-                           show_probe_episodes=True, dt: float = 1.):
-    f = open('storage/main.txt', 'r')
+                           show_probe_episodes=True, dt: float = 1., energy_show=True):
+    f = open('storage/main'+ filename + '.txt', 'r')
     o = AllProblemObjects()
 
     id_max = 0
@@ -133,7 +134,7 @@ def plot_params_while_main(filename: str = "", trial_episodes: bool = False, sho
     dr, e, j, V, R, t, a, m = params_reset()
     R_max, V_max, j_max, e_max = (1., 1., 1., 1.)
 
-    f = open('storage/main.txt', 'r')
+    f = open('storage/main'+ filename + '.txt', 'r')
     tmp = 0
     for line in f:
         lst = line.split()
@@ -141,9 +142,9 @@ def plot_params_while_main(filename: str = "", trial_episodes: bool = False, sho
             if len(lst) > 0 and tmp % show_rate == 0:
                 if lst[0] == 'ограничения' and len(lst) == 5:
                     print(f"Есть ограничения")
-                    R_max = float(lst[1])
+                    R_max = 1e9
                     V_max = float(lst[2])
-                    j_max = float(lst[3])
+                    j_max = 1e5
                     e_max = float(lst[4])
                 if lst[0] == 'график' and len(lst) == 9 and (show_probe_episodes or bool(int(lst[8]))):
                     id_app = int(lst[1])
@@ -185,23 +186,25 @@ def plot_params_while_main(filename: str = "", trial_episodes: bool = False, sho
             axs[2].plot(range(len(a[id_app])), np.zeros(len(a[id_app])), c='khaki')
         id_app = 0
         clr = [['skyblue', 'bisque', 'palegreen', 'darksalmon'], ['teal', 'tan', 'g', 'brown']]
-        axs[1].plot([t[id_app][0], t[id_app][1]], [np.array(e[id_app][0]) / e_max, np.array(e[id_app][1]) /
-                                                   e_max], c=clr[1][0], label='w')
-        axs[1].plot([t[id_app][0], t[id_app][1]], [np.array(j[id_app][0]) / j_max, np.array(j[id_app][1]) /
-                                                   j_max], c=clr[1][1], label='угол')
+        if energy_show:
+            axs[1].plot([t[id_app][0], t[id_app][1]], [np.array(e[id_app][0]) / e_max, np.array(e[id_app][1]) /
+                                                    e_max], c=clr[1][0], label='энергия')
+        '''axs[1].plot([t[id_app][0], t[id_app][1]], [np.array(j[id_app][0]) / j_max, np.array(j[id_app][1]) /
+                                                   j_max], c=clr[1][1], label='угол')'''
         axs[1].plot([t[id_app][0], t[id_app][1]], [np.array(V[id_app][0]) / V_max, np.array(V[id_app][1]) /
                                                    V_max], c=clr[1][2], label='V')
-        axs[1].plot([t[id_app][0], t[id_app][1]], [np.array(R[id_app][0]) / R_max, np.array(R[id_app][1]) /
-                                                   R_max], c=clr[1][3], label='R')
+        '''axs[1].plot([t[id_app][0], t[id_app][1]], [np.array(R[id_app][0]) / R_max, np.array(R[id_app][1]) /
+                                                   R_max], c=clr[1][3], label='R')'''
         for i in range(len(t[id_app]) - 1):
-            axs[1].plot([t[id_app][i], t[id_app][i+1]], [np.array(e[id_app][i]) / e_max, np.array(e[id_app][i+1]) /
-                                                         e_max], c=clr[m[id_app][i]][0])
-            axs[1].plot([t[id_app][i], t[id_app][i+1]], [np.array(j[id_app][i]) / j_max, np.array(j[id_app][i+1]) /
-                                                         j_max], c=clr[m[id_app][i]][1])
+            if energy_show:
+                axs[1].plot([t[id_app][i], t[id_app][i+1]], [np.array(e[id_app][i]) / e_max, np.array(e[id_app][i+1]) /
+                                                            e_max], c=clr[m[id_app][i]][0])
+            '''axs[1].plot([t[id_app][i], t[id_app][i+1]], [np.array(j[id_app][i]) / j_max, np.array(j[id_app][i+1]) /
+                                                         j_max], c=clr[m[id_app][i]][1])'''
             axs[1].plot([t[id_app][i], t[id_app][i+1]], [np.array(V[id_app][i]) / V_max, np.array(V[id_app][i+1]) /
                                                          V_max], c=clr[m[id_app][i]][2])
-            axs[1].plot([t[id_app][i], t[id_app][i+1]], [np.array(R[id_app][i]) / R_max, np.array(R[id_app][i+1]) /
-                                                         R_max], c=clr[m[id_app][i]][3])
+            '''axs[1].plot([t[id_app][i], t[id_app][i+1]], [np.array(R[id_app][i]) / R_max, np.array(R[id_app][i+1]) /
+                                                         R_max], c=clr[m[id_app][i]][3])'''
     else:
         for id_app in range(id_max):
             t[id_app] = np.linspace(0, len(dr[id_app]), len(dr[id_app])) * dt * show_rate
@@ -570,8 +573,8 @@ def reader_dv_from_w_twist(name: str = '', plot_name: str = '', y_lim: int = 700
         plt.subplot(2, 2, i + 1)
         plt.boxplot(x[i], labels=w_twist)
         plt.title(labels[i])
-        plt.xlabel('Угловая скорость закрутки')
-        plt.ylabel('Затраты ΔV')
+        plt.xlabel('Угловая скорость закрутки, рад/с', fontsize=FONTSIZE)
+        plt.ylabel('Затраты ΔV, м/с', fontsize=FONTSIZE)
         plt.ylim([0, y_lim])
 
     plt.show()
@@ -610,3 +613,70 @@ def dv_from_w_twist(name: str = '', dt: float = 0.1, t_max: float = 2000, u_max:
                         if o.s.flag[tmp + 10][0]:
                             break
     f.close()
+
+def reader_full_bundle_of_trajectories(name: str = '', n_p: int = 10, n_t: int = 10):
+    o = AllProblemObjects(choice='3')
+    o.coordinate_system = 'body'
+    filename0 = 'storage/full_bundle_param_' + name + '.txt'
+    filename1 = 'storage/full_bundle_lines_' + name + '.txt'
+    f0 = open(filename0, 'r')
+    f1 = open(filename1, 'r')
+    phi_list = np.linspace(0, 2 * np.pi, n_p, endpoint=False)
+    theta_list = np.linspace(-np.pi / 2, np.pi / 2, n_t, endpoint=False)
+    x, y = np.meshgrid(phi_list, theta_list)
+    z = x + y  # z[y][x] z[theta][phi]
+    dr, e, u, phi, theta = ([], [], [], [], [])
+    for line in f0:
+        lst = line.split()
+        dr += [float(lst[0])]
+        e += [float(lst[1])]
+        u += [float(lst[2])]
+        phi += [float(lst[3])]
+        theta += [float(lst[4])]
+        z[np.where(theta_list == float(lst[4]))[0][0]][np.where(phi_list == float(lst[3]))[0][0]] = float(lst[0])
+        # z[theta_list.index(float(lst[4]))][phi_list.index(float(lst[3]))] = float(lst[0])
+    lines = [[] for _ in range(len(e))]
+    tmp = 0
+    for line in f1:
+        lst = line.split()
+        for i in range(len(lst)):
+            lines[tmp] += [float(lst[i])]
+        tmp += 1
+
+    ax = plt.figure().add_subplot(projection='3d')
+    ax.plot_surface(x, y, z, cmap=plt.cm.YlGnBu_r)
+    plt.show()
+    msh = plot_iterations_new(o).color("silver")
+    for i in range(len(lines)):
+        msh += fig_plot(o, lines[i])
+    show(msh, __doc__, viewup="z", axes=1, bg='bb', zoom=1, size=(1920, 1080)).close()
+    f0.close()
+    f1.close()
+
+
+def full_bundle_of_trajectories(name: str = '', dt: float = 0.1, t_max: float = 5000, u0: float = 0.01, n_p: int = 10, n_t: int = 10):
+    """Разброс траекторий вокруг для качественной оценки"""
+    filename0 = 'storage/full_bundle_param_' + name + '.txt'
+    filename1 = 'storage/full_bundle_lines_' + name + '.txt'
+    f0 = open(filename0, 'w')
+    f1 = open(filename1, 'w')
+    phi_list = np.linspace(0, 2 * np.pi, n_p, endpoint=False)
+    theta_list = np.linspace(-np.pi / 2, np.pi / 2, n_t, endpoint=False)
+    u_list = [u0]  # задел на будущее
+    o = AllProblemObjects(dt=dt, T_max=t_max, choice='3', u_max=u0, if_testing_mode=True)
+    o.repulse_app_config(id_app=0)
+    tmp = 0
+    for u in u_list:
+        for phi in phi_list:
+            for theta in theta_list:
+                tmp += 1
+                o.my_print(f"Разброс траекторий {tmp}/{len(u_list)*len(phi_list)*len(theta_list)}")
+                dr, _, e, V, R, j, _, line = calculation_motion(o=o, u=get_v(u, phi, theta), T_max=t_max, id_app=0,
+                                                                interaction=True, line_return=True)
+                f0.write(f"{np.linalg.norm(dr)} {e} {u} {phi} {theta} {dt} {t_max}\n")
+                for l in line:
+                    f1.write(f"{l} ")
+                f1.write(f"\n")
+
+    f0.close()
+    f1.close()

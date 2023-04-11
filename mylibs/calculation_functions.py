@@ -1,3 +1,5 @@
+import numpy as np
+
 from mylibs.plot_functions import *
 from mylibs.im_sample import *
 from mylibs.numerical_methods import *
@@ -203,12 +205,12 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False)
             if np.linalg.norm(f) <= o_lcl.d_to_grab * 0.95:
                 break
         if o_lcl.d_crash is not None:
-            if (o_lcl.t - o.t) > 50:
+            if (o_lcl.t - o.t) > 10:
                 if call_crash(o, o_lcl.a.r[id_app], o_lcl.R, o_lcl.S, o_lcl.taken_beams):
                     n_crashes += 1
                     break
         ##########################################################
-        if not o_lcl.control and np.linalg.norm(o_lcl.a.r[id_app] - o_lcl.b_o(o_lcl.a.target_p[id_app])) > 2 * o_lcl.a.r_0[id_app]:
+        if not o_lcl.control and np.linalg.norm(o_lcl.a.r[id_app] - o_lcl.b_o(o_lcl.a.target_p[id_app])) > 7 * o_lcl.a.r_0[id_app]:
             break
         ##########################################################
         if i % 5 == 0:
@@ -283,54 +285,52 @@ def repulsion(o, id_app, u_a_priori=None):
     -> u_a_priori - заданный вектор скорости (для отладки управления)"""
     # Параметры до отталкивания
     o.taken_beams_p = o.taken_beams.copy()
+    o.repulse_app_config(id_app=id_app)
+    r_1 = o.a.target[id_app]
 
-    # Алгоритм выбора цели
-    if o.a.flag_start[id_app]:  # IF ON START
-        id_beam = o.s.call_possible_transport(o.taken_beams)[0]
-        o.taken_beams = np.append(o.taken_beams, id_beam)
-        o.my_print(f"Аппарат {id_app} забрал стержень {id_beam}", mode="b")
-    else:
-        if o.a.flag_beam[id_app] is None:   # GOING HOME
-            id_beam = None
-            o.my_print(f"Аппарат {id_app} возвращается на базу", mode="b")
-        else:                                   # GOING TO POINT
-            id_beam = o.a.flag_beam[id_app]
-            o.my_print(f"Аппарат {id_app} летит установливать стержень {id_beam}", mode="b")
-
-    if id_beam is not None:
-        r_1 = o.s.r1[id_beam]
-    else:
-        tmp_id = o.s.call_possible_transport(o.taken_beams)[0]
-        r_1 = o.s.r_st[tmp_id] - np.array([o.s.length[tmp_id], 0.0, 0.0])
-
-    o.a.target_p[id_app] = o.a.target[id_app].copy()
-    o.a.target[id_app] = r_1
-    o.a.flag_beam[id_app] = id_beam
-    o.a.flag_start[id_app] = False
-    o.a.flag_fly[id_app] = True
-    o.a.flag_hkw[id_app] = False if (o.if_PID_control or o.if_LQR_control) else True
-    o.a.r_0[id_app] = o.get_discrepancy(id_app)
-    o.flag_vision[id_app] = False
-
-    if o.method == 'shooting+pd':
-        # u0, _ = diff_evolve(f_to_capturing, [[o.u_min, o.u_max] for _ in range(3)], o, o.T_max, id_app, True, False,
-        #                    n_vec=5, chance=0.5, f=0.8, len_vec=3, n_times=3, multiprocessing=True, print_process=True)
-        u0, task_done = calc_shooting(o=o, id_app=id_app, r_right=r_1, interaction=True, func=f_to_detour)
-        if not task_done:
+    if u_a_priori is not None:
+        u0 = u_a_priori
+        if o.method == 'shooting+pd':
             o.my_print('AЛО Я НЕ СПРАВЛЯЮСЬ, ВКЛЮЧАЮ ДВИГАТЕЛЬ', mode="test")
             o.control = True
             o.if_PID_control = True
-    elif o.method == 'shooting+imp':
-        u0, task_done = calc_shooting(o=o, id_app=id_app, r_right=r_1, interaction=True)
-        if not task_done:
+        if o.method == 'shooting+imp':
+            o.my_print('AЛО Я НЕ СПРАВЛЯЮСЬ, ВКЛЮЧАЮ ДВИГАТЕЛЬ', mode="test")
             o.control = True
             o.if_impulse_control = True
     else:
-        u0 = u_a_priori if (u_a_priori is not None) else \
-            (calc_shooting(o=o, id_app=id_app, r_right=r_1, interaction=True) if o.method == 'shooting' else
-             find_repulsion_velocity(o=o, id_app=id_app, target=r_1, interaction=True))
-    # u0 = diff_evolve(f_to_capturing, [[o.u_min, o.u_max] for _ in range(3)], o, o.T_max, id_app, True, False, \
-    #     n_vec=25, chance=0.5, f=0.8, len_vec=3, n_times=5, multiprocessing=False)
+        if o.method == 'shooting+pd':
+            u0, _ = diff_evolve(f_to_detour, [[o.u_min, o.u_max] for _ in range(3)], o, o.T_max, id_app, True, False,
+                                n_vec=4, chance=0.5, f=0.8, len_vec=3, n_times=2, multiprocessing=True,
+                                print_process=True)
+            u1, task_done = calc_shooting(o=o, id_app=id_app, r_right=r_1, interaction=True, u0=u0)
+            if task_done:
+                u0 = u1
+            else:
+                o.my_print('AЛО Я НЕ СПРАВЛЯЮСЬ, ВКЛЮЧАЮ ДВИГАТЕЛЬ', mode="test")
+                o.control = True
+                o.if_PID_control = True
+        elif o.method == 'shooting+imp':
+            u0, _ = diff_evolve(f_to_detour, [[o.u_min, o.u_max] for _ in range(3)], o, o.T_max, id_app, True, False,
+                               n_vec=8, chance=0.5, f=0.8, len_vec=3, n_times=5, multiprocessing=True, print_process=True)
+            u1, task_done = calc_shooting(o=o, id_app=id_app, r_right=r_1, interaction=True)
+            if task_done:
+                u0 = u1
+            else:
+                o.my_print('AЛО Я НЕ СПРАВЛЯЮСЬ, ВКЛЮЧАЮ ДВИГАТЕЛЬ', mode="test")
+                o.control = True
+                o.if_impulse_control = True
+        elif o.method == 'const-propulsion':
+            u0, _ = diff_evolve(f_to_detour, [[o.u_min, o.u_max] for _ in range(3)], o, o.T_max, id_app, True, False,
+                               n_vec=8, chance=0.5, f=0.8, len_vec=3, n_times=5, multiprocessing=True, print_process=True)
+            v = calc_shooting(o=o, id_app=id_app, r_right=r_1, interaction=True, func=f_controlled_const, n=6,
+                              u0=np.append(u0, np.zeros(3)))
+            u0 = v[0:3]
+            o.a_self[id_app] = v[3:6]
+        else:
+            u0 = calc_shooting(o=o, id_app=id_app, r_right=r_1, interaction=True) if o.method == 'shooting' else find_repulsion_velocity(o=o, id_app=id_app, target=r_1, interaction=True)
+        # u0 = diff_evolve(f_to_capturing, [[o.u_min, o.u_max] for _ in range(3)], o, o.T_max, id_app, True, False, \
+        #     n_vec=25, chance=0.5, f=0.8, len_vec=3, n_times=5, multiprocessing=False)
 
     o.repulsion_change_params(id_app=id_app, u0=u0)
 
