@@ -116,7 +116,7 @@ class AllProblemObjects(object):
         self.t_reaction_counter = t_reaction
         self.t_flyby_counter = self.t_flyby
         self.u_max = u_max
-        self.u_min = u_max / 5
+        self.u_min = u_max * 0.95
         self.du_impulse_max = du_impulse_max
         self.e_max = e_max
         self.w_max = w_max
@@ -556,17 +556,17 @@ class AllProblemObjects(object):
             if mode is None and not test:
                 print(Style.RESET_ALL + txt)
             if mode == "b":
-                print(Fore.BLUE + txt)
+                print(Fore.BLUE + txt + Style.RESET_ALL)
             if mode == "g":
-                print(Fore.GREEN + txt)
+                print(Fore.GREEN + txt + Style.RESET_ALL)
             if mode == "y" or test and mode is None:
-                print(Fore.YELLOW + txt)
+                print(Fore.YELLOW + txt + Style.RESET_ALL)
             if mode == "r":
-                print(Fore.RED + txt)
+                print(Fore.RED + txt + Style.RESET_ALL)
             if mode == "c":
-                print(Fore.CYAN + txt)
+                print(Fore.CYAN + txt + Style.RESET_ALL)
             if mode == "m":
-                print(Fore.MAGENTA + txt)
+                print(Fore.MAGENTA + txt + Style.RESET_ALL)
 
     def copy(self):
         slf = AllProblemObjects(choice=self.choice, s=self.s.copy(), c=self.c.copy(), a=self.a.copy())

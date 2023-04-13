@@ -621,7 +621,7 @@ def reader_full_bundle_of_trajectories(name: str = '', n_p: int = 10, n_t: int =
     filename1 = 'storage/full_bundle_lines_' + name + '.txt'
     f0 = open(filename0, 'r')
     f1 = open(filename1, 'r')
-    phi_list = np.linspace(0, 2 * np.pi, n_p, endpoint=False)
+    phi_list = np.linspace(-np.pi, np.pi, n_p, endpoint=False)
     theta_list = np.linspace(-np.pi / 2, np.pi / 2, n_t, endpoint=False)
     x, y = np.meshgrid(phi_list, theta_list)
     z = x + y  # z[y][x] z[theta][phi]
@@ -649,7 +649,7 @@ def reader_full_bundle_of_trajectories(name: str = '', n_p: int = 10, n_t: int =
     msh = plot_iterations_new(o).color("silver")
     for i in range(len(lines)):
         msh += fig_plot(o, lines[i])
-    show(msh, __doc__, viewup="z", axes=1, bg='bb', zoom=1, size=(1920, 1080)).close()
+    show(msh, __doc__, viewup="z", axes=0, bg='bb', zoom=1, size=(1920, 1080)).close()
     f0.close()
     f1.close()
 
@@ -660,7 +660,7 @@ def full_bundle_of_trajectories(name: str = '', dt: float = 0.1, t_max: float = 
     filename1 = 'storage/full_bundle_lines_' + name + '.txt'
     f0 = open(filename0, 'w')
     f1 = open(filename1, 'w')
-    phi_list = np.linspace(0, 2 * np.pi, n_p, endpoint=False)
+    phi_list = np.linspace(-np.pi, np.pi, n_p, endpoint=False)
     theta_list = np.linspace(-np.pi / 2, np.pi / 2, n_t, endpoint=False)
     u_list = [u0]  # задел на будущее
     o = AllProblemObjects(dt=dt, T_max=t_max, choice='3', u_max=u0, if_testing_mode=True)

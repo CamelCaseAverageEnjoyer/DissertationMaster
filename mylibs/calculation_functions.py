@@ -1,8 +1,6 @@
-import numpy as np
-
-from mylibs.plot_functions import *
 from mylibs.im_sample import *
 from mylibs.numerical_methods import *
+from mylibs.control_function import control_condition
 import scipy
 
 
@@ -155,7 +153,7 @@ def call_middle_point(X_cont, r_right):
     return np.array(X_middles)[i_needed]
 
 
-def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False):
+def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False, check_visible=False):
     """Функция расчитывает угловое и поступательное движение одного аппарата и конструкции; \n
     Других аппаратов и их решения она не учитывает;                                         \n
     Input:                                                                                  \n
@@ -177,6 +175,7 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False)
     o_lcl = o.copy()
 
     e_max, V_max, R_max, j_max, f_mean = np.zeros(5)
+    o_lcl.flag_vision[id_app] = False
     n_crashes = 0
     line = []
 
@@ -199,6 +198,9 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False)
         j_max = max(j_max, 180/np.pi*np.arccos((np.trace(o_lcl.S)-1)/2))
         f_mean += np.linalg.norm(f)
         line = np.append(line, o_lcl.o_b(o_lcl.a.r[id_app]))
+        if check_visible:
+            tmp_a = control_condition(o_lcl, id_app)
+            # print(f"----{tmp_a} {o_lcl.flag_vision[id_app]}")
 
         # Stop Criteria
         if o_lcl.d_to_grab is not None:
@@ -209,10 +211,9 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False)
                 if call_crash(o, o_lcl.a.r[id_app], o_lcl.R, o_lcl.S, o_lcl.taken_beams):
                     n_crashes += 1
                     break
-        ##########################################################
-        if not o_lcl.control and np.linalg.norm(o_lcl.a.r[id_app] - o_lcl.b_o(o_lcl.a.target_p[id_app])) > 7 * o_lcl.a.r_0[id_app]:
+        if not o_lcl.control and \
+                np.linalg.norm(o_lcl.a.r[id_app] - o_lcl.b_o(o_lcl.a.target_p[id_app])) > 7 * o_lcl.a.r_0[id_app]:
             break
-        ##########################################################
         if i % 5 == 0:
             o_lcl.file_save(f'график {id_app} {np.linalg.norm(f)} {o_lcl.get_e_deviation()} '
                             f'{np.linalg.norm(180 / np.pi * np.arccos(clip((np.trace(o_lcl.S) - 1) / 2, -1, 1)))} '
@@ -241,8 +242,7 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False)
 
     if line_return:
         return f_min, f_mean, e_max, V_max, R_max, j_max, n_crashes, line
-    else:
-        return f_min, f_mean, e_max, V_max, R_max, j_max, n_crashes
+    return f_min, f_mean, e_max, V_max, R_max, j_max, n_crashes, o_lcl.flag_vision[id_app]
 
 
 def find_repulsion_velocity(o, id_app: int, target=None, interaction: bool = True, method: str = 'trust-constr'):
@@ -288,49 +288,39 @@ def repulsion(o, id_app, u_a_priori=None):
     o.repulse_app_config(id_app=id_app)
     r_1 = o.a.target[id_app]
 
+    target_is_reached = False
     if u_a_priori is not None:
         u0 = u_a_priori
-        if o.method == 'shooting+pd':
-            o.my_print('AЛО Я НЕ СПРАВЛЯЮСЬ, ВКЛЮЧАЮ ДВИГАТЕЛЬ', mode="test")
-            o.control = True
-            o.if_PID_control = True
-        if o.method == 'shooting+imp':
-            o.my_print('AЛО Я НЕ СПРАВЛЯЮСЬ, ВКЛЮЧАЮ ДВИГАТЕЛЬ', mode="test")
-            o.control = True
-            o.if_impulse_control = True
     else:
-        if o.method == 'shooting+pd':
-            u0, _ = diff_evolve(f_to_detour, [[o.u_min, o.u_max] for _ in range(3)], o, o.T_max, id_app, True, False,
-                                n_vec=4, chance=0.5, f=0.8, len_vec=3, n_times=2, multiprocessing=True,
-                                print_process=True)
-            u1, task_done = calc_shooting(o=o, id_app=id_app, r_right=r_1, interaction=True, u0=u0)
-            if task_done:
+        method_comps = o.method.split('+')
+        if 'diffevolve' in method_comps:
+            u0, _ = diff_evolve(f_to_detour, [o.u_min, o.u_max], True, o, o.T_max, id_app, True, False, True,
+                                n_vec=o.diff_evolve_vectors, chance=0.5, f=0.8, len_vec=3, n_times=o.diff_evolve_times,
+                                multiprocessing=True, print_process=True)
+        else:
+            tmp = r_1 - np.array(o.o_b(o.a.r[id_app]))
+            u0 = o.u_min * tmp / np.linalg.norm(tmp)
+        if 'shooting' in method_comps:
+            u1, target_is_reached = calc_shooting(o=o, id_app=id_app, r_right=r_1, interaction=True, u0=u0)
+            if target_is_reached:
                 u0 = u1
-            else:
-                o.my_print('AЛО Я НЕ СПРАВЛЯЮСЬ, ВКЛЮЧАЮ ДВИГАТЕЛЬ', mode="test")
-                o.control = True
-                o.if_PID_control = True
-        elif o.method == 'shooting+imp':
-            u0, _ = diff_evolve(f_to_detour, [[o.u_min, o.u_max] for _ in range(3)], o, o.T_max, id_app, True, False,
-                               n_vec=8, chance=0.5, f=0.8, len_vec=3, n_times=5, multiprocessing=True, print_process=True)
-            u1, task_done = calc_shooting(o=o, id_app=id_app, r_right=r_1, interaction=True)
-            if task_done:
-                u0 = u1
-            else:
-                o.my_print('AЛО Я НЕ СПРАВЛЯЮСЬ, ВКЛЮЧАЮ ДВИГАТЕЛЬ', mode="test")
-                o.control = True
-                o.if_impulse_control = True
-        elif o.method == 'const-propulsion':
-            u0, _ = diff_evolve(f_to_detour, [[o.u_min, o.u_max] for _ in range(3)], o, o.T_max, id_app, True, False,
-                               n_vec=8, chance=0.5, f=0.8, len_vec=3, n_times=5, multiprocessing=True, print_process=True)
+        elif 'const-propulsion' in method_comps:
             v = calc_shooting(o=o, id_app=id_app, r_right=r_1, interaction=True, func=f_controlled_const, n=6,
                               u0=np.append(u0, np.zeros(3)))
             u0 = v[0:3]
-            o.a_self[id_app] = v[3:6]
+            o.a_self[id_app] = o.cases['acceleration_control'](v[3:6])
+            print(f"TEPER {o.a_self[0]}")
         else:
-            u0 = calc_shooting(o=o, id_app=id_app, r_right=r_1, interaction=True) if o.method == 'shooting' else find_repulsion_velocity(o=o, id_app=id_app, target=r_1, interaction=True)
-        # u0 = diff_evolve(f_to_capturing, [[o.u_min, o.u_max] for _ in range(3)], o, o.T_max, id_app, True, False, \
-        #     n_vec=25, chance=0.5, f=0.8, len_vec=3, n_times=5, multiprocessing=False)
+            u0 = find_repulsion_velocity(o=o, id_app=id_app, target=r_1, interaction=True)
+
+    if not target_is_reached and 'pd' in method_comps:
+        o.my_print('Я не справляюсь, включаю ПД', mode="test")
+        o.control = True
+        o.if_PID_control = True
+    if not target_is_reached and 'imp' in method_comps:
+        o.my_print('Я не справляюсь, включаю импульсы', mode="test")
+        o.control = True
+        o.if_impulse_control = True
 
     o.repulsion_change_params(id_app=id_app, u0=u0)
 

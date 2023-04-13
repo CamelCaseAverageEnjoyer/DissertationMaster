@@ -9,23 +9,27 @@ o_global = AllProblemObjects(if_impulse_control=False,
 
                              is_saving=False,
                              save_rate=10,
-                             if_talk=False,
+                             if_talk=True,
                              if_testing_mode=True,
                              choice_complete=False,
 
                              w_twist=0.,
                              w_max=1e5,
-                             e_max=0.2,
+                             e_max=1e2,
                              j_max=1e5,
                              R_max=1e5,
                              # method='shooting',
                              # method='shooting+pd',
                              # method='shooting+imp',
-                             method='const-propulsion',
+                             method='diffevolve+const-propulsion',
                              begin_rotation='xx',
+                             shooting_amount_repulsion=30,
 
-                             dt=10.0, T_max=5000., u_max=0.05,
-                             choice='2', floor=7, d_crash=0.2,
+                             diff_evolve_times=3,
+                             diff_evolve_vectors=10,
+
+                             dt=10.0, T_max=5000., u_max=0.03,
+                             choice='3', floor=7, d_crash=0.2,
                              N_apparatus=1, file_reset=True)
 '''for j in range(24):
     o_global.s.flag[j] = np.array([1, 1])'''

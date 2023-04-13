@@ -116,9 +116,12 @@ def lqr_control(o, id_app):
 def impulse_control(o, id_app):
     if not o.flag_vision[id_app]:
         o.t_flyby_counter -= o.dt
-        o.t_reaction_counter = o.t_reaction
+        o.t_reaction_counter = o.t_flyby
         if o.t_flyby_counter < 0:  # Облёт конструкции
-            u = find_repulsion_velocity(o=o, id_app=id_app, interaction=False)
+            o.my_print('Облёт', mode='r')
+            # u = find_repulsion_velocity(o=o, id_app=id_app, interaction=False)
+            u, _ = diff_evolve(f_to_detour, [[o.u_min, o.u_max] for _ in range(3)], o, o.T_max, id_app, False, False,
+                               n_vec=o.diff_evolve_vectors, chance=0.5, f=0.8, len_vec=3, n_times=5, multiprocessing=True, print_process=True)
             o.t_flyby_counter = o.t_flyby
             o.t_start[id_app] = o.t
             talk_flyby(o.if_talk)
@@ -127,7 +130,10 @@ def impulse_control(o, id_app):
         o.t_flyby_counter = o.t_flyby
         o.t_reaction_counter -= o.dt
         if o.t_reaction_counter < 0:  # Точное попадание в цель
+            o.my_print('Попадание', mode='r')
             r_right = o.b_o(o.a.target[id_app])
+            # u, _ = diff_evolve(f_to_detour, [[o.u_min, o.u_max] for _ in range(3)], o, o.T_max, id_app, False, False,
+            #                    n_vec=8, chance=0.5, f=0.8, len_vec=3, n_times=5, multiprocessing=True, print_process=True)
             u, target_is_reached = calc_shooting(o=o, id_app=id_app, r_right=r_right, interaction=False)
             o.t_reaction_counter = o.t_reaction
             o.t_start[id_app] = o.t
@@ -136,22 +142,23 @@ def impulse_control(o, id_app):
             o.C_r[id_app] = get_c_hkw(o.a.r[id_app], u, o.w_hkw)
 
 def control_condition(o, id_app):
+    from mylibs.calculation_functions import call_crash
     target_orf = o.b_o(o.a.target[id_app])
     see_rate = 1
     not_see_rate = 5
     if o.flag_vision[id_app]:  # If app have seen target, then app see it due to episode end
         o.t_reaction_counter -= o.dt
         return True
-    if (o.a.flag_fly[id_app] == 1) and ((o.flag_vision[id_app] and ((o.iter % see_rate) == 0)) or
-                                        ((not o.flag_vision[id_app]) and ((o.iter % not_see_rate) == 0))):
-        if ((o.if_impulse_control and o.flag_impulse) or o.if_PID_control) and o.a.flag_fly[id_app]:
-            points = 40
-            o.flag_vision[id_app] = True
-            for j in range(points):
-                intermediate = (target_orf * j + np.array(o.a.r[id_app]) * (points - j)) / points
-                o.flag_vision[id_app] = False if call_crash(o, intermediate, o.R, o.S, o.taken_beams) else o.flag_vision[id_app]
-            o.t_reaction_counter = o.t_reaction_counter - o.dt*see_rate if o.flag_vision[id_app] else o.t_reaction
-            return o.flag_vision[id_app]
-    else:
-        return True
+    if o.a.flag_fly[id_app] and ((o.flag_vision[id_app] and ((o.iter % see_rate) == 0)) or
+                                 ((not o.flag_vision[id_app]) and ((o.iter % not_see_rate) == 0))):
+        # if ((o.if_impulse_control and o.flag_impulse) or o.if_PID_control) and o.a.flag_fly[id_app]:
+        points = 40
+        o.flag_vision[id_app] = True
+        for j in range(points):
+            intermediate = (target_orf * j + np.array(o.a.r[id_app]) * (points - j)) / points
+            o.flag_vision[id_app] = False if call_crash(o, intermediate, o.R, o.S, o.taken_beams) else o.flag_vision[id_app]
+        o.t_reaction_counter = o.t_reaction_counter - o.dt*see_rate if o.flag_vision[id_app] else o.t_reaction
+        return o.flag_vision[id_app]
+    '''else:
+        return True'''
     return False
