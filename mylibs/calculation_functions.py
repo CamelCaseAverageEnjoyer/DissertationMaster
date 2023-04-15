@@ -153,7 +153,7 @@ def call_middle_point(X_cont, r_right):
     return np.array(X_middles)[i_needed]
 
 
-def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False, check_visible=False):
+def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False, check_visible=False, control=None):
     """Функция расчитывает угловое и поступательное движение одного аппарата и конструкции; \n
     Других аппаратов и их решения она не учитывает;                                         \n
     Input:                                                                                  \n
@@ -176,11 +176,14 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False,
 
     e_max, V_max, R_max, j_max, f_mean = np.zeros(5)
     o_lcl.flag_vision[id_app] = False
+    if control is not None:
+        o_lcl.a_self[id_app] = o_lcl.cases['acceleration_control'](control)
+        o_lcl.a.flag_hkw[id_app] = False
     n_crashes = 0
     line = []
 
     if interaction:
-        o_lcl.repulsion_change_params(id_app=id_app, u0=u)
+        o_lcl.repulsion_change_params(id_app=id_app, u0=o.cases['repulse_vel_control'](u))
 
     f_min = o_lcl.S @ o_lcl.get_discrepancy(id_app=id_app, vector=True) if interaction else \
         o_lcl.get_discrepancy(id_app=id_app, vector=True)
@@ -266,7 +269,6 @@ def find_repulsion_velocity(o, id_app: int, target=None, interaction: bool = Tru
     opt = {'verbose': 3}  # , 'xtol': o.u_max, 'gtol': tol}  # ,
     T_max = 2 * (np.linalg.norm(tmp) / o.u_min)
 
-    nonlinear_constraint = scipy.optimize.NonlinearConstraint(fun=lambda x: np.linalg.norm(x), lb=o.u_min, ub=o.u_max)
     res = scipy.optimize.minimize(func, u, args=(o, T_max, id_app, interaction, False),
                                   tol=tol, method=mtd, options=opt,
                                   bounds=((0, o.u_max), (0, o.u_max), (0, o.u_max)),
@@ -288,11 +290,11 @@ def repulsion(o, id_app, u_a_priori=None):
     o.repulse_app_config(id_app=id_app)
     r_1 = o.a.target[id_app]
 
+    method_comps = o.method.split('+')
     target_is_reached = False
     if u_a_priori is not None:
         u0 = u_a_priori
     else:
-        method_comps = o.method.split('+')
         if 'diffevolve' in method_comps:
             u0, _ = diff_evolve(f_to_detour, [o.u_min, o.u_max], True, o, o.T_max, id_app, True, False, True,
                                 n_vec=o.diff_evolve_vectors, chance=0.5, f=0.8, len_vec=3, n_times=o.diff_evolve_times,
@@ -305,13 +307,27 @@ def repulsion(o, id_app, u_a_priori=None):
             if target_is_reached:
                 u0 = u1
         elif 'const-propulsion' in method_comps:
-            v = calc_shooting(o=o, id_app=id_app, r_right=r_1, interaction=True, func=f_controlled_const, n=6,
-                              u0=np.append(u0, np.zeros(3)))
-            u0 = v[0:3]
-            o.a_self[id_app] = o.cases['acceleration_control'](v[3:6])
+            v0, _ = diff_evolve(f_controlled_const1, [o.u_min, o.u_max, 0, o.a_pid_max / 1.7], True, o, o.T_max, id_app,
+                                True, False, True, n_vec=o.diff_evolve_vectors, chance=0.5, f=0.8, len_vec=6,
+                                n_times=o.diff_evolve_times, multiprocessing=True, print_process=True)
+            # v0 = calc_shooting(o=o, id_app=id_app, r_right=r_1, interaction=True, func=f_controlled_const, n=6, u0=v0)
+            '''mtd = 'trust-constr'  # 'SLSQP' 'TNC' 'trust-constr'
+            opt = {'verbose': 3}
+            u = np.array([0., -0.01, 0., 0., 0., 0.])
+            tol = 0.5
+
+            res = scipy.optimize.minimize(f_controlled_const1, u, args=(o, o.T_max, id_app, True, False, True),
+                                          tol=tol, method=mtd, options=opt,
+                                          bounds=((0, o.u_max), (0, o.u_max), (0, o.u_max),
+                                                  (0, o.a_pid_max), (0, o.a_pid_max), (0, o.a_pid_max)))
+            # constraints=nonlinear_constraint
+            v0 = res.x'''
+            u0 = v0[0:3]
+            o.a_self[id_app] = o.cases['acceleration_control'](v0[3:6])
             print(f"TEPER {o.a_self[0]}")
         else:
             u0 = find_repulsion_velocity(o=o, id_app=id_app, target=r_1, interaction=True)
+    u0 = o.cases['repulse_vel_control'](u0)
 
     if not target_is_reached and 'pd' in method_comps:
         o.my_print('Я не справляюсь, включаю ПД', mode="test")

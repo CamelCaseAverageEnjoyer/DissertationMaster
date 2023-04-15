@@ -145,7 +145,7 @@ def control_condition(o, id_app):
     from mylibs.calculation_functions import call_crash
     target_orf = o.b_o(o.a.target[id_app])
     see_rate = 1
-    not_see_rate = 5
+    not_see_rate = 2
     if o.flag_vision[id_app]:  # If app have seen target, then app see it due to episode end
         o.t_reaction_counter -= o.dt
         return True

@@ -469,9 +469,9 @@ def draw_vedo_and_save(o, i_time: int, fig_view, app_diagram: bool = True):
             msh += fig_plot(o, o.line_app_orf[i])
             msh += fig_plot(o, line_target(r=o.a.target[i], d=o.d_to_grab), o.b_o(o.a.target[i]))
             if np.linalg.norm(o.a_self[i]) > 1e-9:
-                msh += draw_flat_arrow(np.array(o.a_self[i]) * 2 / o.a_pid_max, o, i, 'c')
+                msh += draw_flat_arrow(np.array(o.a_self[i]) * 1e-1 / o.a_pid_max, o, i, 'c')
             if np.linalg.norm(o.a_orbital[i]) > 1e-9:
-                msh += draw_flat_arrow(np.array(o.a_orbital[i]) * 2 / o.a_pid_max, o, i, 'g')
+                msh += draw_flat_arrow(np.array(o.a_orbital[i]) * 1e-1 / o.a_pid_max, o, i, 'g')
         if (not o.survivor) and o.collision_foo == 'Line':
             msh += fig_plot(o, line_chaos(), None)
     else:

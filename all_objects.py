@@ -348,6 +348,7 @@ class AllProblemObjects(object):
                     r = self.a.r[id_app]
                     v = self.a.v[id_app]
                     self.a_orbital[id_app] = self.orbital_acceleration(np.append(r, v))
+                    # print(f"---{np.linalg.norm(self.a_self[id_app]) / np.linalg.norm(self.a_orbital[id_app])}")
                     r, v = self.rk4_acceleration(r, v, self.a_self[id_app] + self.a_orbital[id_app] + self.a_wrong)
             else:
                 r = self.b_o(self.a.target[id_app])
@@ -356,8 +357,8 @@ class AllProblemObjects(object):
             self.a.r[id_app] = r
             self.a.v[id_app] = v
 
-            if np.linalg.norm(self.a_self[id_app]) > 0 and self.main_numerical_simulation:
-                print(f"Ускорение: {np.linalg.norm(self.a_self[id_app]) / self.a_pid_max * 100} %")
+            #if np.linalg.norm(self.a_self[id_app]) > 0 and self.main_numerical_simulation:
+            #    print(f"Ускорение: {np.linalg.norm(self.a_self[id_app]) / self.a_pid_max * 100} %")
 
             if self.d_crash is not None:
                 if self.warning_message and self.main_numerical_simulation and (self.t - self.t_start[id_app]) > 50:

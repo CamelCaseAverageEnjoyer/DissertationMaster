@@ -1,8 +1,6 @@
-from colorama import Fore, Style
-import matplotlib.pyplot as plt
-from p_tqdm import p_map
 import numpy as np
-import random
+from colorama import Fore, Style
+from p_tqdm import p_map
 import copy
 from mylibs.tiny_functions import *
 
@@ -13,18 +11,17 @@ def capturing_penalty(o, dr, dr_average, e, V, R, j, n_crashes, visible):
     e_V = 0. if (o.V_max / reserve_rate - V) > 0 else abs(V - o.V_max / reserve_rate)
     e_R = 0. if (o.R_max / reserve_rate - R) > 0 else abs(R - o.R_max / reserve_rate)
     e_j = 0. if (o.j_max / reserve_rate - j) > 0 else abs(j - o.j_max / reserve_rate)
-    return dr + dr_average * 0.3 - o.mu_ipm * (np.log(o.e_max - e + e_e) + np.log(o.V_max - V + e_V) +
-                            np.log(o.R_max - R + e_R) + np.log(o.j_max - j + e_j)) + \
-           o.mu_e * (e_e / o.w_max + e_V / o.V_max + e_R / o.R_max + e_j / o.j_max)
+    return dr  # - o.mu_ipm * (np.log(o.e_max - e + e_e) + np.log(o.V_max - V + e_V) + np.log(o.R_max - R + e_R) + np.log(o.j_max - j + e_j)) + o.mu_e * (e_e / o.w_max + e_V / o.V_max + e_R / o.R_max + e_j / o.j_max)
 
 def detour_penalty(o, dr, dr_average, e, V, R, j, n_crashes, visible):
-    if False:  # (o.e_max - e > 0) and (o.V_max - V > 0) and (o.R_max - R > 0) and (o.j_max - j > 0):  # Constraint's fulfillment
+    '''if False:  # (o.e_max - e > 0) and (o.V_max - V > 0) and (o.R_max - R > 0) and (o.j_max - j > 0):  # Constraint's fulfillment
         anw = dr + dr_average - o.mu_ipm * (np.log(o.e_max - e) + np.log(o.V_max - V) +
                                np.log(o.R_max - R) + np.log(o.j_max - j)) + \
-              np.array([1e3, 1e3, 1e3]) * n_crashes
-    else:
-        anw = dr + dr_average + 1e2 * n_crashes - abs(1e2 * visible) # np.array([1e2, 1e2, 1e2]) * (clip(10*(e - o.e_max), 0, 1) + clip(10*(V - o.V_max), 0, 1) + clip(1e-1 * (R - o.R_max), 0, 1) + clip(1e-2 * (j - o.j_max), 0, 1)) + \
-        print(f"{n_crashes} {1e2 * visible} |  {np.linalg.norm(dr + dr_average * 0.1)}  | {np.linalg.norm(anw)}")
+              np.array([1e3, 1e3, 1e3]) * n_crashes'''
+    # np.array([1e2, 1e2, 1e2]) * (clip(10*(e - o.e_max), 0, 1) + clip(10*(V - o.V_max), 0, 1) + clip(1e-1 * (R - o.R_max), 0, 1) + clip(1e-2 * (j - o.j_max), 0, 1)) + \
+
+    anw = np.linalg.norm(dr) + dr_average * 0.1 + 1e2 * n_crashes + 1e2 * (not visible)
+    print(f"{n_crashes} {1e2 * visible} |  {np.linalg.norm(dr)}:{dr_average}  | {np.linalg.norm(anw)}")
     return anw
 
 def f_to_capturing(u, *args):
@@ -50,9 +47,7 @@ def f_to_detour(u, *args):
     dr, dr_average, e, V, R, j, n_crashes, visible = calculation_motion(o, u, T_max, id_app, interaction=interaction,
                                                                         check_visible=check_visible)
     anw = detour_penalty(o, dr, dr_average, e, V, R, j, n_crashes, visible)
-    if return_to_shooting_method:
-        return anw, np.linalg.norm(dr)
-    return np.linalg.norm(anw)
+    return anw
 
 def f_controlled_const(v, *args):
     from mylibs.calculation_functions import calculation_motion
@@ -60,10 +55,20 @@ def f_controlled_const(v, *args):
         args = args[0]
     o, T_max, id_app, interaction, return_to_shooting_method, check_visible = args
     u = o.cases['repulse_vel_control'](v[0:3])
-    o.a_self = o.cases['acceleration_control'](v[3:6])
     dr, dr_average, e, V, R, j, n_crashes, visible = calculation_motion(o, u, T_max, id_app, interaction=True,
-                                                                        check_visible=check_visible)
+                                                                        check_visible=check_visible, control=v[3:6])
     return capturing_penalty(o, dr, dr_average, e, V, R, j, n_crashes, visible), np.linalg.norm(dr)
+
+def f_controlled_const1(v, *args):
+    from mylibs.calculation_functions import calculation_motion
+    if len(args) == 1:
+        args = args[0]
+    o, T_max, id_app, interaction, return_to_shooting_method, check_visible = args
+    u = o.cases['repulse_vel_control'](v[0:3])
+    dr, dr_average, e, V, R, j, n_crashes, visible = calculation_motion(o, u, T_max, id_app, interaction=True,
+                                                                        check_visible=check_visible, control=v[3:6])
+    # return capturing_penalty(o, dr, dr_average, e, V, R, j, n_crashes, visible), np.linalg.norm(dr)
+    return detour_penalty(o, dr, dr_average, e, V, R, j, n_crashes, visible)
 
 def calc_shooting_sample(u, o, T_max, id_app, interaction, func):
     dr, tol = func(u, o, T_max, id_app, interaction, True, False)
@@ -129,10 +134,11 @@ def calc_shooting(o, id_app, r_right, interaction: bool = True, u0: any = None, 
             # Jacobian_1 = np.linalg.inv(Jacobian)
             Jacobian_1 = np.linalg.pinv(Jacobian)
             correction = Jacobian_1 @ dr
-            correction = correction/np.linalg.norm(correction)*clip(np.linalg.norm(correction), 0, o.u_max/2)
-        else:
-            print(f"ВCЁ ПЛОХО ТАК ТО ГОВОРЯ")
-            correction = u * np.array([random.uniform(-1, 1)] * n) * np.linalg.norm(u) * o.k_u
+            if np.linalg.norm(correction) > 1e-6:
+                correction = correction/np.linalg.norm(correction)*clip(np.linalg.norm(correction), 0, o.u_max/2)
+            else:
+                print(f"ВСЁ ОТКРАТИТЕЛЬНО")
+                correction = u * np.array([random.uniform(-1, 1)] * n) * np.linalg.norm(u) * o.k_u
         u = u - correction
 
         # Ограничение по модулю скорости
@@ -180,9 +186,15 @@ def diff_evolve(func: any, search_domain: list, vector_3d: bool = False, *args, 
     lst_errors = []
     # попробовать tuple(search_domain[i])
     if vector_3d:
-        v = np.array([get_v(np.exp(random.uniform(np.log(search_domain[0]), np.log(search_domain[1]))),
-                            random.uniform(0, 2 * np.pi),
-                            random.uniform(- np.pi / 2, np.pi / 2)) for _ in range(n_vec)])
+        if len_vec == 3:
+            v = np.array([get_v(np.exp(random.uniform(np.log(search_domain[0]), np.log(search_domain[1]))),
+                                random.uniform(0, 2 * np.pi),
+                                random.uniform(- np.pi / 2, np.pi / 2)) for _ in range(n_vec)])
+        else:
+            v = np.array([np.append(get_v(np.exp(random.uniform(np.log(search_domain[0]), np.log(search_domain[1]))),
+                                          random.uniform(0, 2 * np.pi), random.uniform(- np.pi / 2, np.pi / 2)),
+                                    [random.uniform(search_domain[2], search_domain[3])
+                                     for _ in range(len_vec - 3)]) for _ in range(n_vec)])
     else:
         v = np.array([np.array([random.uniform(search_domain[i][0], search_domain[i][1]) for i in range(len_vec)])
                       for _ in range(n_vec)])

@@ -21,14 +21,14 @@ o_global = AllProblemObjects(if_impulse_control=False,
                              # method='shooting',
                              # method='shooting+pd',
                              # method='shooting+imp',
-                             method='diffevolve+const-propulsion',
+                             method='const-propulsion',
                              begin_rotation='xx',
                              shooting_amount_repulsion=30,
 
-                             diff_evolve_times=3,
+                             diff_evolve_times=2,
                              diff_evolve_vectors=10,
 
-                             dt=10.0, T_max=5000., u_max=0.03,
+                             dt=10.0, T_max=5000., u_max=0.03, a_pid_max=1e-7,
                              choice='3', floor=7, d_crash=0.2,
                              N_apparatus=1, file_reset=True)
 '''for j in range(24):
@@ -44,7 +44,7 @@ def iteration_func(o):
         # Repulsion
         o.a.busy_time[id_app] -= o.dt if o.a.busy_time[id_app] >= 0 else 0
         if (not o.a.flag_fly[id_app]) and o.a.busy_time[id_app] < 0:
-            # u = repulsion(o, id_app, u_a_priori=np.array([-0.01, 0., -0.01]))
+            # u = repulsion(o, id_app, u_a_priori=np.array([0., -0.01, 0.]))
             u = repulsion(o, id_app)
             o.file_save(f'отталкивание {id_app} {u[0]} {u[1]} {u[2]}')
 
@@ -87,7 +87,7 @@ if __name__ == "__main__":
     global timerId, fig_view, button, evnetId
     if vedo_picture:
         timerId = 1
-        fig_view = Plotter(bg='bb', size=(1920, 1080))
+        fig_view = Plotter(bg='white', size=(1920, 1080))
         button = fig_view.add_button(button_func, states=["Play ", "Pause"], size=20,
                                      font='Bongas', bold=True, pos=[0.9, 0.9])
         fig_view.timer_callback("destroy", timerId)
