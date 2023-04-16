@@ -41,6 +41,8 @@ def call_crash(o, r_sat, R, S, taken_beams=np.array([])):
     -> taken_beams - вектор id стержней, которых учитывать не надо                  \n
     Output:                                                                         \n
     -> True в случае соударения, False иначе. """
+    if o.d_crash is None:
+        return False
     r = o.o_b(r_sat, S=S, R=R)
     for i in range(o.N_beams):
         if not(np.any(taken_beams == i)):
@@ -177,7 +179,6 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False,
     e_max, V_max, R_max, j_max, f_mean = np.zeros(5)
     o_lcl.flag_vision[id_app] = False
     if control is not None:
-        o_lcl.a_self[id_app] = o_lcl.cases['acceleration_control'](control)
         o_lcl.a.flag_hkw[id_app] = False
     n_crashes = 0
     line = []
@@ -224,6 +225,8 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False,
                             f'{np.linalg.norm(o_lcl.a_self[id_app])}')
 
         # Iterating
+        if control is not None:
+            o_lcl.a_self[id_app] = simple_control(o, control, (o_lcl.dt - o.dt) / T_max)
         o_lcl.time_step()
 
     if (o_lcl.iter - o.iter) > 0:
@@ -310,22 +313,18 @@ def repulsion(o, id_app, u_a_priori=None):
             v0, _ = diff_evolve(f_controlled_const1, [o.u_min, o.u_max, 0, o.a_pid_max / 1.7], True, o, o.T_max, id_app,
                                 True, False, True, n_vec=o.diff_evolve_vectors, chance=0.5, f=0.8, len_vec=6,
                                 n_times=o.diff_evolve_times, multiprocessing=True, print_process=True)
-            # v0 = calc_shooting(o=o, id_app=id_app, r_right=r_1, interaction=True, func=f_controlled_const, n=6, u0=v0)
-            '''mtd = 'trust-constr'  # 'SLSQP' 'TNC' 'trust-constr'
-            opt = {'verbose': 3}
-            u = np.array([0., -0.01, 0., 0., 0., 0.])
-            tol = 0.5
-
-            res = scipy.optimize.minimize(f_controlled_const1, u, args=(o, o.T_max, id_app, True, False, True),
-                                          tol=tol, method=mtd, options=opt,
-                                          bounds=((0, o.u_max), (0, o.u_max), (0, o.u_max),
-                                                  (0, o.a_pid_max), (0, o.a_pid_max), (0, o.a_pid_max)))
-            # constraints=nonlinear_constraint
-            v0 = res.x'''
+            v0 = calc_shooting(o=o, id_app=id_app, r_right=r_1, interaction=True, func=f_controlled_const, n=6, u0=v0)
             u0 = v0[0:3]
             o.a_self[id_app] = o.cases['acceleration_control'](v0[3:6])
             print(f"TEPER {o.a_self[0]}")
-        else:
+        elif 'linear-propulsion' in method_comps:
+            v0, _ = diff_evolve(f_controlled_const1, [o.u_min, o.u_max, 0, o.a_pid_max / 1.7], True, o, o.T_max, id_app,
+                                True, False, True, n_vec=o.diff_evolve_vectors, chance=0.5, f=0.8, len_vec=9,
+                                n_times=o.diff_evolve_times, multiprocessing=True, print_process=True)
+            v0 = calc_shooting(o=o, id_app=id_app, r_right=r_1, interaction=True, func=f_controlled_const, n=9, u0=v0)
+            u0 = v0[0:3]
+            o.a_self[id_app] = v0[3:9]
+        elif 'trust-constr' in method_comps:
             u0 = find_repulsion_velocity(o=o, id_app=id_app, target=r_1, interaction=True)
     u0 = o.cases['repulse_vel_control'](u0)
 

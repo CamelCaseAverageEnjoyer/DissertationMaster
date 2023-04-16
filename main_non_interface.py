@@ -1,13 +1,13 @@
 """Assembling general problem solution"""
 from all_objects import *
 
-vedo_picture = False
+vedo_picture = True
 o_global = AllProblemObjects(if_impulse_control=False,
                              if_PID_control=False,
                              if_LQR_control=False,
                              if_avoiding=False,
 
-                             is_saving=False,
+                             is_saving=True,
                              save_rate=10,
                              if_talk=True,
                              if_testing_mode=True,
@@ -15,20 +15,23 @@ o_global = AllProblemObjects(if_impulse_control=False,
 
                              w_twist=0.,
                              w_max=1e5,
-                             e_max=1e2,
+                             e_max=1e-1,
                              j_max=1e5,
                              R_max=1e5,
                              # method='shooting',
-                             # method='shooting+pd',
+                             # method='diffevolve+shooting+pd',
+                             # method='diffevolve+trust-constr',
                              # method='shooting+imp',
-                             method='const-propulsion',
+                             # method='const-propulsion',
+                             method='linear-propulsion',
                              begin_rotation='xx',
+
                              shooting_amount_repulsion=30,
+                             diff_evolve_times=6,
+                             diff_evolve_vectors=15,
 
-                             diff_evolve_times=2,
-                             diff_evolve_vectors=10,
-
-                             dt=10.0, T_max=5000., u_max=0.03, a_pid_max=1e-7,
+                             dt=1.0, T_max=5000., u_max=0.03,
+                             a_pid_max=1e-5, k_p=3e-5,
                              choice='3', floor=7, d_crash=0.2,
                              N_apparatus=1, file_reset=True)
 '''for j in range(24):
@@ -44,7 +47,6 @@ def iteration_func(o):
         # Repulsion
         o.a.busy_time[id_app] -= o.dt if o.a.busy_time[id_app] >= 0 else 0
         if (not o.a.flag_fly[id_app]) and o.a.busy_time[id_app] < 0:
-            # u = repulsion(o, id_app, u_a_priori=np.array([0., -0.01, 0.]))
             u = repulsion(o, id_app)
             o.file_save(f'отталкивание {id_app} {u[0]} {u[1]} {u[2]}')
 
@@ -65,6 +67,7 @@ def iteration_func(o):
 
         # Stop criteria
         if np.linalg.norm(o.a.r[id_app]) > 1000:
+            o.my_print(f"МИССИЯ ПРОВАЛЕНА! ДОПУЩЕНА ПОТЕРЯ АППАРАТА!", mode='m')
             o.t = 2 * o.T_total
     return o
 

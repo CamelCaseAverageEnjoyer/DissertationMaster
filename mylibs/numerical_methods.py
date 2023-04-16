@@ -21,7 +21,13 @@ def detour_penalty(o, dr, dr_average, e, V, R, j, n_crashes, visible):
     # np.array([1e2, 1e2, 1e2]) * (clip(10*(e - o.e_max), 0, 1) + clip(10*(V - o.V_max), 0, 1) + clip(1e-1 * (R - o.R_max), 0, 1) + clip(1e-2 * (j - o.j_max), 0, 1)) + \
 
     anw = np.linalg.norm(dr) + dr_average * 0.1 + 1e2 * n_crashes + 1e2 * (not visible)
-    print(f"{n_crashes} {1e2 * visible} |  {np.linalg.norm(dr)}:{dr_average}  | {np.linalg.norm(anw)}")
+    params = [[o.e_max, e], [o.j_max, j], [o.V_max, V], [o.R_max, R]]
+    for i in range(2):
+        if params[i][0] - params[i][1] > 0:  # Constraint's fulfillment
+            anw -= o.mu_ipm * np.log(params[i][0] - params[i][1])
+        else:
+            anw += 1e2
+    # print(f"{n_crashes} {1e2 * visible} |  {np.linalg.norm(dr)}:{dr_average}  | {np.linalg.norm(anw)}")
     return anw
 
 def f_to_capturing(u, *args):
@@ -56,7 +62,8 @@ def f_controlled_const(v, *args):
     o, T_max, id_app, interaction, return_to_shooting_method, check_visible = args
     u = o.cases['repulse_vel_control'](v[0:3])
     dr, dr_average, e, V, R, j, n_crashes, visible = calculation_motion(o, u, T_max, id_app, interaction=True,
-                                                                        check_visible=check_visible, control=v[3:6])
+                                                                        check_visible=check_visible,
+                                                                        control=v[3:len(v)])
     return capturing_penalty(o, dr, dr_average, e, V, R, j, n_crashes, visible), np.linalg.norm(dr)
 
 def f_controlled_const1(v, *args):
@@ -66,7 +73,8 @@ def f_controlled_const1(v, *args):
     o, T_max, id_app, interaction, return_to_shooting_method, check_visible = args
     u = o.cases['repulse_vel_control'](v[0:3])
     dr, dr_average, e, V, R, j, n_crashes, visible = calculation_motion(o, u, T_max, id_app, interaction=True,
-                                                                        check_visible=check_visible, control=v[3:6])
+                                                                        check_visible=check_visible,
+                                                                        control=v[3:len(v)])
     # return capturing_penalty(o, dr, dr_average, e, V, R, j, n_crashes, visible), np.linalg.norm(dr)
     return detour_penalty(o, dr, dr_average, e, V, R, j, n_crashes, visible)
 

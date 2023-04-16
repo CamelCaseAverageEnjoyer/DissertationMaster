@@ -4,6 +4,13 @@ import random
 
 
 # Умные функции
+def simple_control(o, a, tau):
+    if len(a) == 3:
+        return o.cases['acceleration_control'](a)
+    else:
+        return o.cases['acceleration_control'](clip(tau, 0, 1) * np.array(a[0:3]) +
+                                               clip(1 - tau, 0, 1) * np.array(a[3:6]))
+
 def velocity_spread(u, k_u):
     return np.array(u) + np.array([random.uniform(-1, 1)] * 3) * np.linalg.norm(u) * k_u
 

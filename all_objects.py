@@ -62,7 +62,7 @@ class AllProblemObjects(object):
                  d_to_grab=0.5,                 # Расстояние захвата до цели
                  d_crash=0.1,                   # Расстояние соударения до осей стержней
 
-                 k_p=1e-7,                      # Коэффициент ПД-регулятора
+                 k_p=1e-4,                      # Коэффициент ПД-регулятора
                  k_u=1e-1,                      # Коэффициент разброса скорости
                  k_av=1e-5,                     # Коэффициент при поле отталкивания
                  k_ac=0.,                       # Коэффициент паразитного ускорения
@@ -116,7 +116,7 @@ class AllProblemObjects(object):
         self.t_reaction_counter = t_reaction
         self.t_flyby_counter = self.t_flyby
         self.u_max = u_max
-        self.u_min = u_max * 0.95
+        self.u_min = u_max /    10
         self.du_impulse_max = du_impulse_max
         self.e_max = e_max
         self.w_max = w_max
@@ -221,10 +221,10 @@ class AllProblemObjects(object):
                                                                                                           else a})
 
     def get_e_deviation(self):
-        if self.E_max > 1e-3:
-            return self.T / self.E_max
+        if self.E_max > 1e-4:
+            return self.E / self.E_max
         else:
-            return self.T
+            return self.E
 
     def get_discrepancy(self, id_app: int, vector: bool = False, r=None):
         """Возвращает невязку аппарата с целью"""
@@ -348,8 +348,12 @@ class AllProblemObjects(object):
                     r = self.a.r[id_app]
                     v = self.a.v[id_app]
                     self.a_orbital[id_app] = self.orbital_acceleration(np.append(r, v))
-                    # print(f"---{np.linalg.norm(self.a_self[id_app]) / np.linalg.norm(self.a_orbital[id_app])}")
-                    r, v = self.rk4_acceleration(r, v, self.a_self[id_app] + self.a_orbital[id_app] + self.a_wrong)
+                    if self.method == 'linear-propulsion':
+                        r, v = self.rk4_acceleration(r, v, self.a_orbital[id_app] + self.a_wrong +
+                                                     simple_control(self, self.a_self[id_app],
+                                                                    (self.t_start[id_app] - self.t) / self.T_max))
+                    else:
+                        r, v = self.rk4_acceleration(r, v, self.a_self[id_app] + self.a_orbital[id_app] + self.a_wrong)
             else:
                 r = self.b_o(self.a.target[id_app])
                 v = np.zeros(3)

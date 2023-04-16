@@ -3,6 +3,7 @@ from vedo import *
 from datetime import datetime
 k_ac_list = [0.01, 0.02, 0.05, 0.1, 0.2]
 FONTSIZE = 10
+CONSTRUCTION_LIST = ['2', '3']
 
 
 def reader_pd_control_params(name: str = '', eps: float = 1e-1, lng: str = 'ru'):
@@ -155,6 +156,8 @@ def plot_params_while_main(filename: str = "", trial_episodes: bool = False, sho
                     R[id_app].append(float(lst[6]))
                     a[id_app].append(float(lst[7]))
                     m[id_app].append(int(lst[8]))
+            if lst[0] == 'отталкивание':
+                print(f"Отталкивание {lst[1]}: [{lst[2]}, {lst[3]}, {lst[4]}]")
         else:
             print(Fore.MAGENTA + f"Внимание! Превышен лимит в {limit} точек!" + Style.RESET_ALL)
             break
@@ -504,7 +507,7 @@ def reader_dv_col_noncol_difference(name: str = '', plot_name: str = ''):
         tmp.append(float(lst[3]))
     x[j_tmp].append(np.sum(tmp))
     labels = []
-    for cnstr in ['2', '3', '4']:
+    for cnstr in CONSTRUCTION_LIST:
         for d_crash in [None, 0.2]:
             labels.append(f"Конструкция {cnstr}\nСтолкновение {d_crash}")
     plt.title("Затраты характеристической скорости" + plot_name)
@@ -522,7 +525,7 @@ def dv_col_noncol_difference(name: str = '', dt: float = 0.1, t_max: float = 200
     f = open(filename, 'w')
     start_time = datetime.now()
     counter = 0
-    for cnstr in ['2', '3', '4']:
+    for cnstr in CONSTRUCTION_LIST:
         for d_crash in [None, 0.2]:
             for j in range(times):
                 counter += 1
@@ -530,12 +533,12 @@ def dv_col_noncol_difference(name: str = '', dt: float = 0.1, t_max: float = 200
                                       e_max=1e5,
                                       j_max=1e5,
                                       R_max=1000.,
-                                      method='shooting+pd',
+                                      method='diffevolve+shooting+pd',
 
                                       dt=dt, T_max=t_max, u_max=u_max,
                                       choice=cnstr, floor=7, d_crash=d_crash,
                                       N_apparatus=1, if_any_print=False,
-                                      file_reset=False)
+                                      file_reset=False, if_avoiding=d_crash is not None)
                 print(Fore.CYAN + f"Затраты характеричтической скорости: {counter}/{3*2*times} | "
                                   f"t:{datetime.now() - start_time}" + Style.RESET_ALL)
                 tmp = random.randint(180, 400) if cnstr == '4' \
@@ -649,12 +652,13 @@ def reader_full_bundle_of_trajectories(name: str = '', n_p: int = 10, n_t: int =
     msh = plot_iterations_new(o).color("silver")
     for i in range(len(lines)):
         msh += fig_plot(o, lines[i])
-    show(msh, __doc__, viewup="z", axes=0, bg='bb', zoom=1, size=(1920, 1080)).close()
+    show(msh, __doc__, viewup="xz", axes=0, bg='white', zoom=1, size=(1920, 1080)).close()
     f0.close()
     f1.close()
 
 
-def full_bundle_of_trajectories(name: str = '', dt: float = 0.1, t_max: float = 5000, u0: float = 0.01, n_p: int = 10, n_t: int = 10):
+def full_bundle_of_trajectories(name: str = '', dt: float = 0.1, t_max: float = 5000, u0: float = 0.01, n_p: int = 10,
+                                n_t: int = 10, control: any = None):
     """Разброс траекторий вокруг для качественной оценки"""
     filename0 = 'storage/full_bundle_param_' + name + '.txt'
     filename1 = 'storage/full_bundle_lines_' + name + '.txt'
@@ -663,16 +667,18 @@ def full_bundle_of_trajectories(name: str = '', dt: float = 0.1, t_max: float = 
     phi_list = np.linspace(-np.pi, np.pi, n_p, endpoint=False)
     theta_list = np.linspace(-np.pi / 2, np.pi / 2, n_t, endpoint=False)
     u_list = [u0]  # задел на будущее
-    o = AllProblemObjects(dt=dt, T_max=t_max, choice='3', u_max=u0, if_testing_mode=True)
+    o = AllProblemObjects(dt=dt, T_max=t_max, choice='3', u_max=u0, if_testing_mode=True, a_pid_max=1e5)
     o.repulse_app_config(id_app=0)
+    start_time = datetime.now()
     tmp = 0
     for u in u_list:
         for phi in phi_list:
             for theta in theta_list:
                 tmp += 1
-                o.my_print(f"Разброс траекторий {tmp}/{len(u_list)*len(phi_list)*len(theta_list)}")
+                o.my_print(f"Разброс траекторий {tmp}/{len(u_list)*len(phi_list)*len(theta_list)} | "
+                           f"t:{datetime.now() - start_time}")
                 dr, _, e, V, R, j, _, line = calculation_motion(o=o, u=get_v(u, phi, theta), T_max=t_max, id_app=0,
-                                                                interaction=True, line_return=True)
+                                                                interaction=True, line_return=True, control=control)
                 f0.write(f"{np.linalg.norm(dr)} {e} {u} {phi} {theta} {dt} {t_max}\n")
                 for l in line:
                     f1.write(f"{l} ")
