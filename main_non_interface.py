@@ -1,42 +1,40 @@
 """Assembling general problem solution"""
 from all_objects import *
 
-vedo_picture = True
+vedo_picture = False
+tosave = True
 o_global = AllProblemObjects(if_impulse_control=False,
                              if_PID_control=False,
                              if_LQR_control=False,
                              if_avoiding=False,
 
-                             is_saving=True,
-                             save_rate=10,
-                             if_talk=True,
+                             is_saving=vedo_picture and tosave,
+                             save_rate=5,
+                             if_talk=False,
                              if_testing_mode=True,
                              choice_complete=False,
 
-                             w_twist=0.,
-                             w_max=1e5,
-                             e_max=1e-1,
-                             j_max=1e5,
-                             R_max=1e5,
                              # method='shooting',
                              # method='diffevolve+shooting+pd',
+                             method='hkw_analytics',
                              # method='diffevolve+trust-constr',
                              # method='shooting+imp',
                              # method='const-propulsion',
-                             method='linear-propulsion',
+                             # method='linear-propulsion',
+                             # method='linear-angle',
+                             if_T_in_shooting=False,
                              begin_rotation='xx',
 
-                             shooting_amount_repulsion=30,
-                             diff_evolve_times=6,
-                             diff_evolve_vectors=15,
+                             shooting_amount_repulsion=10,
+                             diff_evolve_times=1,
+                             diff_evolve_vectors=100,
 
-                             dt=1.0, T_max=5000., u_max=0.03,
-                             a_pid_max=1e-5, k_p=3e-5,
+                             dt=2.0, T_max=9000., u_max=0.05,
+                             a_pid_max=1e-4, k_p=3e-4, freetime=30.,
                              choice='3', floor=7, d_crash=0.2,
                              N_apparatus=1, file_reset=True)
 '''for j in range(24):
     o_global.s.flag[j] = np.array([1, 1])'''
-# o_global.a.r[0] = np.array([-10, 0., 0.])
 print(f"Количество стержней: {o_global.s.n_beams}")
 
 def iteration_func(o):
@@ -47,8 +45,10 @@ def iteration_func(o):
         # Repulsion
         o.a.busy_time[id_app] -= o.dt if o.a.busy_time[id_app] >= 0 else 0
         if (not o.a.flag_fly[id_app]) and o.a.busy_time[id_app] < 0:
-            u = repulsion(o, id_app)
+            print(f"o.get_repulsion(id_app) {o.get_repulsion(id_app)}")
+            u = repulsion(o, id_app, u_a_priori=o.get_repulsion(id_app))
             o.file_save(f'отталкивание {id_app} {u[0]} {u[1]} {u[2]}')
+            o.repulsion_save(f'отталкивание {id_app} {u[0]} {u[1]} {u[2]}')
 
         # Motion control
         o.control_step(id_app)
@@ -75,8 +75,8 @@ def iteration_timer(eventId=None):
     global o_global, vedo_picture, fig_view
     if o_global.t <= o_global.T_total:
         o_global = iteration_func(o_global)
-    if vedo_picture and o_global.iter % o_global.save_rate == 0:
-        fig_view = draw_vedo_and_save(o_global, o_global.iter, fig_view, app_diagram=False)
+        if vedo_picture and o_global.iter % o_global.save_rate == 0:
+            fig_view = draw_vedo_and_save(o_global, o_global.iter, fig_view, app_diagram=False)
 
 def button_func():
     global timerId

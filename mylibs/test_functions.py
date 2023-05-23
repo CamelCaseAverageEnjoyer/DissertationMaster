@@ -10,6 +10,61 @@ def def_o():
     o1.om_update()
     return o1
 
+def test_center_mass(u_max=None, dt=1., T_max=1000.):
+    o = AllProblemObjects(if_talk=False, u_max=u_max, dt=dt)
+    u = repulsion(o, 0, u_a_priori=np.array([random.uniform(-o.u_max/3, u_max/3) for _ in range(3)]))
+    m_extra, M_without = o.get_masses(0)
+    print(f"m_extra {m_extra}")
+    print(f"M_without {M_without}")
+    rx = []
+    ry = []
+    rz = []
+    Rx = []
+    Ry = []
+    Rz = []
+    rcx = []
+    rcy = []
+    rcz = []
+    t = []
+    for tt in range(int(T_max//dt)):
+        o.time_step()
+        t += [tt * dt]
+        rx += [o.a.r[0][0]]
+        ry += [o.a.r[0][1]]
+        rz += [o.a.r[0][2]]
+        Rx += [o.R[0]]
+        Ry += [o.R[1]]
+        Rz += [o.R[2]]
+        # print(f"Есть {M_without/m_extra}, надо {o.a.r[0][0]/o.R[0]} {o.a.r[0][1]/o.R[1]} {o.a.r[0][2]/o.R[2]}")
+        tmp = (M_without * o.R + m_extra * o.a.r[0]) / (m_extra + M_without)
+        rcx += [tmp[0]]
+        rcy += [tmp[1]]
+        rcz += [tmp[2]]
+    fig, (ax0, ax1, ax2) = plt.subplots(nrows=1, ncols=3)
+    fig.suptitle("Проверка центра масс ОСК", fontsize=15)
+    ax0.set_title('Компонента x')
+    ax0.plot(t, rx, c='c', label='апп')
+    ax0.plot(t, Rx, c='m', label='конст')
+    ax0.plot(t, rcx, c='k', label='о.ц.м.')
+    ax1.set_title('Компонента y')
+    ax1.plot(t, ry, c='c', label='апп')
+    ax1.plot(t, Ry, c='m', label='конст')
+    ax1.plot(t, rcy, c='k', label='о.ц.м.')
+    ax2.set_title('Компонента z')
+    ax2.plot(t, rz, c='c', label='апп')
+    ax2.plot(t, Rz, c='m', label='конст')
+    ax2.plot(t, rcz, c='k', label='о.ц.м.')
+    ax0.legend()
+    ax1.legend()
+    ax2.legend()
+    ax0.set_xlabel('время t, с')
+    ax1.set_xlabel('время t, с')
+    ax2.set_xlabel('время t, с')
+    ax0.set_ylabel('x, м')
+    ax1.set_ylabel('y, м')
+    ax2.set_ylabel('z, м')
+    plt.show()
+
 def test_full_energy(order, w=0.001, dt=1., T_max=1000., show_rate: int = 10):
     # Сохранение полной энергии
     result = True

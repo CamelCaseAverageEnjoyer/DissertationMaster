@@ -104,7 +104,7 @@ def lqr_control(o, id_app):
     # a_lqr += tmp * o.R_e * (o.R[2] - (o.S.T @ o.a.target[id_app])[2]) - tmp * o.R_e * o.R[2] - tmp * o.U.T @ o.R * o.R[2] + \
     #          tmp * o.U.T @ o.a.r[id_app] + muRe * o.A.T @ o.a.target[id_app]
     a_lqr += my_cross(o.W_hkw, my_cross(o.W_hkw, o.R)) + \
-             o.orbital_acceleration(np.append(o.S.T @ (o.a.target[id_app] - o.r_center), o.V + my_cross(o.w, o.a.target[id_app] - o.r_center)))
+             o.get_hkw_acceleration(np.append(o.S.T @ (o.a.target[id_app] - o.r_center), o.V + my_cross(o.w, o.a.target[id_app] - o.r_center)))
     print(f"проверка: {np.linalg.norm(a_lqr) / o.a_pid_max * 100}%")
     '''a_lqr = - np.linalg.inv(r) @ b.T @ p @ rv \
             + o.S.T @ (my_cross(o.S @ o.e, r1) + my_cross(o.S @ o.w, my_cross(o.S @ o.w, r1)) +
@@ -142,24 +142,27 @@ def impulse_control(o, id_app):
             o.flag_impulse = not target_is_reached
             o.C_r[id_app] = get_c_hkw(o.a.r[id_app], u, o.w_hkw)
 
-def control_condition(o, id_app):
+def control_condition(o, id_app, return_percentage=False):
     from mylibs.calculation_functions import call_crash
     target_orf = o.b_o(o.a.target[id_app])
     see_rate = 1
     not_see_rate = 10
+    points = 100
+    crash_points = points
     if o.flag_vision[id_app]:  # If app have seen target, then app see it due to episode end
         o.t_reaction_counter -= o.dt
-        return True
+        return True, 0 if return_percentage else True
     if o.a.flag_fly[id_app] and ((o.flag_vision[id_app] and ((o.iter % see_rate) == 0)) or
                                  ((not o.flag_vision[id_app]) and ((o.iter % not_see_rate) == 0))):
-        # if ((o.if_impulse_control and o.flag_impulse) or o.if_PID_control) and o.a.flag_fly[id_app]:
-        points = 40
         o.flag_vision[id_app] = True
         for j in range(points):
             intermediate = (target_orf * j + np.array(o.a.r[id_app]) * (points - j)) / points
-            o.flag_vision[id_app] = False if call_crash(o, intermediate, o.R, o.S, o.taken_beams) else o.flag_vision[id_app]
+            if call_crash(o, intermediate, o.R, o.S, o.taken_beams):
+                o.flag_vision[id_app] = False 
+                crash_points = j
+                break
         o.t_reaction_counter = o.t_reaction_counter - o.dt*see_rate if o.flag_vision[id_app] else o.t_reaction
-        return o.flag_vision[id_app]
+        return o.flag_vision[id_app], (points - crash_points) / points if return_percentage else o.flag_vision[id_app]
     '''else:
         return True'''
-    return False
+    return False,  (points - crash_points) / points if return_percentage else False

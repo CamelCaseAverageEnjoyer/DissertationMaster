@@ -117,6 +117,14 @@ def pd_control_params_search(name: str = '', dt=0.2, n_p=5, n_a=10, T_max=700., 
     reader_pd_control_params(name=name)
     return k_p_best
 
+def get_repilsions(filename: str = ""):
+    f = open('storage/main'+ filename + '.txt', 'r')
+    for line in f:
+        lst = line.split()
+        if lst[0] == 'отталкивание':
+            print(f"Отталкивание {lst[1]}: [{lst[2]}, {lst[3]}, {lst[4]}]")
+    f.close()
+
 def plot_params_while_main(filename: str = "", trial_episodes: bool = False, show_rate: int = 1, limit: int = 1e5,
                            show_probe_episodes=True, dt: float = 1., energy_show=True):
     f = open('storage/main'+ filename + '.txt', 'r')
@@ -141,6 +149,7 @@ def plot_params_while_main(filename: str = "", trial_episodes: bool = False, sho
         lst = line.split()
         if len(dr[0]) < limit:
             if len(lst) > 0 and tmp % show_rate == 0:
+                # print(len(lst))
                 if lst[0] == 'ограничения' and len(lst) == 5:
                     print(f"Есть ограничения")
                     R_max = 1e9
@@ -599,7 +608,7 @@ def dv_from_w_twist(name: str = '', dt: float = 0.1, t_max: float = 2000, u_max:
                                           e_max=e_max,
                                           j_max=1e5,
                                           R_max=1000.,
-                                          method='shooting+pd',
+                                          method='diffevolve+shooting+pd',
 
                                           dt=dt, T_max=t_max, u_max=u_max,
                                           choice='4', floor=7, d_crash=d_crash,
@@ -659,7 +668,8 @@ def reader_full_bundle_of_trajectories(name: str = '', n_p: int = 10, n_t: int =
 
 def full_bundle_of_trajectories(name: str = '', dt: float = 0.1, t_max: float = 5000, u0: float = 0.01, n_p: int = 10,
                                 n_t: int = 10, control: any = None):
-    """Разброс траекторий вокруг для качественной оценки"""
+    """Разброс траекторий вокруг для качественной оценки
+    По совместительству демонстрация несанкционированного хлопка в Барселоне"""
     filename0 = 'storage/full_bundle_param_' + name + '.txt'
     filename1 = 'storage/full_bundle_lines_' + name + '.txt'
     f0 = open(filename0, 'w')
@@ -683,6 +693,57 @@ def full_bundle_of_trajectories(name: str = '', dt: float = 0.1, t_max: float = 
                 for l in line:
                     f1.write(f"{l} ")
                 f1.write(f"\n")
-
     f0.close()
     f1.close()
+
+
+def reader_heatmap_function(name: str = '', max_value: float = 1e5):
+    filename = 'storage/heatmap_function_' + name + '.txt'
+    f = open(filename, 'r')
+    anw = [[0. for _ in range(10)] for _ in range(10)]
+    for line in f:
+        lst = line.split()
+        if len(lst) == 2:
+            n_x = int(lst[0])
+            n_y = int(lst[1])
+            anw = [[0. for _ in range(n_y)] for _ in range(n_x)]
+        else:
+            x = int(lst[0])
+            y = int(lst[1])
+            a = float(lst[2])
+            c = int(lst[3])
+            anw[x][y] = 1e9999 if c else min(a, max_value)
+    plt.imshow(anw, cmap='plasma')
+    plt.colorbar()
+    plt.show()
+    f.close()
+
+
+def heatmap_function(name: str = '', n_x: int = 10, n_y: int = 10, target_toward: bool = True):
+    """Цветная карта целевой функции"""
+    from mylibs.numerical_methods import capturing_penalty
+    filename = 'storage/heatmap_function_' + name + '.txt'
+    f = open(filename, 'w')
+    x_list = np.linspace(-15, 5, n_x)
+    y_list = np.linspace(-10, 10, n_y)
+    o = AllProblemObjects(choice='3', N_apparatus=1)
+    temp = o.a.target[0].copy()
+    # u = repulsion(o, 0, u_a_priori=np.zeros(3))
+    o.repulse_app_config(id_app=0)
+    if not target_toward:
+        o.a.target[0] = temp
+    o.t_reaction_counter = -1
+    tmp = 0
+    f.write(f"{n_x} {n_y}\n")
+    for ix in range(n_x):
+        for iy in range(n_y):
+            tmp += 1
+            o.flag_vision[0] = False
+            o.a.r[0] = o.b_o(np.array([x_list[ix], y_list[iy], 0.]))
+            dr = o.S @ o.get_discrepancy(id_app=0, vector=True)
+            n_crashes = call_crash(o, o.a.r[0], o.R, o.S)
+            visible, crhper = control_condition(o, 0, return_percentage=True)
+            anw = capturing_penalty(o, dr, 0, 0, 0, 0, 0, n_crashes, visible, crhper)
+            f.write(f"{ix} {iy} {np.linalg.norm(anw)} {int(n_crashes)}\n")
+            o.my_print(f"Карта целевой функции: {tmp}/{n_x * n_y} : {visible} {crhper * 100}%", mode='c')
+    f.close()

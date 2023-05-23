@@ -7,9 +7,18 @@ import random
 def simple_control(o, a, tau):
     if len(a) == 3:
         return o.cases['acceleration_control'](a)
-    else:
+    elif len(a) == 4:
+        return get_v(o.a_pid_max, clip(tau, 0, 1) * a[0] + clip(1 - tau, 0, 1) * a[2], clip(tau, 0, 1) * a[1] + clip(1 - tau, 0, 1) * a[3])
+    elif len(a) == 6:
         return o.cases['acceleration_control'](clip(tau, 0, 1) * np.array(a[0:3]) +
                                                clip(1 - tau, 0, 1) * np.array(a[3:6]))
+    elif len(a) == 9:
+        if tau < 0.5:
+            return o.cases['acceleration_control'](clip(2 * tau, 0, 1) * np.array(a[0:3]) +
+                                                   clip(1 - 2 * tau, 0, 1) * np.array(a[3:6]))
+        else:
+            return o.cases['acceleration_control'](clip(2 * tau - 1, 0, 1) * np.array(a[3:6]) +
+                                                   clip(2 - 2 * tau, 0, 1) * np.array(a[6:9]))
 
 def velocity_spread(u, k_u):
     return np.array(u) + np.array([random.uniform(-1, 1)] * 3) * np.linalg.norm(u) * k_u
@@ -26,18 +35,35 @@ def forсe_from_beam(a, diam, n, tau, b, f0: float, f1: float, f2: float, k_av: 
     tmp = k_av / np.sqrt(np.sqrt(np.linalg.norm(a1) - diam))   # np.sqrt  ** level
     return a1 / np.linalg.norm(a1) * tmp
 
+def get_v0(o, id_app, t_):
+    w_ = o.w_hkw
+    tmp = o.a.r[id_app]
+    x0_ = tmp[0]
+    y0_ = tmp[1]
+    z0_ = tmp[2]
+    tmp = o.b_o(o.a.target[id_app])
+    x1_ = tmp[0]
+    y1_ = tmp[1]
+    z1_ = tmp[2]
+    den = -3*t_*w_*np.sin(t_*w_) - 8*np.cos(t_*w_) + 8
+    num1 = w_*(6*t_*w_*z0_*np.sin(t_*w_) - x0_*np.sin(t_*w_) + x1_*np.sin(t_*w_) + 14*z0_*np.cos(t_*w_) -
+              14*z0_ - 2*z1_*np.cos(t_*w_) + 2*z1_)
+    num2 = w_*(3*t_*w_*z0_*np.cos(t_*w_) - 3*t_*w_*z1_ - 2*x0_*np.cos(t_*w_) + 2*x0_ + 2*x1_*np.cos(t_*w_) -
+               2*x1_ - 4*z0_*np.sin(t_*w_) + 4*z1_*np.sin(t_*w_))
+    return np.array([num1 / den, w_*(-y0_*np.cos(t_*w_) + y1_)/np.sin(t_*w_), num2 / den])
+
 def get_c_hkw(r, v, w):
     """Возвращает константы C[0]..C[5] движения Хилла-Клохесси-Уилтштира"""
-    return [2 * r[2] + v[0] / w, v[2] / w, -3 * r[2] - 2 * v[0] / w, r[0] - 2 * v[2] / w, v[1] / w, r[1]]
+    return [2*r[2] + v[0]/w, v[2]/w, -3*r[2] - 2*v[0]/w, r[0] - 2*v[2]/w, v[1]/w, r[1]]
 
 def r_hkw(C, w, t):
     """Возвращает вектор координат в момент времени t; \n
     Уравнения движения Хилла-Клохесси-Уилтштира; \n
     Константы C передаются массивом C[0]..C[5]; \n
     Частота w, время t должны быть скалярными величинами."""
-    return np.array([-3 * C[0] * w * t + 2 * C[1] * np.cos(w * t) - 2 * C[2] * np.sin(w * t) + C[3],
-                     C[5] * np.cos(w * t) + C[4] * np.sin(w * t),
-                     2 * C[0] + C[2] * np.cos(w * t) + C[1] * np.sin(w * t)])
+    return np.array([-3*C[0]*w*t + 2*C[1]*np.cos(w*t) - 2*C[2]*np.sin(w*t) + C[3],
+                     C[5]*np.cos(w*t) + C[4]*np.sin(w*t),
+                     2*C[0] + C[2]*np.cos(w*t) + C[1]*np.sin(w*t)])
 
 def v_hkw(C, w, t):
     """Возвращает вектор скоростей в момент времени t; \n

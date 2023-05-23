@@ -94,7 +94,7 @@ def fig_plot(o, line_0, point=None):
         line = vedo.Line(vertices, c=(238/255, 130/255, 238/255)) + vedo.Point(point, c='c')
     else:
         vertices = [[x[i], y[i], z[i]] for i in range(N)]
-        line = vedo.Line(vertices, c=(135/255, 206/255, 250/255))
+        line = vedo.Line(vertices, c=(135/255, 206/255, 250/255), lw=3)
     return line
 
 
@@ -468,10 +468,14 @@ def draw_vedo_and_save(o, i_time: int, fig_view, app_diagram: bool = True):
             msh += fig_plot(o, o.line_app[i], o.b_o(o.a.target[i]))
             msh += fig_plot(o, o.line_app_orf[i])
             msh += fig_plot(o, line_target(r=o.a.target[i], d=o.d_to_grab), o.b_o(o.a.target[i]))
-            if np.linalg.norm(o.a_self[i]) > 1e-9:
-                msh += draw_flat_arrow(np.array(o.a_self[i]) * 1 / o.a_pid_max, o, i, 'c')
+            if o.method == 'linear-propulsion':
+                tmp = simple_control(o, o.a_self[i], (o.t - o.t_start[i]) / o.T_max)
+            else:
+                tmp = o.a_self[i]
+            if np.linalg.norm(tmp) > 1e-9:
+                msh += draw_flat_arrow(np.array(tmp) * 3 / o.a_pid_max, o, i, 'c')
             if np.linalg.norm(o.a_orbital[i]) > 1e-9:
-                msh += draw_flat_arrow(np.array(o.a_orbital[i]) * 1 / o.a_pid_max, o, i, 'g')
+                msh += draw_flat_arrow(np.array(o.a_orbital[i]) * 3 / o.a_pid_max, o, i, 'g')
         if (not o.survivor) and o.collision_foo == 'Line':
             msh += fig_plot(o, line_chaos(), None)
     else:

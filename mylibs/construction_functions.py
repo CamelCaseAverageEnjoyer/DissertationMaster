@@ -411,7 +411,7 @@ class Container(object):
             sequence_1 = [[1., 1., -1.], [6., 4., 4.]]
             sequence_2 = [[-1., 1., -1.], [6., 6., 6.]]
             self.r1 = [np.zeros(3)] + get_handrails(x=s.x_start / 2, sequence=sequence_1)
-            self.r2 = [np.array([-s.x_start, 0.0, 0.0])] + get_handrails(x=s.x_start / 2, sequence=sequence_2)
+            self.r2 = [np.array([-s.x_start * 4, 0.0, 0.0])] + get_handrails(x=s.x_start / 2, sequence=sequence_2)
             self.flag_grab = [False, True, False, False, True, False, False, True, False, False, True, False, False]
 
             r_beams = 0.05
@@ -500,7 +500,7 @@ class Container(object):
 
 
 class Apparatus(object):
-    def __init__(self, X: Structure, n: int = 1, mass: float = 10.):
+    def __init__(self, X: Structure, n: int = 1, mass: float = 20.):
         if n > len(X.id):
             raise ValueError('Слишком много аппаратов! Получи ошибку!')
         self.X = X
@@ -513,11 +513,11 @@ class Apparatus(object):
         self.flag_hkw = np.array([True] * n)
         self.flag_to_mid = np.array([True] * n)
         self.busy_time = np.array([i * 40. for i in range(n)])
-        self.target_p = np.array([np.zeros(3) for _ in range(n)])
         self.v = np.array([np.zeros(3) for _ in range(n)])
         id_list = X.call_possible_transport([]) if n > 0 else [0]
-        self.target = np.array([(np.array(X.r_st[id_list[i]]) + np.array([-0.3 - X.length[id_list[i]], 0, 0]))
+        self.target = np.array([(np.array(X.r_st[id_list[i]]) + np.array([-0.1 - X.length[id_list[i]], 0, 0]))
                                 for i in range(n)])
+        self.target_p = copy.deepcopy(self.target)
         self.r = copy.deepcopy(self.target)
         self.r_0 = np.array([100. for _ in range(n)])
 
