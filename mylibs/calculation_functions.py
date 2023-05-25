@@ -83,7 +83,7 @@ def call_inertia(o, id_s=np.array([]), app_y=None, app_n=None):
             flag = True
             for a in range(o.N_app):
                 if o.a.flag_beam[a] is not None and int(o.a.flag_beam[a]) == n:
-                    print("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAa")
+                    # print("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAa")
                     flag = False
             if flag:
                 if np.sum(o.s.flag[n]) > 0:
@@ -116,10 +116,10 @@ def call_inertia(o, id_s=np.array([]), app_y=None, app_n=None):
         if (not o.a.flag_fly[a] and app_n != a) or app_y == a:
             m[N_m + a] = o.a.mass[a]
             r[N_m + a] = o.a.target_p[a].copy()
-            print(m[N_m + a])
+            # print(m[N_m + a])
             if o.a.flag_beam[a] is not None:
                 m[N_m + a] += o.s.mass[int(o.a.flag_beam[a])]
-            print(m[N_m + a])
+            # print(m[N_m + a])
 
     # Вычисление центра масс
     tmp_numerator = np.zeros(3)
@@ -137,7 +137,7 @@ def call_inertia(o, id_s=np.array([]), app_y=None, app_n=None):
                 J[i][j] += m[k] * (
                         kronoker(i, j) * (r[k][0] ** 2 + r[k][1] ** 2 + r[k][2] ** 2) - r[k][i] * r[k][j])
     
-    print(f"СУММАРНАЯ МАССА {np.sum(m)}")
+    # print(f"СУММАРНАЯ МАССА {np.sum(m)}")
     return J, r_mass_center
 
 
@@ -184,7 +184,7 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False,
     -> line - линия аппарата ССК (при line_return=True)"""
     o_lcl = o.copy()
 
-    e_max, V_max, R_max, j_max, f_mean = np.zeros(5)
+    e_max, V_max, R_max, w_max, j_max, f_mean = np.zeros(6)
     o_lcl.flag_vision[id_app] = False
     if control is None or len(control) == 0:
         control = None
@@ -218,6 +218,7 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False,
         e_max = max(e_max, o_lcl.get_e_deviation())
         V_max = max(V_max, np.linalg.norm(o_lcl.V))
         R_max = max(R_max, np.linalg.norm(o_lcl.R))
+        w_max = max(w_max, np.linalg.norm(o_lcl.w))
         j_max = max(j_max, 180/np.pi*np.arccos((np.trace(o_lcl.S)-1)/2))
         f_mean += np.linalg.norm(f)
         line = np.append(line, o_lcl.o_b(o_lcl.a.r[id_app]))
@@ -235,7 +236,7 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False,
                 np.linalg.norm(o_lcl.a.r[id_app] - o_lcl.b_o(o_lcl.a.target_p[id_app])) > 7 * o_lcl.a.r_0[id_app]:
             break
         if i % 5 == 0:
-            o_lcl.file_save(f'график {id_app} {np.linalg.norm(f)} {o_lcl.get_e_deviation()} '
+            o_lcl.file_save(f'график {id_app} {np.linalg.norm(f)} {np.linalg.norm(o_lcl.w)} '
                             f'{np.linalg.norm(180 / np.pi * np.arccos(clip((np.trace(o_lcl.S) - 1) / 2, -1, 1)))} '
                             f'{np.linalg.norm(o_lcl.V)} {np.linalg.norm(o_lcl.R)} '
                             f'{np.linalg.norm(o_lcl.a_self[id_app])}')
@@ -253,10 +254,12 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False,
     if (o_lcl.iter - o.iter) > 0:
         f_mean /= (o_lcl.iter - o.iter)
 
-    if interaction is False:   # Пристыковка
+    # ШАМАНСТВО
+    if True:  # interaction is False:   # Пристыковка
         o_lcl.capturing_change_params(id_app)
         V_max = np.linalg.norm(o_lcl.V)
         R_max = np.linalg.norm(o_lcl.R)
+        w_max = np.linalg.norm(o_lcl.w)
         e_max = o_lcl.get_e_deviation()
 
         for i in range(int((o_lcl.iter - o.iter) // 20)):
@@ -266,22 +269,24 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False,
             V_max = max(V_max, np.linalg.norm(o_lcl.V))
             R_max = max(R_max, np.linalg.norm(o_lcl.R))
             j_max = max(j_max, 180/np.pi*np.arccos((np.trace(o_lcl.S)-1)/2))
+            w_max = max(w_max, np.linalg.norm(o_lcl.w))
 
-    anw = (f_min, f_mean, e_max, V_max, R_max, j_max, n_crashes, o_lcl.flag_vision[id_app], crah_percantage,)
+    anw = (f_min, f_mean, e_max, V_max, R_max, w_max, j_max, n_crashes, o_lcl.flag_vision[id_app], crah_percantage,)
     if line_return:
         anw += (line,)
     return anw
 
 
-def find_repulsion_velocity(o, id_app: int, target=None, interaction: bool = True, method: str = 'trust-constr'):
-    if interaction and not o.control or not interaction:
-        func = f_to_capturing
-        tol = o.d_to_grab
-        o.my_print(f"Попадание: tol={tol}", test=True)
-    else:
-        func = f_to_detour
+def find_repulsion_velocity(o, id_app: int, target=None, interaction: bool = True, method: str = 'trust-constr',
+                            u: any = None, T_max: float = None):
+    # if interaction and not o.control or not interaction:
+    func = f_dr
+    tol = o.d_to_grab
+    o.my_print(f"Попадание: tol={tol}", test=True)
+    '''else:
+        func = f_dr
         tol = o.a.r_0[0]
-        o.my_print(f"Огибание: tol={tol}, cont={o.s.container_length}", test=True)
+        o.my_print(f"Огибание: tol={tol}, cont={o.s.container_length}", test=True)'''
 
     if interaction:
         target = o.a.target[id_app] if target is None else target
@@ -289,12 +294,12 @@ def find_repulsion_velocity(o, id_app: int, target=None, interaction: bool = Tru
     else:
         target = o.b_o(o.a.target[id_app]) if target is None else target
         tmp = o.b_o(target) - np.array(o.a.r[id_app])
-    u = o.u_min * tmp / np.linalg.norm(tmp)
     mtd = method  # 'SLSQP' 'TNC' 'trust-constr'
-    opt = {'verbose': 3}  # , 'xtol': o.u_max, 'gtol': tol}  # ,
-    T_max = 2 * (np.linalg.norm(tmp) / o.u_min)
+    opt = {'verbose': 3}
+    u = o.u_min * tmp / np.linalg.norm(tmp) if u is None else u
+    T_max = o.T_max if T_max is None else T_max
 
-    res = scipy.optimize.minimize(func, u, args=(o, T_max, id_app, interaction, False),
+    res = scipy.optimize.minimize(func, u, args=(o, T_max, id_app, interaction, False, o.mu_ipm),
                                   tol=tol, method=mtd, options=opt,
                                   bounds=((0, o.u_max), (0, o.u_max), (0, o.u_max)),
                                   constraints={'type': 'ineq',
@@ -330,7 +335,7 @@ def repulsion(o, id_app, u_a_priori=None):
                                 n_vec=o.diff_evolve_vectors, chance=0.5, f=0.8, len_vec=3, n_times=o.diff_evolve_times,
                                 multiprocessing=True, print_process=True)
         elif 'hkw_analytics' in method_comps:
-            N = 20
+            N = 40
             u0 = np.zeros(3)
             count = 0
             for T in np.linspace(3000, o.T_max, N):
@@ -352,7 +357,11 @@ def repulsion(o, id_app, u_a_priori=None):
                         flag_in_sphere = True
                         break
                 if not flag_in_sphere:
-                    u1, target_is_reached = calc_shooting(o=o, id_app=id_app, r_right=r_1, interaction=True, u0=u0)
+                    # u1, target_is_reached = calc_shooting(o=o, id_app=id_app, r_right=r_1, interaction=True, u0=u0, T_max=T+500)
+                    u1 = find_repulsion_velocity(o, id_app, r_1, True, 'trust-constr', u0, T)
+                    dr, _, _, _, _, _, _, _, _, _ = calculation_motion(o=o, u=u0, T_max=T, id_app=id_app,
+                                                                       interaction=True, check_visible=False)
+                    target_is_reached = np.linalg.norm(dr) < o.d_to_grab
                     if target_is_reached:
                         u0 = u1.copy()
                         break
@@ -363,6 +372,9 @@ def repulsion(o, id_app, u_a_priori=None):
         else:
             tmp = r_1 - np.array(o.o_b(o.a.r[id_app]))
             u0 = o.u_min * tmp / np.linalg.norm(tmp)
+            u0 = np.array([-0.00163023, -0.00777977,  0.0007209 ])
+
+        # Доводка
         if 'shooting' in method_comps:
             u1, target_is_reached = calc_shooting(o=o, id_app=id_app, r_right=r_1, interaction=True, u0=u0)
             if target_is_reached:

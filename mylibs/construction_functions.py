@@ -411,7 +411,7 @@ class Container(object):
             sequence_1 = [[1., 1., -1.], [6., 4., 4.]]
             sequence_2 = [[-1., 1., -1.], [6., 6., 6.]]
             self.r1 = [np.zeros(3)] + get_handrails(x=s.x_start / 2, sequence=sequence_1)
-            self.r2 = [np.array([-s.x_start * 4, 0.0, 0.0])] + get_handrails(x=s.x_start / 2, sequence=sequence_2)
+            self.r2 = [np.array([-s.x_start * 5, 0.0, 0.0])] + get_handrails(x=s.x_start / 2, sequence=sequence_2)  # ШАМАНСТВО
             self.flag_grab = [False, True, False, False, True, False, False, True, False, False, True, False, False]
 
             r_beams = 0.05

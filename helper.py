@@ -27,10 +27,10 @@ times=5
 n_p = 20
 n_t = 10
 # for u0 in [0.04, 0.05]:
-u0 = 0.01
+u0 = 0.03
 name = str(u0)  # + 'control_Z_-5'
 # full_bundle_of_trajectories(name=name, dt=10., t_max=5000, u0=u0, n_p=n_p, n_t=n_t)  # , control=np.array([0., 0., 1e-6]))
-#reader_full_bundle_of_trajectories(name=name, n_p=n_p, n_t=n_t)
+# reader_full_bundle_of_trajectories(name=name, n_p=n_p, n_t=n_t)
 
 n_x = 200
 n_y = 200
@@ -38,8 +38,8 @@ name = 'now_toward'
 # heatmap_function(name=name, n_x=n_x, n_y=n_y, target_toward=False)
 # reader_heatmap_function(name=name, max_value=115)
 
-test_center_mass(u_max=3e-2, dt=100., T_max=100000.)
-# plot_params_while_main(dt=2., show_rate=100, limit=3000, show_probe_episodes=True, filename='', energy_show=True)
+# test_center_mass(u_max=3e-2, dt=100., T_max=100000.)
+plot_params_while_main(dt=2., show_rate=30, limit=3000, show_probe_episodes=True, filename='', energy_show=True)
 # get_repilsions("")
 
 # crawling()

@@ -5,27 +5,29 @@ import copy
 from mylibs.tiny_functions import *
 
 
-def capturing_penalty(o, dr, dr_average, e, V, R, j, n_crashes, visible, crhper, mu_ipm):
-    reserve_rate = 1.5
-    e_e = 0. #  if (o.e_max / reserve_rate - e) > 0 else abs(e - o.e_max / reserve_rate)
-    e_V = 0. if (o.V_max / reserve_rate - V) > 0 else abs(V - o.V_max / reserve_rate)
-    e_R = 0. if (o.R_max / reserve_rate - R) > 0 else abs(R - o.R_max / reserve_rate)
-    e_j = 0. if (o.j_max / reserve_rate - j) > 0 else abs(j - o.j_max / reserve_rate)
+def capturing_penalty(o, dr, dr_average, e, V, R, w, j, n_crashes, visible, crhper, mu_ipm):
+    reserve_rate = 0.0001
+    e_V = reserve_rate if (o.V_max - V) > 0 else abs((o.V_max - V)/o.V_max + reserve_rate*np.exp((o.V_max - V)/o.V_max))
+    e_R = reserve_rate if (o.R_max - R) > 0 else abs((o.R_max - R)/o.R_max + reserve_rate*np.exp((o.R_max - R)/o.R_max))
+    e_w = reserve_rate if (o.w_max - w) > 0 else abs((o.w_max - w)/o.w_max + reserve_rate*np.exp((o.w_max - w)/o.w_max))
+    e_j = reserve_rate if (o.j_max - j) > 0 else abs((o.j_max - j)/o.j_max + reserve_rate*np.exp((o.j_max - j)/o.j_max))
+    print(f"eV={e_V}, eR={e_R}, ew={e_w}, ej={e_j}")
     id_app = 0
     a = o.a.target[id_app] - o.o_b(o.R)
     tau = my_cross(dr, a + dr)
     tau /= np.linalg.norm(tau)
     b = my_cross(tau, dr)
     b /= np.linalg.norm(b)
-    # f = my_cross(dr / np.linalg.norm(dr), a / np.linalg.norm(a))
-    # tmp = np.dot(b, a / np.linalg.norm(a)) * dr
-    # tmp = (1 + np.linalg.norm(f)) * max(10, np.linalg.norm(dr)) * dr / np.linalg.norm(dr)
-    tmp = abs(np.dot(dr / np.linalg.norm(dr), a / np.linalg.norm(a))) * 1e2 * dr / np.linalg.norm(dr)**1
-    anw = dr * clip(1 - crhper, 0, 1) + clip(crhper, 0, 1) * tmp
-    # anw -= mu_ipm * dr / np.linalg.norm(dr) * (np.log(o.e_max - e + e_e) + np.log(o.V_max - V + e_V) + np.log(o.R_max - R + e_R) + np.log(o.j_max - j + e_j)) + o.mu_e * (e_e / o.w_max + e_V / o.V_max + e_R / o.R_max + e_j / o.j_max)
+    tmp = abs(np.dot(dr / np.linalg.norm(dr), a / np.linalg.norm(a))) * 1e2
+    anw = np.linalg.norm(dr) * (clip(1 - crhper, 0, 1) + clip(crhper, 0, 1) * tmp)
+    # anw = np.linalg.norm(dr)
+    anw -= mu_ipm * (np.log((o.w_max - w)/o.w_max + e_w) +
+                     np.log((o.V_max - V)/o.V_max + e_V) + 
+                     np.log((o.R_max - R)/o.R_max + e_R) + 
+                     np.log((o.j_max - j)/o.j_max + e_j)) + o.mu_e * (e_w + e_V + e_R + e_j)
     return anw
 
-def detour_penalty(o, dr, dr_average, e, V, R, j, n_crashes, visible, crhper, mu_ipm):
+def detour_penalty(o, dr, dr_average, e, V, R, w, j, n_crashes, visible, crhper, mu_ipm):
     '''if False:  # (o.e_max - e > 0) and (o.V_max - V > 0) and (o.R_max - R > 0) and (o.j_max - j > 0):  # Constraint's fulfillment
         anw = dr + dr_average - o.mu_ipm * (np.log(o.e_max - e) + np.log(o.V_max - V) +
                                np.log(o.R_max - R) + np.log(o.j_max - j)) + \
@@ -42,69 +44,59 @@ def detour_penalty(o, dr, dr_average, e, V, R, j, n_crashes, visible, crhper, mu
     # print(f"{n_crashes} {1e2 * visible} |  {np.linalg.norm(dr)}:{dr_average}  | {np.linalg.norm(anw)}")
     return anw
 
+def f_dr(u, *args):
+    from mylibs.calculation_functions import calculation_motion
+    o, T_max, id_app, interaction, check_visible, mu_ipm = args
+    dr, dr_average, e, V, R, w, j, n_crashes, visible, crhper = calculation_motion(o=o, u=u, T_max=T_max, id_app=id_app,
+                                                                                   interaction=interaction,
+                                                                                   check_visible=False)
+    return np.linalg.norm(dr)
+
 def f_to_capturing(u, *args):
     from mylibs.calculation_functions import calculation_motion
     if len(args) == 1:
         args = args[0]
-    o, T_max, id_app, interaction, return_to_shooting_method, check_visible, mu_ipm = args
+    o, T_max, id_app, interaction, check_visible, mu_ipm = args
     u = o.cases['repulse_vel_control'](u)
-    dr, dr_average, e, V, R, j, n_crashes, visible, crhper = calculation_motion(o=o, u=u, T_max=T_max, id_app=id_app,
-                                                                        interaction=interaction,
-                                                                        check_visible=check_visible)
-    anw = capturing_penalty(o, dr, dr_average, e, V, R, j, n_crashes, visible, crhper, mu_ipm)
-    if return_to_shooting_method:
-        return anw, np.linalg.norm(dr)
-    return np.linalg.norm(anw)
+    dr, dr_average, e, V, R, w, j, n_crashes, visible, crhper = calculation_motion(o=o, u=u, T_max=T_max, id_app=id_app,
+                                                                                   interaction=interaction,
+                                                                                   check_visible=check_visible)
+    return capturing_penalty(o, dr, dr_average, e, V, R, w, j, n_crashes, visible, crhper, mu_ipm)
 
 def f_to_detour(u, *args):
     from mylibs.calculation_functions import calculation_motion
     if len(args) == 1:
         args = args[0]
-    o, T_max, id_app, interaction, return_to_shooting_method, check_visible, mu_ipm = args
+    o, T_max, id_app, interaction, check_visible, mu_ipm = args
     u = o.cases['repulse_vel_control'](u)
-    dr, dr_average, e, V, R, j, n_crashes, visible, crhper = calculation_motion(o, u, T_max, id_app, interaction=interaction,
-                                                                        check_visible=check_visible)
-    anw = detour_penalty(o, dr, dr_average, e, V, R, j, n_crashes, visible, crhper, mu_ipm)
+    dr, dr_average, e, V, R, w, j, n_crashes, visible, crhper = calculation_motion(o, u, T_max, id_app,
+                                                                                   interaction=interaction,
+                                                                                   check_visible=check_visible)
+    anw = detour_penalty(o, dr, dr_average, e, V, R, w, j, n_crashes, visible, crhper, mu_ipm)
     return anw
 
 def f_controlled_const(v, *args):
     from mylibs.calculation_functions import calculation_motion
     if len(args) == 1:
         args = args[0]
-    o, T_max, id_app, interaction, return_to_shooting_method, check_visible, mu_ipm = args
+    o, T_max, id_app, interaction, check_visible, mu_ipm = args
     u = o.cases['repulse_vel_control'](v[0:3])
     if o.if_T_in_shooting:
         tmp = len(v) - 1
     else:
         tmp = len(v) 
-    dr, dr_average, e, V, R, j, n_crashes, visible, crhper = calculation_motion(o, u, T_max, id_app, interaction=True,
-                                                                        check_visible=check_visible,
-                                                                        control=v[3:tmp])
-    # print(f"crhper: {crhper}")
-    anw = capturing_penalty(o, dr, dr_average, e, V, R, j, n_crashes, visible, crhper, mu_ipm)
-    if return_to_shooting_method:
-        return anw, np.linalg.norm(dr)
-    return np.linalg.norm(anw)
-
-def f_controlled_const1(v, *args):
-    from mylibs.calculation_functions import calculation_motion
-    if len(args) == 1:
-        args = args[0]
-    o, T_max, id_app, interaction, return_to_shooting_method, check_visible, mu_ipm = args
-    u = o.cases['repulse_vel_control'](v[0:3])
-    dr, dr_average, e, V, R, j, n_crashes, visible, crhper = calculation_motion(o, u, T_max, id_app, interaction=True,
-                                                                        check_visible=check_visible,
-                                                                        control=v[3:len(v)])
-    # return capturing_penalty(o, dr, dr_average, e, V, R, j, n_crashes, visible), np.linalg.norm(dr)
-    return detour_penalty(o, dr, dr_average, e, V, R, j, n_crashes, visible, crhper, mu_ipm)
+    dr, dr_average, e, V, R, w, j, n_crashes, visible, crhper = calculation_motion(o, u, T_max, id_app,
+                                                                                   interaction=interaction,
+                                                                                   check_visible=check_visible,
+                                                                                   control=v[3:tmp])
+    return capturing_penalty(o, dr, dr_average, e, V, R, w, j, n_crashes, visible, crhper, mu_ipm)
 
 def calc_shooting_sample(u, o, T_max, id_app, interaction, mu_ipm, func):
     T_max = u[len(u) - 1] if o.if_T_in_shooting else T_max
-    dr, tol = func(u, o, T_max, id_app, interaction, True, o.method in ['linear-propulsion', 'const-propulsion'], mu_ipm)
-    # o, T_max, id_app, interaction, return_to_shooting_method, check_visible
+    dr, tol = func(u, o, T_max, id_app, interaction, o.method in ['linear-propulsion', 'const-propulsion'], mu_ipm)
     return [i for i in dr] + [tol]
 
-def calc_shooting(o, id_app, r_right, interaction: bool = True, u0: any = None, n: int = 3, func: any = f_to_capturing):
+def calc_shooting(o, id_app, r_right, interaction: bool = True, u0: any = None, n: int = 3, func: any = f_to_capturing, T_max=None):
     """ Функция выполняет пристрелочный/спектральный поиск оптимальной скорости отталкивания/импульса аппарата; \n
     Input:                                                                                  \n
     -> o - AllObjects класс;                                                                \n
@@ -122,7 +114,7 @@ def calc_shooting(o, id_app, r_right, interaction: bool = True, u0: any = None, 
     else:
         tmp = o.b_o(r_right) - np.array(o.a.r[id_app])
     mu_e = o.mu_e
-    T_max = o.T_max  # 2*(np.linalg.norm(tmp)/o.u_min)  # if o.a.flag_fly[id_app] else o.T_max
+    T_max = o.T_max if T_max is None else T_max
     if n > 3:
         u[0:3] = o.u_min * tmp / np.linalg.norm(tmp) if u0 is None or np.linalg.norm(u0) < 1e-5 else u0[0:3]
     else:
@@ -144,7 +136,7 @@ def calc_shooting(o, id_app, r_right, interaction: bool = True, u0: any = None, 
             u_i = np.diag([du * o.u_max] * 3 + [du * o.a_pid_max] * (n - 3) + [10])
         else:
             u_i = np.diag([du * o.u_max] * 3 + [du * o.a_pid_max] * (n - 3))
-        mu_ipm /= 1.7
+        mu_ipm /= 2
         mu_e /= 2
         i_iteration += 1
 
@@ -161,7 +153,7 @@ def calc_shooting(o, id_app, r_right, interaction: bool = True, u0: any = None, 
         tol = anw[0][3]
         if o.if_T_in_shooting:
             T_max = u[len(u) - 1]
-        o.my_print(f"Точность пристрелки {tol}, разрешённое время {T_max} секунд, целевая функция {np.linalg.norm(dr)}",
+        o.my_print(f"Точность {round(tol,5)}, целевая функция {round(np.linalg.norm(dr),5)}, T_max={T_max}",
                    mode=None)
         if np.linalg.norm(dr) < tol_anw:
             tol_anw = np.linalg.norm(dr)
@@ -181,12 +173,9 @@ def calc_shooting(o, id_app, r_right, interaction: bool = True, u0: any = None, 
             if np.linalg.norm(correction) > 1e-12:
                 correction = correction / np.linalg.norm(correction) * clip(np.linalg.norm(correction), 0, o.u_max / 4)
             else:
-                correction = np.array([u[ii] * random.uniform(-1, 1) for ii in range(n_full)])
-                print(f"ВСЁ ОТВРАТИТЕЛЬНО")
-                break  # ВОТ ЭТО ТЫ ЗАГНУЛ БРАТИШКА
-            '''if o.if_T_in_shooting:
-                if np.linalg.norm(dr) > np.linalg.norm(dr)'''
-            u = u - correction
+                print(f"Пристрелка закончена, градиента нет")
+                break
+            u -= correction
 
             # Ограничение по модулю скорости
             if np.linalg.norm(u[0:3]) > o.u_max:
