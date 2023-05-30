@@ -1,10 +1,11 @@
 from mylibs.im_sample import *
 from mylibs.numerical_methods import *
 from mylibs.control_function import control_condition
+from datetime import datetime
 import scipy
 
 
-def call_crash_internal_func(r, r1, r2, diam, return_force=False, k_av=None, level: int = 5):
+def call_crash_internal_func(r, r1, r2, diam, return_force=False, k_av=None, level: int = 5, return_dist=False):
     """ Дополнительная функция для функции call_crash; \n
     Проверяет наличие точки r в цилиндре с концами r1,r2, диаметром diam; \n
     Возвращает {True,False} соответственно при отсутствии и наличии. """
@@ -24,6 +25,11 @@ def call_crash_internal_func(r, r1, r2, diam, return_force=False, k_av=None, lev
     f1 = np.dot(a, tau) / (np.linalg.norm(tau) * diam)
     f2 = np.dot(a, b) / (np.linalg.norm(b) * diam)
 
+    if return_dist:
+        if (f0 > -1) and (f0 < 1):
+            return np.sqrt(f1**2 + f2**2) * diam
+        elif f1**2 + f2**2 < 1:
+            return (f0 - 1) * (np.linalg.norm(n)**2 / 2)
     if return_force:
         return forсe_from_beam(a, diam, n, tau, b, f0, f1, f2, k_av, level)
     if not ((f0 > -1) and (f0 < 1) and (f1**2 + f2**2 < 1)):
@@ -49,16 +55,25 @@ def call_crash(o, r_sat, R, S, taken_beams=np.array([])):
             if np.sum(o.s.flag[i]) > 0:
                 r1 = o.s.r1[i]
                 r2 = o.s.r2[i]
-            else:
+                if call_crash_internal_func(r, r1, r2, o.d_crash):
+                    return True
+            '''else:
                 r1 = [o.s.r_st[i][0], o.s.r_st[i][1], o.s.r_st[i][2]]
                 r2 = [o.s.r_st[i][0] - o.s.length[i], o.s.r_st[i][1], o.s.r_st[i][2]]
-            if call_crash_internal_func(r, r1, r2, o.d_crash):
-                return True
-    for i in range(o.N_cont_beams):
+                if call_crash_internal_func(r, r1, r2, o.d_crash):
+                    return True'''
+    '''for i in range(o.N_cont_beams):
         r1 = o.c.r1[i]
         r2 = o.c.r2[i]
-        if call_crash_internal_func(r, r1, r2, o.c.diam[i] * 1.05):
-            return True
+        if call_crash_internal_func(r, r1, r2, o.c.diam[i] * 1.01):
+            return True'''
+    r1 = o.c.r1[0]
+    r2 = o.c.r2[0]
+    if call_crash_internal_func(r, r1, r2, o.c.diam[0] * 1.01):
+        return True
+    if call_crash_internal_func(r, np.zeros(3), np.array([-o.s.x_start - o.s.container_length, 0., 0.]),
+                                o.c.r_around + o.d_crash):
+        return True
     return False
 
 
@@ -182,7 +197,9 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False,
     -> j_max - максимальный угол отклонения от целевого положения станции по ходу эпизода       \n
     -> N_crashes - количество соударений (не должно превосходить 1)                             \n
     -> line - линия аппарата ССК (при line_return=True)"""
+    # time_start = datetime.now()
     o_lcl = o.copy()
+    # print(f"копирование: {datetime.now() - time_start}")
 
     e_max, V_max, R_max, w_max, j_max, f_mean = np.zeros(6)
     o_lcl.flag_vision[id_app] = False
@@ -194,8 +211,10 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False,
     crah_percantage = 0.
     line = []
 
+    # time_start = datetime.now()
     if interaction:  
         o_lcl.repulsion_change_params(id_app=id_app, u0=o.cases['repulse_vel_control'](u))
+    # print(f"начало: {datetime.now() - time_start}")
 
     f_min = o_lcl.S @ o_lcl.get_discrepancy(id_app=id_app, vector=True) if interaction else \
         o_lcl.get_discrepancy(id_app=id_app, vector=True)
@@ -204,6 +223,7 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False,
     check_visible = False
 
     # Iterations
+    # time_start = datetime.now()
     for i in range(int(T_max // o_lcl.dt)):
         # Writing parameters
         f = o_lcl.S @ o_lcl.get_discrepancy(id_app=id_app, vector=True) if interaction else \
@@ -211,8 +231,9 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False,
         if check_visible:
             _, tmp = control_condition(o_lcl, id_app, return_percentage=True)
             # crah_percantage = max(crah_percantage, tmp)
-            # print(f"----{tmp_a} {o_lcl.flag_vision[id_app]}")
-        if np.linalg.norm(f_min) > np.linalg.norm(f):
+        # ВЫ ЗАБЫЛИ ЛИЦА СВОИХ ОТЦОВ И ИХ ОТЦОВ
+        # ВЫ ЗАБЫЛИ САМИХ СЕБЯ
+        if True:  # np.linalg.norm(f_min) > np.linalg.norm(f):
             f_min = f.copy()
             crah_percantage = tmp if check_visible else crah_percantage
         e_max = max(e_max, o_lcl.get_e_deviation())
@@ -245,6 +266,7 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False,
         if control is not None:
             o_lcl.a_self[id_app] = simple_control(o, control, (o_lcl.t - o.t) / T_max)
         o_lcl.time_step()
+    # print(f"потрачено на итерации: {datetime.now() - time_start}")
 
     if check_visible:
         _, crah_percantage = control_condition(o_lcl, id_app, return_percentage=True)
@@ -357,8 +379,9 @@ def repulsion(o, id_app, u_a_priori=None):
                         flag_in_sphere = True
                         break
                 if not flag_in_sphere:
-                    # u1, target_is_reached = calc_shooting(o=o, id_app=id_app, r_right=r_1, interaction=True, u0=u0, T_max=T+500)
+                    # u1, target_is_reached = calc_shooting(o=o, id_app=id_app, r_1=r_1, interaction=True, u0=u0, T_max=T+500, func=f_dr)
                     u1 = find_repulsion_velocity(o, id_app, r_1, True, 'trust-constr', u0, T)
+                    # u1 = my_calc_shooting(o, id_app, r_1, True, u=np.append([T], u0), func=f_dr)
                     dr, _, _, _, _, _, _, _, _, _ = calculation_motion(o=o, u=u0, T_max=T, id_app=id_app,
                                                                        interaction=True, check_visible=False)
                     target_is_reached = np.linalg.norm(dr) < o.d_to_grab
@@ -376,14 +399,14 @@ def repulsion(o, id_app, u_a_priori=None):
 
         # Доводка
         if 'shooting' in method_comps:
-            u1, target_is_reached = calc_shooting(o=o, id_app=id_app, r_right=r_1, interaction=True, u0=u0)
+            u1, target_is_reached = calc_shooting(o=o, id_app=id_app, r_1=r_1, interaction=True, u0=u0)
             if target_is_reached:
                 u0 = u1
         elif 'const-propulsion' in method_comps:
             v0, _ = diff_evolve(f_controlled_const, [o.u_min, o.u_max, 0, o.a_pid_max / 1.7], True, o, o.T_max, id_app,
                                 True, False, True, n_vec=o.diff_evolve_vectors, chance=0.5, f=0.8, len_vec=6,
                                 n_times=o.diff_evolve_times, multiprocessing=True, print_process=True)
-            v0 = calc_shooting(o=o, id_app=id_app, r_right=r_1, interaction=True, func=f_controlled_const, n=6, u0=v0)
+            v0 = calc_shooting(o=o, id_app=id_app, r_1=r_1, interaction=True, func=f_controlled_const, n=6, u0=v0)
             u0 = v0[0:3]
             o.a_self[id_app] = o.cases['acceleration_control'](v0[3:6])
             print(f"TEPER {v0}")
@@ -395,7 +418,7 @@ def repulsion(o, id_app, u_a_priori=None):
             v0 = np.array([0.022322849870837592, -0.0, -0.024082491687662064, 0., 0., 0., 0., 0., 0.])
             # v0 = np.array([1.57834221e-03, 6.17833125e-03, 1.13950052e-02, 2.56554088e-06, 1.74561577e-05, 4.72087501e-05, 2.90559321e-05, 2.49372057e-05, 4.00058404e-05])
             # v0 = np.append(v0, np.zeros(3))
-            v0 = calc_shooting(o=o, id_app=id_app, r_right=r_1, interaction=True, func=f_controlled_const, n=LEN_VEC, u0=v0)
+            v0 = calc_shooting(o=o, id_app=id_app, r_1=r_1, interaction=True, func=f_controlled_const, n=LEN_VEC, u0=v0)
             ## v0 = np.array([-7.20616021e-05, -7.05597190e-03, -1.14687768e-02, -6.43142795e-07, 7.01282186e-07, -5.12799953e-07,  1.49374925e-06,  1.14988169e-06, -2.00274023e-06])
             # v0 = np.array([2.51244937e-03, 5.30263254e-03, 9.29356095e-03, 3.70858621e-05, 5.96174803e-06, 5.37664468e-05, 3.65594966e-05, 1.72421048e-05, 4.68459118e-05])
             print(len(v0))
@@ -407,7 +430,7 @@ def repulsion(o, id_app, u_a_priori=None):
             v0, _ = diff_evolve(f_controlled_const, [o.u_min, o.u_max, 0, 2*np.pi], True, o, o.T_max, id_app,
                                 True, False, True, n_vec=o.diff_evolve_vectors, chance=0.5, f=0.8, len_vec=LEN_VEC,
                                 n_times=o.diff_evolve_times, multiprocessing=True, print_process=True)
-            v0 = calc_shooting(o=o, id_app=id_app, r_right=r_1, interaction=True, func=f_controlled_const, n=LEN_VEC, u0=v0)
+            v0 = calc_shooting(o=o, id_app=id_app, r_1=r_1, interaction=True, func=f_controlled_const, n=LEN_VEC, u0=v0)
             u0 = v0[0:3]
             o.a_self_params[id_app] = v0[3:LEN_VEC]
         elif 'trust-constr' in method_comps:

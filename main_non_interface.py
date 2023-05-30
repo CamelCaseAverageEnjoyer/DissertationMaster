@@ -29,7 +29,7 @@ o_global = AllProblemObjects(if_impulse_control=False,
                              diff_evolve_times=1,
                              diff_evolve_vectors=100,
 
-                             dt=1.0, T_max=10000., u_max=0.05,
+                             dt=2.0, T_max=10000., u_max=0.05,
                              a_pid_max=1e-3, k_p=3e-4, freetime=100.,
                              choice='3', floor=10, d_crash=0.2,
                              N_apparatus=1, file_reset=True)

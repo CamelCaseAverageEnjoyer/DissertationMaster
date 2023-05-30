@@ -135,7 +135,7 @@ def impulse_control(o, id_app):
             r_right = o.b_o(o.a.target[id_app])
             # u, _ = diff_evolve(f_to_detour, [[o.u_min, o.u_max] for _ in range(3)], o, o.T_max, id_app, False, False,
             #                    n_vec=8, chance=0.5, f=0.8, len_vec=3, n_times=5, multiprocessing=True, print_process=True)
-            u, target_is_reached = calc_shooting(o=o, id_app=id_app, r_right=r_right, interaction=False)
+            u, target_is_reached = calc_shooting(o=o, id_app=id_app, r_1=r_right, interaction=False)
             o.t_reaction_counter = o.t_reaction
             o.t_start[id_app] = o.t
             talk_shoot(o.if_talk)

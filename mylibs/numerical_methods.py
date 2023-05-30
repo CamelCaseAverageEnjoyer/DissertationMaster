@@ -50,7 +50,7 @@ def f_dr(u, *args):
     dr, dr_average, e, V, R, w, j, n_crashes, visible, crhper = calculation_motion(o=o, u=u, T_max=T_max, id_app=id_app,
                                                                                    interaction=interaction,
                                                                                    check_visible=False)
-    return np.linalg.norm(dr)
+    return np.linalg.norm(dr)**2
 
 def f_to_capturing(u, *args):
     from mylibs.calculation_functions import calculation_motion
@@ -93,10 +93,41 @@ def f_controlled_const(v, *args):
 
 def calc_shooting_sample(u, o, T_max, id_app, interaction, mu_ipm, func):
     T_max = u[len(u) - 1] if o.if_T_in_shooting else T_max
-    dr, tol = func(u, o, T_max, id_app, interaction, o.method in ['linear-propulsion', 'const-propulsion'], mu_ipm)
-    return [i for i in dr] + [tol]
+    f = func(u, o, T_max, id_app, interaction, o.method in ['linear-propulsion', 'const-propulsion'], mu_ipm)
+    return [i for i in f]
 
-def calc_shooting(o, id_app, r_right, interaction: bool = True, u0: any = None, n: int = 3, func: any = f_to_capturing, T_max=None):
+def my_calc_shooting(o, id_app, r_1, interaction: bool = True, u: any = None, func: any = f_dr):
+    """u = [T, u_x, u_y, u_z]"""
+    shooting_amount = o.shooting_amount_repulsion if interaction else o.shooting_amount_impulse
+    mu_e = o.mu_e
+    i_iteration = 0
+
+    def local_correction(t, w, v_x, v_y, v_z, x0, y0, z0, x1, y1, z1):
+        from numpy import sin, cos
+        return np.array([2*(-(3*t*w - 4*sin(t*w))*(2*v_z*cos(t*w) - 2*v_z - w*(3*t*(v_x + 2*w*z0) - x0 + x1) +
+                                                   (4*v_x + 6*w*z0)*sin(t*w)) -
+                            2*(cos(t*w) - 1)*(2*v_x + v_z*sin(t*w) + w*(4*z0 - z1) +
+                                              (-2*v_x - 3*w*z0)*cos(t*w)))/w**2,
+                         2*(-(3*t*w - 4*sin(t*w))*(2*v_z*cos(t*w) - 2*v_z - w*(3*t*(v_x + 2*w*z0) - x0 + x1) +
+                                                   (4*v_x + 6*w*z0)*sin(t*w)) - 2*(cos(t*w) - 1) *
+                            (2*v_x + v_z*sin(t*w) + w*(4*z0 - z1) + (-2*v_x - 3*w*z0)*cos(t*w)))/w**2,
+                         2*(v_y*sin(t*w) + w*(y0*cos(t*w) - y1))*sin(t*w)/w**2,
+                         2*(2*(cos(t*w) - 1)*(2*v_z*cos(t*w) - 2*v_z - w*(3*t*(v_x + 2*w*z0) - x0 + x1) +
+                                              (4*v_x + 6*w*z0)*sin(t*w)) + (2*v_x + v_z*sin(t*w) + w*(4*z0 - z1) +
+                                                                            (-2*v_x - 3*w*z0)*cos(t*w))*sin(t*w))/w**2])
+
+    while i_iteration < shooting_amount:
+        i_iteration += 1
+        f = func(u[1:4], o, u[0], id_app, interaction, False, o.mu_ipm)
+        print(f"Итерация {i_iteration}|dr={round(np.sqrt(f),5)}, T={u[0]}, u={u[1:4]}")
+        if f > o.d_to_grab**2:
+            v = o.b_o(u[1:4])
+            r0 = o.b_o(o.a.target_p[id_app])
+            r1 = o.b_o(r_1)
+            u -= local_correction(u[0], o.w_hkw, v[0], v[1], v[2], r0[0], r0[1], r0[2], r1[0], r1[1], r1[2])
+        pass
+
+def calc_shooting(o, id_app, r_1, interaction: bool = True, u0: any = None, n: int = 3, func: any = f_to_capturing, T_max=None):
     """ Функция выполняет пристрелочный/спектральный поиск оптимальной скорости отталкивания/импульса аппарата; \n
     Input:                                                                                  \n
     -> o - AllObjects класс;                                                                \n
@@ -110,15 +141,15 @@ def calc_shooting(o, id_app, r_right, interaction: bool = True, u0: any = None, 
     -> u - оптимальный вектор скорости отталкивания/импульса (ССК при interaction=True, ОСК иначе)"""
     shooting_amount = o.shooting_amount_repulsion if interaction else o.shooting_amount_impulse
     if interaction:
-        tmp = r_right - np.array(o.o_b(o.a.r[id_app]))
+        tmp = r_1 - np.array(o.o_b(o.a.r[id_app]))
     else:
-        tmp = o.b_o(r_right) - np.array(o.a.r[id_app])
+        tmp = o.b_o(r_1) - np.array(o.a.r[id_app])
     mu_e = o.mu_e
     T_max = o.T_max if T_max is None else T_max
+    u = o.u_min * tmp / np.linalg.norm(tmp) if u0 is None else u0
     if n > 3:
+        u = np.zeros(n)
         u[0:3] = o.u_min * tmp / np.linalg.norm(tmp) if u0 is None or np.linalg.norm(u0) < 1e-5 else u0[0:3]
-    else:
-        u = o.u_min * tmp / np.linalg.norm(tmp) if u0 is None else u0
     u_anw = u.copy()
     print(u_anw)
     tol_anw = 1e5

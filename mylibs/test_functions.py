@@ -10,6 +10,15 @@ def def_o():
     o1.om_update()
     return o1
 
+def test_time_of_calculating(u: any, dt: float = 1., T: float = 1000., n: int = 1):
+    from datetime import datetime
+    o = AllProblemObjects(if_talk=False, dt=dt)
+    o.repulse_app_config(id_app=0)
+    for i in range(n):
+        time_start = datetime.now()
+        _, _, _, _, _, _, _, _, _, _ = calculation_motion(o=o, u=u, T_max=T, id_app=0, interaction=True, check_visible=False)
+        print(f"Время выполнения {i+1}/{n}: {datetime.now() - time_start}")
+
 def test_center_mass(u_max=None, dt=1., T_max=1000.):
     o = AllProblemObjects(if_talk=False, u_max=u_max, dt=dt)
     u = repulsion(o, 0, u_a_priori=np.array([random.uniform(-o.u_max/3, u_max/3) for _ in range(3)]))

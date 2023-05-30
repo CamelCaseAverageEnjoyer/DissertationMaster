@@ -365,6 +365,7 @@ class Container(object):
     def __init__(self, s: Structure, choice='1'):
         self.choice = choice
         self.s = s
+        self.r_around = 0
 
         if choice == '0':
             self.n = 1
@@ -415,8 +416,9 @@ class Container(object):
             self.flag_grab = [False, True, False, False, True, False, False, True, False, False, True, False, False]
 
             r_beams = 0.05
-            r_around = r_container - 0.5
+            r_around = r_container - 0.2
             n_around = round(2 * np.pi * r_container / r_beams * 0.6)
+            self.r_around = r_around
             for i in range(n_around):
                 self.id += [self.n]
                 self.mass += [0.5]
