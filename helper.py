@@ -41,8 +41,9 @@ name = 'now_toward'
 # test_center_mass(u_max=3e-2, dt=100., T_max=100000.)
 # test_time_of_calculating(u=np.array([-0.007752832745450856, -0.0090166368505722, -0.00023042615281915053]),
 #                         dt=2., T=5000., n=1)
+test_stitching_collision_function(n=100)
 
-plot_params_while_main(dt=2., show_rate=3, limit=3000, show_probe_episodes=False, filename='', energy_show=True)
+# plot_params_while_main(dt=2., show_rate=3, limit=3000, show_probe_episodes=False, filename='', energy_show=True)
 # get_repilsions("")
 
 # crawling()

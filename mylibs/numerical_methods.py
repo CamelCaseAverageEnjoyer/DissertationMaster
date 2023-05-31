@@ -28,7 +28,8 @@ def capturing_penalty(o, dr, dr_average, e, V, R, w, j, n_crashes, visible, crhp
     return anw
 
 def detour_penalty(o, dr, dr_average, e, V, R, w, j, n_crashes, visible, crhper, mu_ipm):
-    '''if False:  # (o.e_max - e > 0) and (o.V_max - V > 0) and (o.R_max - R > 0) and (o.j_max - j > 0):  # Constraint's fulfillment
+    '''# Constraint's fulfillment
+    if False:  # (o.e_max - e > 0) and (o.V_max - V > 0) and (o.R_max - R > 0) and (o.j_max - j > 0):
         anw = dr + dr_average - o.mu_ipm * (np.log(o.e_max - e) + np.log(o.V_max - V) +
                                np.log(o.R_max - R) + np.log(o.j_max - j)) + \
               np.array([1e3, 1e3, 1e3]) * n_crashes'''
@@ -43,6 +44,12 @@ def detour_penalty(o, dr, dr_average, e, V, R, w, j, n_crashes, visible, crhper,
             anw += 1e2
     # print(f"{n_crashes} {1e2 * visible} |  {np.linalg.norm(dr)}:{dr_average}  | {np.linalg.norm(anw)}")
     return anw
+
+def f_scipy(u, *args):
+    from mylibs.calculation_functions import calculation_motion
+    o, T_max, id_app, interaction, check_visible, mu_ipm = args
+    f_min, e_max, V_max, R_max, w_max, j_max, g = calculation_motion(o=o, u=u, T_max=T_max, id_app=id_app,
+                                                                     interaction=interaction, to_scipy=True)
 
 def f_dr(u, *args):
     from mylibs.calculation_functions import calculation_motion

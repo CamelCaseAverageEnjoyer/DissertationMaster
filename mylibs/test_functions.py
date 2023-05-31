@@ -19,6 +19,24 @@ def test_time_of_calculating(u: any, dt: float = 1., T: float = 1000., n: int = 
         _, _, _, _, _, _, _, _, _, _ = calculation_motion(o=o, u=u, T_max=T, id_app=0, interaction=True, check_visible=False)
         print(f"Время выполнения {i+1}/{n}: {datetime.now() - time_start}")
 
+def test_stitching_collision_function(n: int = 10):
+    """Функция показывает heatmap для 1 стержня чтобы показать что функция гладенькая"""
+    r1 = np.array([-1., 0., 0.])
+    r2 = np.array([1., 0., 0.])
+    diam = 0.5
+    anw = [[0. for _ in range(n)] for _ in range(n)]
+    x_list = np.linspace(-2, 2, n)
+    y_list = np.linspace(-2, 2, n)
+
+    for i in range(n):
+        for j in range(n):
+            x = x_list[i]
+            y = y_list[j]
+            anw[i][j] = call_crash_internal_func(np.array([x, y, 0]), r1, r2, diam, return_dist=True)
+    plt.imshow(anw, cmap='plasma')
+    plt.colorbar()
+    plt.show()
+
 def test_center_mass(u_max=None, dt=1., T_max=1000.):
     o = AllProblemObjects(if_talk=False, u_max=u_max, dt=dt)
     u = repulsion(o, 0, u_a_priori=np.array([random.uniform(-o.u_max/3, u_max/3) for _ in range(3)]))

@@ -27,9 +27,11 @@ def call_crash_internal_func(r, r1, r2, diam, return_force=False, k_av=None, lev
 
     if return_dist:
         if (f0 > -1) and (f0 < 1):
-            return np.sqrt(f1**2 + f2**2) * diam
+            return (np.sqrt(f1**2 + f2**2) - 1) * diam  # * np.sign(f1**2 + f2**2 - 1)
         elif f1**2 + f2**2 < 1:
-            return (f0 - 1) * (np.linalg.norm(n)**2 / 2)
+            return (abs(f0) - 1) * (np.linalg.norm(n)**2 / 2)  # * np.sign(f0)
+        else:
+            return (np.sqrt(f1 ** 2 + f2 ** 2) - 1) * diam + (abs(f0) - 1) * (np.linalg.norm(n) ** 2 / 2)
     if return_force:
         return forсe_from_beam(a, diam, n, tau, b, f0, f1, f2, k_av, level)
     if not ((f0 > -1) and (f0 < 1) and (f1**2 + f2**2 < 1)):
@@ -37,7 +39,7 @@ def call_crash_internal_func(r, r1, r2, diam, return_force=False, k_av=None, lev
     return True
 
 
-def call_crash(o, r_sat, R, S, taken_beams=np.array([])):
+def call_crash(o, r_sat, R, S, taken_beams=np.array([]), iFunc=False):
     """ Функция проверяет наличие тела внутри балки (назовём это соударением);      \n
     Input:                                                                          \n
     -> o - AllObjects класс;                                                        \n
@@ -47,34 +49,52 @@ def call_crash(o, r_sat, R, S, taken_beams=np.array([])):
     -> taken_beams - вектор id стержней, которых учитывать не надо                  \n
     Output:                                                                         \n
     -> True в случае соударения, False иначе. """
-    if o.d_crash is None:
+    if iFunc:
+        if o.d_crash is None:
+            return False
+        r = o.o_b(r_sat, S=S, R=R)
+        for i in range(o.N_beams):
+            if not(np.any(taken_beams == i)):
+                if np.sum(o.s.flag[i]) > 0:
+                    r1 = o.s.r1[i]
+                    r2 = o.s.r2[i]
+                    if call_crash_internal_func(r, r1, r2, o.d_crash):
+                        return True
+                '''else:
+                    r1 = [o.s.r_st[i][0], o.s.r_st[i][1], o.s.r_st[i][2]]
+                    r2 = [o.s.r_st[i][0] - o.s.length[i], o.s.r_st[i][1], o.s.r_st[i][2]]
+                    if call_crash_internal_func(r, r1, r2, o.d_crash):
+                        return True'''
+        '''for i in range(o.N_cont_beams):
+            r1 = o.c.r1[i]
+            r2 = o.c.r2[i]
+            if call_crash_internal_func(r, r1, r2, o.c.diam[i] * 1.01):
+                return True'''
+        r1 = o.c.r1[0]
+        r2 = o.c.r2[0]
+        if call_crash_internal_func(r, r1, r2, o.c.diam[0] * 1.01):
+            return True
+        if call_crash_internal_func(r, np.zeros(3), np.array([-o.s.x_start - o.s.container_length, 0., 0.]),
+                                    o.c.r_around + o.d_crash):
+            return True
         return False
-    r = o.o_b(r_sat, S=S, R=R)
-    for i in range(o.N_beams):
-        if not(np.any(taken_beams == i)):
-            if np.sum(o.s.flag[i]) > 0:
-                r1 = o.s.r1[i]
-                r2 = o.s.r2[i]
-                if call_crash_internal_func(r, r1, r2, o.d_crash):
-                    return True
-            '''else:
-                r1 = [o.s.r_st[i][0], o.s.r_st[i][1], o.s.r_st[i][2]]
-                r2 = [o.s.r_st[i][0] - o.s.length[i], o.s.r_st[i][1], o.s.r_st[i][2]]
-                if call_crash_internal_func(r, r1, r2, o.d_crash):
-                    return True'''
-    '''for i in range(o.N_cont_beams):
-        r1 = o.c.r1[i]
-        r2 = o.c.r2[i]
-        if call_crash_internal_func(r, r1, r2, o.c.diam[i] * 1.01):
-            return True'''
-    r1 = o.c.r1[0]
-    r2 = o.c.r2[0]
-    if call_crash_internal_func(r, r1, r2, o.c.diam[0] * 1.01):
-        return True
-    if call_crash_internal_func(r, np.zeros(3), np.array([-o.s.x_start - o.s.container_length, 0., 0.]),
-                                o.c.r_around + o.d_crash):
-        return True
-    return False
+    else:
+        if o.d_crash is None:
+            return 1.
+        r = o.o_b(r_sat, S=S, R=R)
+        g = []
+        for i in range(o.N_beams):
+            if not(np.any(taken_beams == i)):
+                if np.sum(o.s.flag[i]) > 0:
+                    r1 = o.s.r1[i]
+                    r2 = o.s.r2[i]
+                    g += [call_crash_internal_func(r, r1, r2, o.d_crash, return_dist=True)]
+        r1 = o.c.r1[0]
+        r2 = o.c.r2[0]
+        g += [call_crash_internal_func(r, r1, r2, o.c.diam[0] * 1.01, return_dist=True)]
+        g += [call_crash_internal_func(r, np.zeros(3), np.array([-o.s.x_start - o.s.container_length, 0., 0.]),
+                                       o.c.r_around + o.d_crash, return_dist=True)]
+        return np.min(g)
 
 
 def call_inertia(o, id_s=np.array([]), app_y=None, app_n=None):
@@ -178,7 +198,8 @@ def call_middle_point(X_cont, r_right):
     return np.array(X_middles)[i_needed]
 
 
-def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False, check_visible=False, control=None):
+def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False, check_visible=False, control=None,
+                       to_scipy=False):
     """Функция расчитывает угловое и поступательное движение одного аппарата и конструкции; \n
     Других аппаратов и их решения она не учитывает;                                         \n
     Input:                                                                                  \n
@@ -210,6 +231,7 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False,
     n_crashes = 0
     crah_percantage = 0.
     line = []
+    g = []
 
     # time_start = datetime.now()
     if interaction:  
@@ -245,16 +267,19 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False,
         line = np.append(line, o_lcl.o_b(o_lcl.a.r[id_app]))
 
         # Stop Criteria
-        if o_lcl.d_to_grab is not None:
-            if np.linalg.norm(f) <= o_lcl.d_to_grab * 0.95:
-                break
-        if o_lcl.d_crash is not None:
-            if (o_lcl.t - o.t) > o.freetime:
-                if call_crash(o, o_lcl.a.r[id_app], o_lcl.R, o_lcl.S, o_lcl.taken_beams):
-                    n_crashes += 1
+        if to_scipy:
+            g += [call_crash(o, o_lcl.a.r[id_app], o_lcl.R, o_lcl.S, o_lcl.taken_beams, iFunc=True)]
+        else:
+            if o_lcl.d_to_grab is not None:
+                if np.linalg.norm(f) <= o_lcl.d_to_grab * 0.95:
                     break
+            if o_lcl.d_crash is not None:
+                if (o_lcl.t - o.t) > o.freetime:
+                    if call_crash(o, o_lcl.a.r[id_app], o_lcl.R, o_lcl.S, o_lcl.taken_beams):
+                        n_crashes += 1
+                        break
         if not o_lcl.control and \
-                np.linalg.norm(o_lcl.a.r[id_app] - o_lcl.b_o(o_lcl.a.target_p[id_app])) > 7 * o_lcl.a.r_0[id_app]:
+                np.linalg.norm(o_lcl.a.r[id_app] - o_lcl.b_o(o_lcl.a.target_p[id_app])) > 15 * o_lcl.a.r_0[id_app]:
             break
         if i % 5 == 0:
             o_lcl.file_save(f'график {id_app} {np.linalg.norm(f)} {np.linalg.norm(o_lcl.w)} '
@@ -293,6 +318,8 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False,
             j_max = max(j_max, 180/np.pi*np.arccos((np.trace(o_lcl.S)-1)/2))
             w_max = max(w_max, np.linalg.norm(o_lcl.w))
 
+    if to_scipy:
+        return f_min, e_max, V_max, R_max, w_max, j_max, g
     anw = (f_min, f_mean, e_max, V_max, R_max, w_max, j_max, n_crashes, o_lcl.flag_vision[id_app], crah_percantage,)
     if line_return:
         anw += (line,)
