@@ -719,7 +719,7 @@ def reader_heatmap_function(name: str = '', max_value: float = 1e5):
     f.close()
 
 
-def heatmap_function(name: str = '', n_x: int = 10, n_y: int = 10, target_toward: bool = True):
+def heatmap_function(name: str = '', n_x: int = 10, n_y: int = 10, target_toward: bool = True, scipy_meh=False):
     """Цветная карта целевой функции"""
     from mylibs.numerical_methods import capturing_penalty
     filename = 'storage/heatmap_function_' + name + '.txt'
@@ -739,11 +739,16 @@ def heatmap_function(name: str = '', n_x: int = 10, n_y: int = 10, target_toward
         for iy in range(n_y):
             tmp += 1
             o.flag_vision[0] = False
-            o.a.r[0] = o.b_o(np.array([x_list[ix], y_list[iy], 0.]))
-            dr = o.S @ o.get_discrepancy(id_app=0, vector=True)
-            n_crashes = call_crash(o, o.a.r[0], o.R, o.S)
-            visible, crhper = control_condition(o, 0, return_percentage=True)
-            anw = capturing_penalty(o, dr, 0, 0, 0, 0, 0, n_crashes, visible, crhper)
-            f.write(f"{ix} {iy} {np.linalg.norm(anw)} {int(n_crashes)}\n")
-            o.my_print(f"Карта целевой функции: {tmp}/{n_x * n_y} : {visible} {crhper * 100}%", mode='c')
+            r_sat = o.b_o(np.array([x_list[ix], y_list[iy], 0.]))
+            if scipy_meh:
+                anw = call_crash(o, r_sat, o.R, o.S, iFunc=True, brf=True)
+                f.write(f"{ix} {iy} {anw} {0}\n")
+            else:
+                o.a.r[0] = r_sat
+                dr = o.S @ o.get_discrepancy(id_app=0, vector=True)
+                n_crashes = call_crash(o, o.a.r[0], o.R, o.S)
+                visible, crhper = control_condition(o, 0, return_percentage=True)
+                anw = capturing_penalty(o, dr, 0, 0, 0, 0, 0, n_crashes, visible, crhper, o.mu_ipm)
+                o.my_print(f"Карта целевой функции: {tmp}/{n_x * n_y} : {visible} {crhper * 100}%", mode='c')
+                f.write(f"{ix} {iy} {np.linalg.norm(anw)} {int(n_crashes)}\n")
     f.close()

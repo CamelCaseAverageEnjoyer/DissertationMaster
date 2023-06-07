@@ -35,6 +35,11 @@ def test_stitching_collision_function(n: int = 10):
             anw[i][j] = call_crash_internal_func(np.array([x, y, 0]), r1, r2, diam, return_dist=True)
     plt.imshow(anw, cmap='plasma')
     plt.colorbar()
+    color_box = 'aqua'
+    plt.plot([0.375*n - 0.5, 0.375*n - 0.5], [0.25*n - 0.5, 0.75*n - 0.5], c=color_box)
+    plt.plot([0.625*n - 0.5, 0.625*n - 0.5], [0.25*n - 0.5, 0.75*n - 0.5], c=color_box)
+    plt.plot([0.375*n - 0.5, 0.625*n - 0.5], [0.25*n - 0.5, 0.25*n - 0.5], c=color_box)
+    plt.plot([0.375*n - 0.5, 0.625*n - 0.5], [0.75*n - 0.5, 0.75*n - 0.5], c=color_box)
     plt.show()
 
 def test_center_mass(u_max=None, dt=1., T_max=1000.):

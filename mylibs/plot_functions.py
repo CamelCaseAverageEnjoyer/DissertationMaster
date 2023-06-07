@@ -15,7 +15,7 @@ import vedo
 # Local libraries
 from mylibs.tiny_functions import *
 
-N_BEAM_ROUND = 10
+N_BEAM_ROUND = 100
 
 
 def color_between(tau: float):
@@ -298,7 +298,7 @@ def plot_iterations_new(o):
     diam_cylinders = 0.03
     main_body = None
     
-    for b in range(o.N_beams):
+    '''for b in range(o.N_beams):
         if np.sum(o.s.flag[b]) == 0:
             r1 = o.s.r1[b]
             r2 = o.s.r2[b]
@@ -320,7 +320,7 @@ def plot_iterations_new(o):
                 main_body = myramid_mesh
             else:
                 twist_lock = myramid_mesh
-                main_body = mesh.Mesh(np.concatenate([main_body.data, twist_lock.data]))
+                main_body = mesh.Mesh(np.concatenate([main_body.data, twist_lock.data]))'''
 
     for b in range(o.N_beams):
         # if b not in taken_beams:  # CДЕЛАТЬ ПО НОРМАЛЬНОМУ
