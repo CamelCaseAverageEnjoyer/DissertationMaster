@@ -697,6 +697,63 @@ def full_bundle_of_trajectories(name: str = '', dt: float = 0.1, t_max: float = 
     f1.close()
 
 
+def full_bundle_of_trajectories_controlled(name: str = '', dt: float = 0.5, t_max: float = 5000, n_p: int = 10,
+                                           n_t: int = 10, control: float = 1e-5):
+    """Разброс траекторий вокруг для качественной оценки
+    По совместительству демонстрация несанкционированного хлопка в Барселоне"""
+    filename = 'storage/full_bundle_controlled__' + name + '.txt'
+    phi_list = np.linspace(-np.pi, np.pi, n_p, endpoint=False)
+    theta_list = np.linspace(-np.pi / 2, np.pi / 2, n_t, endpoint=False)
+    start_time = datetime.now()
+    tmp = 0
+    lines = [[] for _ in range(n_p*n_t)]
+    Radius_orbit = 6800e3
+    mu = 5.972e24 * 6.67408e-11
+    w_hkw = np.sqrt(mu / Radius_orbit ** 3)
+
+    def rv_right_part(rv, a):
+        return np.array([rv[3], rv[4], rv[5], a[0], a[1], a[2]])
+
+    def rk4_acceleration(r, v, a):
+        rv = np.append(r, v)
+        k1 = rv_right_part(rv, a)
+        k2 = rv_right_part(rv + k1 * dt / 2, a)
+        k3 = rv_right_part(rv + k2 * dt / 2, a)
+        k4 = rv_right_part(rv + k3 * dt, a)
+        rv = dt / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
+        return rv[0:3] + r, rv[3:6] + v
+
+    def get_hkw_acceleration(rv):
+        return np.array([-2 * w_hkw * rv[5],
+                         -w_hkw ** 2 * rv[1],
+                         2 * w_hkw * rv[3] + 3 * w_hkw ** 2 * rv[2]])
+
+    for phi in phi_list:
+        for theta in theta_list:
+            r = np.zeros(3)
+            v = np.zeros(3)
+            a = get_v(control, phi, theta)
+            lines[tmp] += [r[0], r[1], r[2]]
+            for _ in range(int(t_max // dt)):
+                r, v = rk4_acceleration(r, v, a + get_hkw_acceleration(np.append(r, v)))
+                lines[tmp] += [r[0], r[1], r[2]]
+            tmp += 1
+            print(f"Разброс управляемых траекторий {tmp}/{n_p * n_t} | "
+                  f"t:{datetime.now() - start_time} | r={np.linalg.norm(r)}")
+
+    '''f = open(filename, 'w')
+    for l in lines:
+        f.write(f"{l}\n")
+    f.close()
+    print("Записано в файл")'''
+
+    o = AllProblemObjects()
+    msh = []
+    for i in range(len(lines)):
+        msh += [fig_plot(o, lines[i])]
+    show(msh, __doc__, viewup="xz", axes=0, bg='white', zoom=1, size=(1920, 1080)).close()
+
+
 def reader_heatmap_function(name: str = '', max_value: float = 1e5):
     filename = 'storage/heatmap_function_' + name + '.txt'
     f = open(filename, 'r')

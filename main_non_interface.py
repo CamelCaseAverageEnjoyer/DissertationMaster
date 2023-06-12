@@ -1,7 +1,7 @@
 """Assembling general problem solution"""
 from all_objects import *
 
-vedo_picture = True
+vedo_picture = False
 tosave = True
 o_global = AllProblemObjects(if_impulse_control=False,
                              if_PID_control=False,
@@ -46,7 +46,8 @@ def iteration_func(o):
         o.a.busy_time[id_app] -= o.dt if o.a.busy_time[id_app] >= 0 else 0
         if (not o.a.flag_fly[id_app]) and o.a.busy_time[id_app] < 0:
             print(f"отталкивание из файла {o.get_repulsion(id_app)}")
-            u = repulsion(o, id_app, u_a_priori=o.get_repulsion(id_app))
+            # u = repulsion(o, id_app, u_a_priori=o.get_repulsion(id_app))
+            u = repulsion(o, id_app, u_a_priori=np.array([0.008449664429530206, 0, -0.002463087248322145]))
             o.file_save(f'отталкивание {id_app} {u[0]} {u[1]} {u[2]}')
             o.repulsion_save(f'отталкивание {id_app} {u[0]} {u[1]} {u[2]}')
 

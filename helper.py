@@ -31,12 +31,13 @@ u0 = 0.03
 name = str(u0)  # + 'control_Z_-5'
 # full_bundle_of_trajectories(name=name, dt=10., t_max=5000, u0=u0, n_p=n_p, n_t=n_t)  # , control=np.array([0., 0., 1e-6]))
 # reader_full_bundle_of_trajectories(name=name, n_p=n_p, n_t=n_t)
+full_bundle_of_trajectories_controlled(dt=0.5, t_max=15000, control=1e-5)
 
 n_x = 50
 n_y = n_x
-name = 'scipy'
-heatmap_function(name=name, n_x=n_x, n_y=n_y, target_toward=False, scipy_meh=True)
-reader_heatmap_function(name=name, max_value=115)
+name = 'scipy- '
+# heatmap_function(name=name, n_x=n_x, n_y=n_y, target_toward=False, scipy_meh=True)
+# reader_heatmap_function(name=name, max_value=115)
 
 # test_center_mass(u_max=3e-2, dt=100., T_max=100000.)
 # test_stitching_collision_function(n=100)

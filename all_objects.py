@@ -484,6 +484,13 @@ class AllProblemObjects(object):
 
         self.a.r[id_app] = r
         self.a.v[id_app] = u
+        '''print(f"\nRp_x_rand = {R_p[0]}\nRp_z_rand = {R_p[2]}\nRc_x_rand = {self.r_center[0]}\n"
+              f"Rc_z_rand = {self.r_center[2]}\nRx_0_rand = {R[0]}\nRz_0_rand = {R[2]}\n"
+              f"xp_c_rand = {r_center_p[0]}\nzp_c_rand = {r_center_p[0]}\nx_c_rand  = {self.r_center[0]}\n"
+              f"z_c_rand  = {self.r_center[2]}\nr_x_0_rand = {r[0]}\nr_z_0_rand = {r[2]}\n"
+              f"r1_x_rand = {self.a.target[0][0]}\nr1_z_rand = {self.a.target[0][2]}\nx_0_rand  = {r0[0]}\n"
+              f"z_0_rand  = {r0[2]}\nm_real= { m_extra}\nM_real = {M_without}\n"
+              f"J_y_real  = {J_p[1][1]}\nJ_p_y_real = {self.J[1][1]}\n")'''
 
     def capturing_change_params(self, id_app: int):
         J_p, r_center_p = call_inertia(self, self.taken_beams_p, app_n=id_app)

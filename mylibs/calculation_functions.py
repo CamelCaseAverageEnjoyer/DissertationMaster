@@ -24,16 +24,24 @@ def call_crash_internal_func(r, r1, r2, diam, return_force=False, k_av=None, lev
     f0 = np.dot(a, n) / (np.linalg.norm(n)**2 / 2)
     f1 = np.dot(a, tau) / (np.linalg.norm(tau) * diam)
     f2 = np.dot(a, b) / (np.linalg.norm(b) * diam)
-
     if return_dist:
         reserve = 0.
         if (f0 > -1) and (f0 < 1):
-            return (np.sqrt(f1**2 + f2**2) - 1) * diam - reserve  # * np.sign(f1**2 + f2**2 - 1)
+            return np.sqrt(f1**2 + f2**2) - 1
+        elif f1**2 + f2**2 < 1:
+            return (abs(f0) - 1) - reserve
+        else:
+            return (np.sqrt(f1 ** 2 + f2 ** 2) - 1) * 1 +\
+                (abs(f0) - 1) - reserve
+    '''if return_dist:
+        reserve = 0.
+        if (f0 > -1) and (f0 < 1):
+            return (np.sqrt(f1**2 + f2**2) - 1) * diam - reserve 
         elif f1**2 + f2**2 < 1:
             return (abs(f0) - 1) * (np.linalg.norm(n) / 2) - reserve  # * np.sign(f0)
         else:
             return (np.sqrt(f1 ** 2 + f2 ** 2) - 1) * diam +\
-                (abs(f0) - 1) * (np.linalg.norm(n) / 2) - reserve
+                (abs(f0) - 1) * (np.linalg.norm(n) / 2) - reserve'''
     if return_force:
         return forсe_from_beam(a, diam, n, tau, b, f0, f1, f2, k_av, level)
     if not ((f0 > -1) and (f0 < 1) and (f1**2 + f2**2 < 1)):
@@ -177,6 +185,7 @@ def call_inertia(o, id_s=np.array([]), app_y=None, app_n=None):
                         kronoker(i, j) * (r[k][0] ** 2 + r[k][1] ** 2 + r[k][2] ** 2) - r[k][i] * r[k][j])
     
     # print(f"СУММАРНАЯ МАССА {np.sum(m)}")
+    # print(f"ТЕНЗОР ИНЕРЦИИ: J={J}")
     return J, r_mass_center
 
 
@@ -425,6 +434,7 @@ def repulsion(o, id_app, u_a_priori=None):
     target_is_reached = False
     if u_a_priori is not None:
         u0 = u_a_priori
+        target_is_reached = True
     else:
         if 'diffevolve' in method_comps:
             u0, _ = diff_evolve(f_to_detour, [o.u_min, o.u_max], True, o, o.T_max, id_app, True, False, True,
