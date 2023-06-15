@@ -32,7 +32,8 @@ def forсe_from_beam(a, diam, n, tau, b, f0: float, f1: float, f2: float, k_av: 
         a1 = a - f0 * n / 2 if (f1**2 + f2**2 > 1) else np.zeros(3)
     else:
         a1 = a - np.sign(f0) * n / 2
-    tmp = k_av / np.sqrt(clip(np.linalg.norm(a1) - diam, 1e-8, 1e9999))   # np.sqrt  ** level
+    # tmp = k_av / np.sqrt(clip(np.linalg.norm(a1) - diam, 1e-8, 1e9999)) # ** level
+    tmp = k_av / (clip(np.linalg.norm(a1) - diam, 1e-8, 1e9999)) ** level
     return a1 / np.linalg.norm(a1) * tmp
 
 def get_v0(o, id_app, t_):

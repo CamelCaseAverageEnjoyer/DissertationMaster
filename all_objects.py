@@ -25,7 +25,7 @@ class AllProblemObjects(object):
 
                  diff_evolve_F=0.8,                     # Гиперпараметр дифф. эволюции
                  diff_evolve_chance=0.5,                # Гиперпараметр дифф. эволюции
-                 mu_IPM=0.1,                           # Гиперпараметр дифф. эволюции
+                 mu_IPM=0.001,                           # Гиперпараметр дифф. эволюции
                  mu_e=0.1,
 
                  T_total=100000.,                       # Необязательное ограничение по времени на строительство
@@ -39,11 +39,11 @@ class AllProblemObjects(object):
                  du_impulse_max=0.4,                    # Максимальная скорость импульса при импульсном управлении
                  w_twist=0.,
                  e_max=1e10,          # ОТНОСИТЕЛЬНАЯ максимальная допустимая отнлонение энергии (иск огр)
-                 w_max=0.03,       # Максимально допустимая скорость вращения станции (искуственное ограничение)
+                 w_max=0.001,       # Максимально допустимая скорость вращения станции (искуственное ограничение)
                  V_max=0.04,          # Максимально допустимая поступательная скорость станции (искуственное ограничение)
                  R_max=50.,           # Максимально допустимое отклонение станции (искуственное ограничение)
-                 j_max=3e100,          # Максимально допустимый след матрицы поворота S (искуственное ограничение)
-                 a_pid_max=1e-4,    # Максимальное ускорение при непрерывном управлении
+                 j_max=45,          # Максимально допустимый след матрицы поворота S (искуственное ограничение)
+                 a_pid_max=1e-5,    # Максимальное ускорение при непрерывном управлении
 
                  is_saving=False,               # Сохранение vedo-изображений
                  save_rate=1,                   # Итерации между сохранением vedo-изображений
@@ -177,7 +177,6 @@ class AllProblemObjects(object):
         self.J, self.r_center = call_inertia(self, [], app_y=0)  # НЕУЧЁТ НЕСКОЛЬКИХ АППАРАТОВ
         if self.main_numerical_simulation:
             for i in range(self.N_app):
-                print(i)
                 self.a.r[i] = self.b_o(self.a.target[i])
         self.J_1 = np.linalg.inv(self.J)
         self.line_app = [[] for _ in range(self.N_app)]
@@ -408,16 +407,20 @@ class AllProblemObjects(object):
         if self.method == 'linear-propulsion' and self.a_self_params[id_app] is not None:
             self.a_self[id_app] = simple_control(self, self.a_self_params[id_app], (self.t - self.t_start[id_app]) / self.T_max)
         if self.control and control_condition(o=self, id_app=id_app):
+            # print(f"ПЕРВАЯ БАЗА")
             if self.if_impulse_control:
                 impulse_control(o=self, id_app=id_app)
-            if self.if_PID_control and self.t_reaction_counter < 0:
+            if self.if_PID_control:  #  and self.t_reaction_counter < 0:
+                # print(f"SECOND БАЗА")
                 pd_control(o=self, id_app=id_app)
             if self.if_LQR_control and self.t_reaction_counter < 0:
                 lqr_control(o=self, id_app=id_app)
             if self.if_avoiding:
+                # print(f"TRETYA БАЗА")
                 self.a_self[id_app] += avoiding_force(self, id_app)
         if np.linalg.norm(self.a_self[id_app]) > self.a_pid_max:
             self.a_self[id_app] *= self.a_pid_max / np.linalg.norm(self.a_self[id_app])
+        # print(f"------{np.linalg.norm(self.a_self[id_app])} {self.t_reaction_counter}")
 
     def repulse_app_config(self, id_app: int):
         # Алгоритм выбора цели
@@ -441,7 +444,6 @@ class AllProblemObjects(object):
 
         self.a.target_p[id_app] = self.a.target[id_app].copy()
         self.a.target[id_app] = r_1
-        print(f'YOLOOOOOOOOOOOOOOOOOOOOOOOOOOOOO {r_1}')
         self.a.flag_beam[id_app] = id_beam
         self.a.flag_start[id_app] = False
         self.a.flag_fly[id_app] = True
@@ -484,13 +486,6 @@ class AllProblemObjects(object):
 
         self.a.r[id_app] = r
         self.a.v[id_app] = u
-        '''print(f"\nRp_x_rand = {R_p[0]}\nRp_z_rand = {R_p[2]}\nRc_x_rand = {self.r_center[0]}\n"
-              f"Rc_z_rand = {self.r_center[2]}\nRx_0_rand = {R[0]}\nRz_0_rand = {R[2]}\n"
-              f"xp_c_rand = {r_center_p[0]}\nzp_c_rand = {r_center_p[0]}\nx_c_rand  = {self.r_center[0]}\n"
-              f"z_c_rand  = {self.r_center[2]}\nr_x_0_rand = {r[0]}\nr_z_0_rand = {r[2]}\n"
-              f"r1_x_rand = {self.a.target[0][0]}\nr1_z_rand = {self.a.target[0][2]}\nx_0_rand  = {r0[0]}\n"
-              f"z_0_rand  = {r0[2]}\nm_real= { m_extra}\nM_real = {M_without}\n"
-              f"J_y_real  = {J_p[1][1]}\nJ_p_y_real = {self.J[1][1]}\n")'''
 
     def capturing_change_params(self, id_app: int):
         J_p, r_center_p = call_inertia(self, self.taken_beams_p, app_n=id_app)

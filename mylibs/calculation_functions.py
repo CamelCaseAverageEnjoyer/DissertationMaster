@@ -24,16 +24,16 @@ def call_crash_internal_func(r, r1, r2, diam, return_force=False, k_av=None, lev
     f0 = np.dot(a, n) / (np.linalg.norm(n)**2 / 2)
     f1 = np.dot(a, tau) / (np.linalg.norm(tau) * diam)
     f2 = np.dot(a, b) / (np.linalg.norm(b) * diam)
-    if return_dist:
+    '''if return_dist:
         reserve = 0.
         if (f0 > -1) and (f0 < 1):
-            return np.sqrt(f1**2 + f2**2) - 1
+            return np.sqrt(f1**2 + f2**2) - 1 - reserve
         elif f1**2 + f2**2 < 1:
             return (abs(f0) - 1) - reserve
         else:
             return (np.sqrt(f1 ** 2 + f2 ** 2) - 1) * 1 +\
-                (abs(f0) - 1) - reserve
-    '''if return_dist:
+                (abs(f0) - 1) - reserve'''
+    if return_dist:
         reserve = 0.
         if (f0 > -1) and (f0 < 1):
             return (np.sqrt(f1**2 + f2**2) - 1) * diam - reserve 
@@ -41,7 +41,7 @@ def call_crash_internal_func(r, r1, r2, diam, return_force=False, k_av=None, lev
             return (abs(f0) - 1) * (np.linalg.norm(n) / 2) - reserve  # * np.sign(f0)
         else:
             return (np.sqrt(f1 ** 2 + f2 ** 2) - 1) * diam +\
-                (abs(f0) - 1) * (np.linalg.norm(n) / 2) - reserve'''
+                (abs(f0) - 1) * (np.linalg.norm(n) / 2) - reserve
     if return_force:
         return forсe_from_beam(a, diam, n, tau, b, f0, f1, f2, k_av, level)
     if not ((f0 > -1) and (f0 < 1) and (f1**2 + f2**2 < 1)):
@@ -185,7 +185,6 @@ def call_inertia(o, id_s=np.array([]), app_y=None, app_n=None):
                         kronoker(i, j) * (r[k][0] ** 2 + r[k][1] ** 2 + r[k][2] ** 2) - r[k][i] * r[k][j])
     
     # print(f"СУММАРНАЯ МАССА {np.sum(m)}")
-    # print(f"ТЕНЗОР ИНЕРЦИИ: J={J}")
     return J, r_mass_center
 
 
@@ -248,7 +247,7 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False,
 
     # time_start = datetime.now()
     if interaction:  
-        o_lcl.repulsion_change_params(id_app=id_app, u0=o.cases['repulse_vel_control'](u))
+        o_lcl.repulsion_change_params(id_app=id_app, u0=u)  # o.cases['repulse_vel_control'](u))
     # print(f"начало: {datetime.now() - time_start}")
 
     f_min = o_lcl.S @ o_lcl.get_discrepancy(id_app=id_app, vector=True) if interaction else \
@@ -376,39 +375,43 @@ def find_repulsion_velocity_new(o, id_app: int, target=None, interaction: bool =
     tol = o.d_to_grab**2
     T_max = o.T_max if T_max is None else T_max
     target = o.a.target[id_app] if target is None else target
-    opt = {'verbose': 3}
+    opt = {'verbose': 3, 'gtol': 1e-20, 'xtol': 1e-20}
     if ifunc:
         s = np.append(u, target)
-        bounds = ((0, o.u_max), (0, o.u_max), (0, o.u_max), (-1e2, 1e2), (-1e2, 1e2), (-1e2, 1e2))
+        print(f"s0={s}")
+        bounds = ((-o.u_max/2, o.u_max/2), (-o.u_max/2, o.u_max/2), (-o.u_max/2, o.u_max/2),
+                  (-1e2, 1e2), (-1e2, 1e2), (-1e2, 1e2))
     else:
         s = u.copy()
-        bounds = ((0, o.u_max), (0, o.u_max), (0, o.u_max))
-    o.my_print(f"Попадание: tol={tol}, s={s}", test=True)
+        bounds = ((-o.u_max/2, o.u_max/2), (-o.u_max/2, o.u_max/2), (-o.u_max/2, o.u_max/2))
+    o.my_print(f"Попадание: tol={tol}, T={T_max} s={s}, r_1={target}", test=True)
 
     def local_func(s1):
         if ifunc:
             return np.linalg.norm(target - s1[3:6])**2
         else:
-            dr, e_max, V_max, R_max, w_max, j_max, g = calculation_motion(o=o, u=u, T_max=T_max, id_app=id_app,
+            dr, e_max, V_max, R_max, w_max, j_max, g = calculation_motion(o=o, u=s1, T_max=T_max, id_app=id_app,
                                                                           interaction=interaction, to_scipy=True)
-            return np.linalg.norm(target - dr)
+            # print(f"dr={np.linalg.norm(target - dr)}--->{np.linalg.norm(target - dr)**2}")
+            return np.linalg.norm(target - dr)**2
 
     def local_constraints(s1):
         # print(f"s {s1}")
-        u = o.cases['repulse_vel_control'](s1[0:3])
-        dr, e_max, V_max, R_max, w_max, j_max, g = calculation_motion(o=o, u=u, T_max=T_max, id_app=id_app,
+        # u = o.cases['repulse_vel_control'](s1[0:3])
+        dr, e_max, V_max, R_max, w_max, j_max, g = calculation_motion(o=o, u=np.array(s1[0:3]), T_max=T_max, id_app=id_app,
                                                                       interaction=interaction, to_scipy=True)
-        # print(f"g {g}")
         anw = [call_crash(o, i, o.R, o.S, o.taken_beams, iFunc=True, brf=True) for i in g]
-        tmp = dr - s1[3:6]
-        anw += [tmp[0], -tmp[0], tmp[1], -tmp[1], tmp[2], -tmp[2]]
+        # print(f"g {np.sum(np.array(anw) > 0) / len(anw)} | dr={np.linalg.norm(target - dr)}")
+        if ifunc:
+            tmp = dr - np.array(s1[3:6])
+            anw += [tmp[0], -tmp[0], tmp[1], -tmp[1], tmp[2], -tmp[2]]
         # print(f"anw1 {anw}")
         # print(f"anw2 {[tmp[0], -tmp[0], tmp[1], -tmp[1], tmp[2], -tmp[2]]}")
         return anw
 
     res = scipy.optimize.minimize(local_func, s,  # args=(o, T_max, id_app, interaction, False, o.mu_ipm),
-                                  tol=tol, method='trust-constr', options=opt,  # trust-constr  Nelder-Mead
-                                  # bounds=bounds,
+                                  tol=tol, method='trust-constr', options=opt,  # trust-constr SLSQP TNC
+                                  bounds=bounds,
                                   constraints={'type': 'ineq', 'fun': local_constraints})
     print(f"res.x {res.x}")
     u = o.cases['repulse_vel_control'](res.x[0:3])
@@ -464,12 +467,12 @@ def repulsion(o, id_app, u_a_priori=None):
                         break
                 if not flag_in_sphere:
                     u1, target_is_reached = calc_shooting(o=o, id_app=id_app, r_1=r_1, interaction=True, u0=u0, T_max=T+200, func=f_to_capturing)
-                    # u1 = find_repulsion_velocity_new(o, id_app, None, True, u0, T, ifunc=True)
+                    # u1 = find_repulsion_velocity_new(o, id_app, r_1, True, u0, T, ifunc=False)
                     # u1 = my_calc_shooting(o, id_app, r_1, True, u=np.append([T], u0), func=f_dr)
-                    # dr, _, _, _, _, _, _, _, _, _ = calculation_motion(o=o, u=u0, T_max=T+200, id_app=id_app,
-                    #                                                    interaction=True, check_visible=False)
-                    # target_is_reached = np.linalg.norm(dr) < o.d_to_grab
-                    # o.my_print(f"Итоговая точность {np.linalg.norm(dr)}", mode='m')
+                    '''dr, _, _, _, _, _, _, _, _, _ = calculation_motion(o=o, u=u0, T_max=T+200, id_app=id_app,
+                                                                       interaction=True, check_visible=False)
+                    target_is_reached = np.linalg.norm(dr) < o.d_to_grab
+                    o.my_print(f"Итоговая точность {np.linalg.norm(dr)}", mode='m')'''
                     if target_is_reached:
                         u0 = u1.copy()
                         break

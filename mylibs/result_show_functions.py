@@ -126,7 +126,7 @@ def get_repilsions(filename: str = ""):
     f.close()
 
 def plot_params_while_main(filename: str = "", trial_episodes: bool = False, show_rate: int = 1, limit: int = 1e5,
-                           show_probe_episodes=True, dt: float = 1., energy_show=True):
+                           show_probe_episodes=True, dt: float = 1., energy_show=True, t_from=0.):
     f = open('storage/main'+ filename + '.txt', 'r')
     o = AllProblemObjects()
 
@@ -148,7 +148,7 @@ def plot_params_while_main(filename: str = "", trial_episodes: bool = False, sho
     for line in f:
         lst = line.split()
         if len(dr[0]) < limit:
-            if len(lst) > 0 and tmp % show_rate == 0:
+            if len(lst) > 0:
                 # print(len(lst))
                 if lst[0] == 'ограничения' and len(lst) == 5:
                     print(f"Есть ограничения")
@@ -156,7 +156,7 @@ def plot_params_while_main(filename: str = "", trial_episodes: bool = False, sho
                     V_max = float(lst[2])
                     j_max = 1e5
                     e_max = float(lst[4])
-                if lst[0] == 'график' and len(lst) == 9 and (show_probe_episodes or bool(int(lst[8]))):
+                if lst[0] == 'график' and tmp*dt > t_from and tmp % show_rate == 0 and len(lst) == 9 and (show_probe_episodes or bool(int(lst[8]))):
                     id_app = int(lst[1])
                     dr[id_app].append(float(lst[2]))
                     e[id_app].append(float(lst[3]))
@@ -176,19 +176,19 @@ def plot_params_while_main(filename: str = "", trial_episodes: bool = False, sho
     print(Fore.BLUE + f"Точек на графиах: {len(dr[0])}" + Style.RESET_ALL)
 
     fig, axs = plt.subplots(3)
-    axs[0].set_xlabel('время, с')
-    axs[0].set_ylabel('Невязка, м')
-    axs[0].set_title('Параметры в процессе алгоритма')
-    axs[1].set_xlabel('время t, с')
-    axs[1].set_ylabel('ограниченные величины')
-    axs[2].set_xlabel('итерации')
-    axs[2].set_ylabel('бортовое ускорение, м/с2')
+    axs[0].set_xlabel('время, с', fontsize=13)
+    axs[0].set_ylabel('Невязка, м', fontsize=13)
+    axs[0].set_title('Параметры в процессе алгоритма', fontsize=15)
+    axs[1].set_xlabel('время t, с', fontsize=13)
+    axs[1].set_ylabel('ограниченные величины', fontsize=13)
+    axs[2].set_xlabel('итерации', fontsize=13)
+    axs[2].set_ylabel('бортовое ускорение, м/с2', fontsize=13)
 
     clr = ['c', 'indigo', 'm', 'violet', 'teal', 'slategray', 'greenyellow', 'sienna']
     clr2 = [['skyblue', 'bisque', 'palegreen', 'darksalmon'], ['teal', 'tan', 'g', 'brown']]
     if show_probe_episodes:
         for id_app in range(id_max):
-            t[id_app] = np.linspace(0, len(dr[id_app]), len(dr[id_app])) * dt * show_rate
+            t[id_app] = np.linspace(t_from, t_from + len(dr[id_app])  * dt * show_rate, len(dr[id_app]))
             for i in range(len(dr[id_app]) - 1):
                 axs[0].plot([t[id_app][i], t[id_app][i+1]], np.array([dr[id_app][i], dr[id_app][i+1]]),
                             c=clr[2 * id_app + 2 * m[id_app][i]])
@@ -312,8 +312,8 @@ def reader_avoid_field_params_search(filename: str = '', lng: str = 'ru'):
     plt.legend()
     plt.show()
 
-def plot_avoid_field_params_search(name: str = '', dt=1., N=20, T_max=1000., k_p_min=1e-4, k_p_max=1e-3,
-                                   k_a_min=1e-8, k_a_max=1e-1):
+def plot_avoid_field_params_search(name: str = '', dt=1.0, N=10, T_max=2000., k_p_min=1e-4, k_p_max=1e-2,
+                                   k_a_min=1e-7, k_a_max=1e-3):
     """Фунция тестит коэффициенты ПД-регулятора и коэффициент отталкивания на конструкции 5.
     Результат - точки на пространстве {k_PD, k_avoid}, разделящиеся на классы:
     -> попадание в цель res=1
@@ -323,7 +323,7 @@ def plot_avoid_field_params_search(name: str = '', dt=1., N=20, T_max=1000., k_p
     k_av_list = np.exp(np.linspace(np.log(k_a_min), np.log(k_a_max), N))  # Logarithmic scale
     start_time = datetime.now()
     tmp_count = 0
-    for lvl in [222]:
+    for lvl in [2]:
         filename = 'storage/pid_const5_avoiding_' + name + '_' + str(lvl) + '.txt'
         # f = open(filename, 'a')
         f = open(filename, 'w')
@@ -333,28 +333,28 @@ def plot_avoid_field_params_search(name: str = '', dt=1., N=20, T_max=1000., k_p
                 res = -1
                 tmp_count += 1
                 id_app = 0
-                print(Fore.CYAN + f'Подбор ПД-к-в: {tmp_count}/{N**2 * 4}; время={datetime.now() - start_time}'
+                print(Fore.CYAN + f'Подбор ПД-к-в: {tmp_count}/{N**2}; время={datetime.now() - start_time}'
                     + Style.RESET_ALL)
                 o = AllProblemObjects(if_PID_control=True, if_avoiding=True,
                                       dt=dt, k_p=k_p, k_av=k_a,
                                       T_max=T_max, level_avoid=lvl,
-                                      if_talk=False,
-                                      if_any_print=False,
+                                      if_talk=False, if_any_print=False,
                                       choice='5')
 
                 for _ in range(int(T_max // dt)):
                     # Repulsion
                     if o.a.flag_fly[id_app] == 0:
-                        _ = repulsion(o, id_app, u_a_priori=np.array([-random.uniform(0.01, 0.05), 0., 0.]))
+                        _ = repulsion(o, id_app, u_a_priori=np.array([-random.uniform(0.001, 0.003), 0., 0.]))
 
                     # Control
                     o.time_step()
                     o.control_step(0)
 
                     # Docking
-                    res = 0 if call_crash(o, o.a.r[0], o.R, o.S, o.taken_beams) else res
-                    if not res:
-                        break
+                    if (o.t - o.t_start[id_app]) > 100:
+                        res = 0 if call_crash(o, o.a.r[0], o.R, o.S, o.taken_beams) else res
+                        if not res:
+                            break
                     if o.get_discrepancy(id_app=0) < o.d_to_grab:
                         res = 1
                         break
@@ -696,7 +696,6 @@ def full_bundle_of_trajectories(name: str = '', dt: float = 0.1, t_max: float = 
     f0.close()
     f1.close()
 
-
 def full_bundle_of_trajectories_controlled(name: str = '', dt: float = 0.5, t_max: float = 5000, n_p: int = 10,
                                            n_t: int = 10, control: float = 1e-5):
     """Разброс траекторий вокруг для качественной оценки
@@ -706,7 +705,7 @@ def full_bundle_of_trajectories_controlled(name: str = '', dt: float = 0.5, t_ma
     theta_list = np.linspace(-np.pi / 2, np.pi / 2, n_t, endpoint=False)
     start_time = datetime.now()
     tmp = 0
-    lines = [[] for _ in range(n_p*n_t)]
+    lines = [[] for _ in range(n_p * n_t)]
     Radius_orbit = 6800e3
     mu = 5.972e24 * 6.67408e-11
     w_hkw = np.sqrt(mu / Radius_orbit ** 3)

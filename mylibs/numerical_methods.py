@@ -7,11 +7,11 @@ from mylibs.tiny_functions import *
 
 def capturing_penalty(o, dr, dr_average, e, V, R, w, j, n_crashes, visible, crhper, mu_ipm):
     reserve_rate = 0.0001
-    e_V = reserve_rate if (o.V_max - V) > 0 else abs((o.V_max - V)/o.V_max + reserve_rate*np.exp((o.V_max - V)/o.V_max))
+    '''e_V = reserve_rate if (o.V_max - V) > 0 else abs((o.V_max - V)/o.V_max + reserve_rate*np.exp((o.V_max - V)/o.V_max))
     e_R = reserve_rate if (o.R_max - R) > 0 else abs((o.R_max - R)/o.R_max + reserve_rate*np.exp((o.R_max - R)/o.R_max))
     e_w = reserve_rate if (o.w_max - w) > 0 else abs((o.w_max - w)/o.w_max + reserve_rate*np.exp((o.w_max - w)/o.w_max))
-    e_j = reserve_rate if (o.j_max - j) > 0 else abs((o.j_max - j)/o.j_max + reserve_rate*np.exp((o.j_max - j)/o.j_max))
-    print(f"eV={e_V}, eR={e_R}, ew={e_w}, ej={e_j} {(o.w_max - w)/o.w_max}")
+    e_j = reserve_rate if (o.j_max - j) > 0 else abs((o.j_max - j)/o.j_max + reserve_rate*np.exp((o.j_max - j)/o.j_max))'''
+    # print(f"eV={e_V}, eR={e_R}, ew={e_w}, ej={e_j} {(o.w_max - w)/o.w_max}")
     id_app = 0
     a = o.a.target[id_app] - o.o_b(o.R)
     tau = my_cross(dr, a + dr)
@@ -22,10 +22,12 @@ def capturing_penalty(o, dr, dr_average, e, V, R, w, j, n_crashes, visible, crhp
     # anw = np.linalg.norm(dr) * (clip(1 - crhper, 0, 1) + clip(crhper, 0, 1) * tmp)
     anw = dr * (clip(1 - crhper, 0, 1) + clip(crhper, 0, 1) * tmp)
     # anw = np.linalg.norm(dr)
-    anw += (-mu_ipm * (np.log((o.w_max - w)/o.w_max + e_w) +
+    '''anw += (-mu_ipm * (np.log((o.w_max - w)/o.w_max + e_w) +
                      np.log((o.V_max - V)/o.V_max + e_V) + 
                      np.log((o.R_max - R)/o.R_max + e_R) + 
-                     np.log((o.j_max - j)/o.j_max + e_j)) + o.mu_e * (e_w + e_V + e_R + e_j)) * dr / np.linalg.norm(dr)
+                     np.log((o.j_max - j)/o.j_max + e_j)) + o.mu_e * (e_w + e_V + e_R + e_j)) * dr / np.linalg.norm(dr)'''
+    anw += (mu_ipm * (clip(w/o.w_max - 1, 0, 1e10)**2 + clip(j/o.j_max - 1, 0, 1e10)**2 +
+                      clip(R/o.R_max - 1, 0, 1e10)**2 + clip(V/o.V_max - 1, 0, 1e10)**2)) * dr / np.linalg.norm(dr)
     return anw
 
 def detour_penalty(o, dr, dr_average, e, V, R, w, j, n_crashes, visible, crhper, mu_ipm):
@@ -175,7 +177,7 @@ def calc_shooting(o, id_app, r_1, interaction: bool = True, u0: any = None, n: i
             u_i = np.diag([du * o.u_max] * 3 + [du * o.a_pid_max] * (n - 3) + [10])
         else:
             u_i = np.diag([du * o.u_max] * 3 + [du * o.a_pid_max] * (n - 3))
-        mu_ipm /= 2
+        # mu_ipm /= 2
         mu_e /= 2
         i_iteration += 1
 
@@ -233,7 +235,7 @@ def calc_shooting(o, id_app, r_1, interaction: bool = True, u0: any = None, n: i
                 i_iteration -= 1
                 T_max *= 1.1 if T_max < o.T_max_hard_limit else 1'''
     method_comps = o.method.split('+')
-    return u_anw, tol < o.d_to_grab*0.999
+    return u_anw, tol < o.d_to_grab*0.999  # and abs(tol - np.linalg.norm(dr)) < 1e-10
 
 def diff_evolve_sample(j: int, func: any, v, target_p, comp_index: list,
                        chance: float = 0.5, f: float = 1., *args):

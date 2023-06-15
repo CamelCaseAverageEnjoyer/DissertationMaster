@@ -1,7 +1,7 @@
 """Assembling general problem solution"""
 from all_objects import *
 
-vedo_picture = False
+vedo_picture = True
 tosave = True
 o_global = AllProblemObjects(if_impulse_control=False,
                              if_PID_control=False,
@@ -9,7 +9,7 @@ o_global = AllProblemObjects(if_impulse_control=False,
                              if_avoiding=True,
 
                              is_saving=vedo_picture and tosave,
-                             save_rate=20,
+                             save_rate=50,
                              if_talk=False,
                              if_testing_mode=True,
                              choice_complete=False,
@@ -29,11 +29,11 @@ o_global = AllProblemObjects(if_impulse_control=False,
                              diff_evolve_times=1,
                              diff_evolve_vectors=100,
 
-                             dt=1.0, T_max=10000., u_max=0.05,
+                             dt=1.0, T_max=10000., u_max=0.5,
                              a_pid_max=1e-3, k_p=3e-4, freetime=100.,
                              choice='3', floor=10, d_crash=0.2,
                              N_apparatus=1, file_reset=True)
-'''for j in range(200):
+'''for j in range(20):
     o_global.s.flag[j] = np.array([1, 1])'''
 print(f"Количество стержней: {o_global.s.n_beams}")
 
@@ -44,10 +44,10 @@ def iteration_func(o):
     for id_app in o.a.id:
         # Repulsion
         o.a.busy_time[id_app] -= o.dt if o.a.busy_time[id_app] >= 0 else 0
-        if (not o.a.flag_fly[id_app]) and o.a.busy_time[id_app] < 0:
+        if (not o.a.flag_fly[id_app]) and o.a.busy_time[id_app] < 0:  # [-0.0111501  -0.01204346 -0.00513348]
             print(f"отталкивание из файла {o.get_repulsion(id_app)}")
-            # u = repulsion(o, id_app, u_a_priori=o.get_repulsion(id_app))
-            u = repulsion(o, id_app, u_a_priori=np.array([0.008449664429530206, 0, -0.002463087248322145]))
+            # u = repulsion(o, id_app, u_a_priori=np.array([-0.0111501,  -0.01204346, -0.00513348]))
+            u = repulsion(o, id_app, u_a_priori=o.get_repulsion(id_app))
             o.file_save(f'отталкивание {id_app} {u[0]} {u[1]} {u[2]}')
             o.repulsion_save(f'отталкивание {id_app} {u[0]} {u[1]} {u[2]}')
 

@@ -295,7 +295,7 @@ def draw_apparatus(a, l_h, r, h_up, h_front, phi_right_1, theta_right_1, theta_r
 def plot_iterations_new(o):
     """Возвращает mesh конструкции"""
     diam_cylinders_if_not = 0.001
-    diam_cylinders = 0.03
+    diam_cylinders = 0.1
     main_body = None
     
     '''for b in range(o.N_beams):
