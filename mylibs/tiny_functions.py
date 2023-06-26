@@ -109,6 +109,16 @@ def clip(a, bot, top):
         return top
     return a
 
+def my_atan2(c, s):
+    """Возвращает угол в радианах из косинуса, синуса"""
+    if c > 0 and s > 0:
+        return np.arccos(c)
+    if c > 0 >= s:
+        return np.arcsin(s)
+    if c <= 0 < s:
+        return np.arccos(c)
+    return np.pi - np.arcsin(s)
+
 def my_cross(a, b):
     """Функция векторного произведения"""
     return np.array([a[1]*b[2] - a[2]*b[1],

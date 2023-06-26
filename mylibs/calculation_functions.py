@@ -423,6 +423,12 @@ def local_get_hkw(r, v, t_, w_):
                      C[5] * np.cos(w_ * t_) + C[4] * np.sin(w_ * t_),
                      2 * C[0] + C[2] * np.cos(w_ * t_) + C[1] * np.sin(w_ * t_)]
 
+def approx_from_2d(t, M, m, R_x_0, R_z_0, phi_0, w_0, Vp_x, Vp_z, r_x_0, r_z_0, Rp_x, Rp_z, wp_y, xp_c, zp_c, x_c,
+                   z_c, x_0, z_0, J_y, Jp_y, r1_x, r1_z):
+    from numpy import sin, cos, sqrt
+    return np.array([float(M*(2*R_x_0*w_0*sin(phi_0) - R_x_0*w_0*sin(phi_0 - t*w_0)/2 - 3*R_x_0*w_0*sin(phi_0 + t*w_0)/2 - 3*R_z_0*t*w_0**2*sin(phi_0 - t*w_0)/2 + 9*R_z_0*t*w_0**2*sin(phi_0 + t*w_0)/2 - 14*R_z_0*w_0*cos(phi_0) + 5*R_z_0*w_0*cos(phi_0 - t*w_0) + 9*R_z_0*w_0*cos(phi_0 + t*w_0) - 3*Vp_z*t*w_0*cos(phi_0 - t*w_0) + 3*Vp_z*t*w_0*cos(phi_0 + t*w_0) + 16*Vp_z*sin(phi_0) - 8*Vp_z*sin(phi_0 - t*w_0) - 8*Vp_z*sin(phi_0 + t*w_0) - 2*r_x_0*w_0*sin(phi_0) + r_x_0*w_0*sin(phi_0 - t*w_0)/2 + 3*r_x_0*w_0*sin(phi_0 + t*w_0)/2 + 3*r_z_0*t*w_0**2*sin(phi_0 - t*w_0)/2 - 9*r_z_0*t*w_0**2*sin(phi_0 + t*w_0)/2 + 14*r_z_0*w_0*cos(phi_0) - 5*r_z_0*w_0*cos(phi_0 - t*w_0) - 9*r_z_0*w_0*cos(phi_0 + t*w_0) + 3*t*w_0*wp_y*x_c*cos(2*phi_0 - t*w_0)/2 - 3*t*w_0*wp_y*x_c*cos(2*phi_0 + t*w_0)/2 - 3*t*w_0*wp_y*xp_c*cos(2*phi_0 - t*w_0)/2 + 3*t*w_0*wp_y*xp_c*cos(2*phi_0 + t*w_0)/2 - 3*t*w_0*wp_y*z_0*sin(t*w_0) - 3*t*w_0*wp_y*z_c*sin(2*phi_0 - t*w_0)/2 + 3*t*w_0*wp_y*z_c*sin(2*phi_0 + t*w_0)/2 + 3*t*w_0*wp_y*zp_c*sin(t*w_0) + 3*t*w_0*wp_y*zp_c*sin(2*phi_0 - t*w_0)/2 - 3*t*w_0*wp_y*zp_c*sin(2*phi_0 + t*w_0)/2 + 2*w_0*sqrt(2*r1_x**2 + 2*r1_z**2)*sin(phi_0) - w_0*sqrt(2*r1_x**2 + 2*r1_z**2)*sin(phi_0 - t*w_0)/2 - 3*w_0*sqrt(2*r1_x**2 + 2*r1_z**2)*sin(phi_0 + t*w_0)/2 - 8*wp_y*x_c*sin(2*phi_0) + 4*wp_y*x_c*sin(2*phi_0 - t*w_0) + 4*wp_y*x_c*sin(2*phi_0 + t*w_0) + 8*wp_y*xp_c*sin(2*phi_0) - 4*wp_y*xp_c*sin(2*phi_0 - t*w_0) - 4*wp_y*xp_c*sin(2*phi_0 + t*w_0) - 8*wp_y*z_0*cos(t*w_0) + 8*wp_y*z_0 - 8*wp_y*z_c*cos(2*phi_0) + 4*wp_y*z_c*cos(2*phi_0 - t*w_0) + 4*wp_y*z_c*cos(2*phi_0 + t*w_0) + 8*wp_y*zp_c*cos(2*phi_0) + 8*wp_y*zp_c*cos(t*w_0) - 4*wp_y*zp_c*cos(2*phi_0 - t*w_0) - 4*wp_y*zp_c*cos(2*phi_0 + t*w_0) - 8*wp_y*zp_c)/((M + m)*(3*t*w_0*sin(t*w_0) + 8*cos(t*w_0) - 8))),
+             0, float(M*(sqrt(2)*w_0*sqrt(r1_x**2 + r1_z**2)*(-4*cos(phi_0) + cos(phi_0 - t*w_0) + 3*cos(phi_0 + t*w_0))/2 + (-4*cos(phi_0) + cos(phi_0 - t*w_0) + 3*cos(phi_0 + t*w_0))*(R_x_0*w_0 - 6*R_z_0*t*w_0**2 + 6*R_z_0*w_0*sin(t*w_0) - 4*Vp_z*cos(t*w_0) + 4*Vp_z - r_x_0*w_0 + 6*r_z_0*t*w_0**2 - 6*r_z_0*w_0*sin(t*w_0) + 3*t*w_0*wp_y*x_0*sin(phi_0) - 3*t*w_0*wp_y*x_c*sin(phi_0) + 3*t*w_0*wp_y*z_0*cos(phi_0) - 3*t*w_0*wp_y*z_c*cos(phi_0) - 4*wp_y*x_0*sin(phi_0)*sin(t*w_0) + 2*wp_y*x_0*cos(phi_0)*cos(t*w_0) - 2*wp_y*x_0*cos(phi_0) + 4*wp_y*x_c*sin(phi_0)*sin(t*w_0) + 2*wp_y*x_c*cos(phi_0)*cos(t*w_0) - 2*wp_y*x_c*cos(phi_0) - 4*wp_y*xp_c*cos(phi_0)*cos(t*w_0) + 4*wp_y*xp_c*cos(phi_0) - 2*wp_y*z_0*sin(phi_0)*cos(t*w_0) + 2*wp_y*z_0*sin(phi_0) - 4*wp_y*z_0*sin(t*w_0)*cos(phi_0) - 2*wp_y*z_c*sin(phi_0)*cos(t*w_0) + 2*wp_y*z_c*sin(phi_0) + 4*wp_y*z_c*sin(t*w_0)*cos(phi_0) + 4*wp_y*zp_c*sin(phi_0)*cos(t*w_0) - 4*wp_y*zp_c*sin(phi_0))/2 - (-3*t*w_0*cos(phi_0) - 2*sin(phi_0) - sin(phi_0 - t*w_0) + 3*sin(phi_0 + t*w_0))*(3*R_z_0*w_0*cos(t*w_0) - 4*R_z_0*w_0 + 2*Vp_z*sin(t*w_0) - 3*r_z_0*w_0*cos(t*w_0) + 4*r_z_0*w_0 - 2*wp_y*x_0*sin(phi_0)*cos(t*w_0) + 2*wp_y*x_0*sin(phi_0) - wp_y*x_0*sin(t*w_0)*cos(phi_0) + 2*wp_y*x_c*sin(phi_0)*cos(t*w_0) - 2*wp_y*x_c*sin(phi_0) - wp_y*x_c*sin(t*w_0)*cos(phi_0) + 2*wp_y*xp_c*sin(t*w_0)*cos(phi_0) + wp_y*z_0*sin(phi_0)*sin(t*w_0) - 2*wp_y*z_0*cos(phi_0)*cos(t*w_0) + 2*wp_y*z_0*cos(phi_0) + wp_y*z_c*sin(phi_0)*sin(t*w_0) + 2*wp_y*z_c*cos(phi_0)*cos(t*w_0) - 2*wp_y*z_c*cos(phi_0) - 2*wp_y*zp_c*sin(phi_0)*sin(t*w_0)))/((M + m)*(-3*t*w_0*sin(t*w_0) - 8*cos(t*w_0) + 8)))])
+
 
 def repulsion(o, id_app, u_a_priori=None):
     """Input:                                                                   \n
@@ -443,13 +449,38 @@ def repulsion(o, id_app, u_a_priori=None):
             u0, _ = diff_evolve(f_to_detour, [o.u_min, o.u_max], True, o, o.T_max, id_app, True, False, True,
                                 n_vec=o.diff_evolve_vectors, chance=0.5, f=0.8, len_vec=3, n_times=o.diff_evolve_times,
                                 multiprocessing=True, print_process=True)
+        elif '2d_analytics' in method_comps:
+            N = 40
+            m_extra, M_without, J, J_1, J_p, r_center, r_center_p, r, R, r0c, R0c, R_p, V_p = \
+                o.get_repulsion_change_params(id_app)
+            r1 = o.b_o(r_1)
+            r0_o = np.array(o.a.r[id_app])
+            r0_b = np.array(o.a.target_p[id_app])
+            count = 0
+            phi_0 = 0
+            phi_0 = my_atan2((o.S[0][0] + o.S[2][2])/2, (o.S[0][2] - o.S[2][0])/2)
+            print(f"phi_0 = {phi_0}")
+            for T in np.linspace(4500, o.T_max, N):
+                u0 = approx_from_2d(Vp_x=V_p[0], Vp_z=V_p[2], Rp_x=R_p[0], Rp_z=R_p[2], r_x_0=r[0],
+                                    r_z_0=r[2], phi_0=phi_0, wp_y=o.w[1], xp_c=r_center_p[0], zp_c=r_center_p[2],
+                                    x_c=r_center[0], z_c=r_center[2], w_0=o.w_hkw,
+                                    x_0=r0_b[0], z_0=r0_b[1], J_y=J[1][1], Jp_y=J_p[1][1], R_x_0=R[0],
+                                    R_z_0=R[2], m=m_extra, M=M_without, t=T, r1_x=r_1[0], r1_z=r_1[2])
+                # u0 = o.S @ u0
+                u0 = np.array([u0[0], u0[2], u0[1]])
+                count += 1
+                o.my_print(f"Подбор {count}/{N} | u={u0}", mode='m')
+                u1, target_is_reached = calc_shooting(o=o, id_app=id_app, r_1=r_1, interaction=True, u0=u0,
+                                                      T_max=T + 50, func=f_to_capturing)
+                if target_is_reached:
+                    u0 = u1.copy()
+                    break
         elif 'hkw_analytics' in method_comps:
             N = 40
             u0 = np.zeros(3)
             count = 0
             for T in np.linspace(4500, o.T_max, N):
                 count += 1
-                o.my_print(f"Подбор {count}/{N}", mode='m')
                 flag_in_sphere = False
                 r1 = o.b_o(r_1)
                 r0 = np.array(o.a.r[id_app])
@@ -458,6 +489,7 @@ def repulsion(o, id_app, u_a_priori=None):
                 u = get_v0(o, id_app, T)
                 u0 = o.S @ u
                 C = get_c_hkw(r0, u, o.w_hkw)
+                o.my_print(f"Подбор {count}/{N} | u={u0}", mode='m')
                 for i_tmp in np.linspace(0, T, 30):  # Гиперпараметр 30
                     tmp = r_hkw(C, o.w_hkw, i_tmp)
                     # print(f"{round(np.linalg.norm(tmp - center) / radius * 100)}%")
@@ -466,7 +498,8 @@ def repulsion(o, id_app, u_a_priori=None):
                         flag_in_sphere = True
                         break
                 if not flag_in_sphere:
-                    u1, target_is_reached = calc_shooting(o=o, id_app=id_app, r_1=r_1, interaction=True, u0=u0, T_max=T+200, func=f_to_capturing)
+                    u1, target_is_reached = calc_shooting(o=o, id_app=id_app, r_1=r_1, interaction=True, u0=u0,
+                                                          T_max=T + 50, func=f_to_capturing)
                     # u1 = find_repulsion_velocity_new(o, id_app, r_1, True, u0, T, ifunc=False)
                     # u1 = my_calc_shooting(o, id_app, r_1, True, u=np.append([T], u0), func=f_dr)
                     '''dr, _, _, _, _, _, _, _, _, _ = calculation_motion(o=o, u=u0, T_max=T+200, id_app=id_app,
@@ -554,17 +587,4 @@ def capturing(o, id_app):
         print(Fore.BLUE + f'Аппарат id:{id_app} захватился')
     o.a_self[id_app] = np.array(np.zeros(3))
     # talk_success(o.if_talk)
-
-    id_beam = o.a.flag_beam[id_app]
-    if id_beam is not None:
-        if np.linalg.norm(np.array(o.s.r1[id_beam]) - np.array(o.a.target[0])) < 1e-2:
-            o.my_print(f"Стержень id:{id_beam} устанавливается", mode="b")
-            o.s.flag[id_beam] = np.array([1., 1.])
-            o.a.flag_beam[id_app] = None
-            o.taken_beams = np.delete(o.taken_beams, np.argmax(o.taken_beams == id_beam))
-    else:
-        if o.a.target[id_app][0] < -0.6:  # Если "слева" нет промежуточных точек, то окей
-            o.my_print(f'Аппарат id:{id_app} в грузовом отсеке')
-            o.a.flag_start[id_app] = True
-
     o.capturing_change_params(id_app)

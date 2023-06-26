@@ -1,7 +1,7 @@
 """Assembling general problem solution"""
 from all_objects import *
 
-vedo_picture = True
+vedo_picture = False
 tosave = True
 o_global = AllProblemObjects(if_impulse_control=False,
                              if_PID_control=False,
@@ -15,7 +15,8 @@ o_global = AllProblemObjects(if_impulse_control=False,
                              choice_complete=False,
 
                              # method='shooting',
-                             method='hkw_analytics+pd',
+                             method='hkw_analytics+pd',  # [-1.06955519e-02 -9.05063216e-03 -5.05769658e-05]
+                             # method='2d_analytics+pd',
                              # method='diffevolve+shooting+pd',
                              # method='diffevolve+trust-constr',
                              # method='shooting+imp',
@@ -25,15 +26,15 @@ o_global = AllProblemObjects(if_impulse_control=False,
                              if_T_in_shooting=False,
                              begin_rotation='xx',
 
-                             shooting_amount_repulsion=25,
+                             shooting_amount_repulsion=15,
                              diff_evolve_times=1,
                              diff_evolve_vectors=100,
 
-                             dt=1.0, T_max=10000., u_max=0.5,
-                             a_pid_max=1e-3, k_p=3e-4, freetime=100.,
-                             choice='3', floor=10, d_crash=0.2,
+                             dt=1.0, T_max=10000., u_max=0.05,
+                             a_pid_max=1e-5, k_p=3e-4, freetime=50,
+                             choice='3', floor=7, d_crash=0.2,
                              N_apparatus=1, file_reset=True)
-'''for j in range(20):
+'''for j in range(300):
     o_global.s.flag[j] = np.array([1, 1])'''
 print(f"Количество стержней: {o_global.s.n_beams}")
 
@@ -42,6 +43,7 @@ def iteration_func(o):
     o.line_str = np.append(o.line_str, o.R)
 
     for id_app in o.a.id:
+        # print(f"S={o.S}, cos={(o.S[0][0] + o.S[2][2])/2}, phi={np.arccos((o.S[0][0] + o.S[2][2])/2)}")
         # Repulsion
         o.a.busy_time[id_app] -= o.dt if o.a.busy_time[id_app] >= 0 else 0
         if (not o.a.flag_fly[id_app]) and o.a.busy_time[id_app] < 0:  # [-0.0111501  -0.01204346 -0.00513348]

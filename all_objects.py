@@ -34,7 +34,7 @@ class AllProblemObjects(object):
                  freetime=50.,                          # Время неучёта столкновения после отталкиванияы
                  dt=1.0,                                # Шаг по времени
                  t_reaction=10.,                        # Время между обнаружением цели и включением управления
-                 time_to_be_busy=10.,                   # Время занятости между перелётами
+                 time_to_be_busy=100.,                   # Время занятости между перелётами
                  u_max=0.04,                            # Максимальная скорость отталкивания
                  du_impulse_max=0.4,                    # Максимальная скорость импульса при импульсном управлении
                  w_twist=0.,
@@ -155,8 +155,10 @@ class AllProblemObjects(object):
                 f = open(self.file_name, 'w')
                 f.write(f"ограничения {self.R_max} {self.V_max} {self.j_max} {self.w_max}\n")
                 f.close()
-                file = open('storage/repulsions.txt', 'w')
-                file.close()
+                f = open('storage/repulsions.txt', 'w')
+                f.close()
+                f = open('storage/iteration_docking.txt', 'w')
+                f.close()
         else:
             self.s = s
             self.c = c
@@ -252,11 +254,11 @@ class AllProblemObjects(object):
 
     def get_potential_energy(self):
         tmp = 0
-        J_orf = self.b_i(self.J)
+        J_irf = self.b_i(self.J)
         gamma = self.R_e / self.Radius_orbit
         for i in range(3):
             for j in range(3):
-                tmp += 3 * J_orf[i][j] * gamma[i] * gamma[j]
+                tmp += 3 * J_irf[i][j] * gamma[i] * gamma[j]
         # tmp = 3 * gamma.T @ J_orf @ gamma  # попробовать
         return 1 / 2 * self.mu / self.Radius_orbit ** 3 * (tmp + np.trace(self.J))  # self.mu/self.Radius_orbit + ()
 
@@ -354,8 +356,8 @@ class AllProblemObjects(object):
         self.iter += 1
         self.t = self.iter * self.dt
         self.U = self.get_potential_energy()
-        self.T = self.get_kinetic_energy() # - self.T_begin
-        self.E = self.T + self.U  #  - self.U_begin - self.T_begin
+        self.T = self.get_kinetic_energy()  # - self.T_begin
+        self.E = self.T + self.U  # - self.U_begin - self.T_begin
         self.E_max = max(self.E_max, self.E)
 
         # Euler rotation
@@ -410,7 +412,7 @@ class AllProblemObjects(object):
             # print(f"ПЕРВАЯ БАЗА")
             if self.if_impulse_control:
                 impulse_control(o=self, id_app=id_app)
-            if self.if_PID_control:  #  and self.t_reaction_counter < 0:
+            if self.if_PID_control and self.t_reaction_counter < 0:
                 # print(f"SECOND БАЗА")
                 pd_control(o=self, id_app=id_app)
             if self.if_LQR_control and self.t_reaction_counter < 0:
@@ -451,10 +453,25 @@ class AllProblemObjects(object):
         self.a.r_0[id_app] = self.get_discrepancy(id_app)
         self.flag_vision[id_app] = False
 
+    def get_repulsion_change_params(self, id_app: int):
+        R_p = self.R.copy()
+        V_p = self.V.copy()
+        J_p, r_center_p = call_inertia(self, self.taken_beams_p, app_y=id_app)
+        r0 = np.array(self.a.target_p[id_app])
+        r = self.b_o(self.a.target_p[id_app], r_center=r_center_p)
+        J, r_center = call_inertia(self, self.taken_beams, app_n=id_app)
+        J_1 = np.linalg.inv(self.J)
+        R0c = r_center - r_center_p
+        r0c = r0 - r_center_p
+        R = R_p + self.S.T @ R0c
+        m_extra, M_without = self.get_masses(id_app)
+
+        return m_extra, M_without, J, J_1, J_p, r_center, r_center_p, r, R, r0c, R0c, R_p, V_p
+
     def repulsion_change_params(self, id_app: int, u0):
         if len(u0.shape) != 1 or len(u0) != 3:
             raise Exception("Неправильный входной вектор скорости!")
-        R_p = self.R.copy()
+        '''R_p = self.R.copy()
         V_p = self.V.copy()
         self.J, self.r_center = call_inertia(self, self.taken_beams_p, app_y=id_app)
         J_p = self.J.copy()
@@ -468,15 +485,19 @@ class AllProblemObjects(object):
         r0c = r0 - r_center_p
         R = R_p + self.S.T @ R0c
 
-        m_extra, M_without = self.get_masses(id_app)
+        m_extra, M_without = self.get_masses(id_app)'''
+
+        m_extra, M_without, J, J_1, J_p, r_center, r_center_p, r, R, r0c, R0c, R_p, V_p = \
+            self.get_repulsion_change_params(id_app)
         u_rot = my_cross(self.w, self.S.T @ r0c)                        # ORF
         V_rot = my_cross(self.w, self.S.T @ R0c)                        # ORF
         V0 = - u0 * m_extra / M_without                                 # BRF
         u = self.S.T @ u0 + V_p + u_rot                                 # ORF
         V = self.S.T @ V0 + V_p + V_rot                                 # ORF
-        self.w = self.b_o(self.J_1) @ (
-                self.b_o(J_p) @ self.w + (M_without + m_extra) * my_cross(R_p, V_p) - 
+        self.w = self.b_o(J_1) @ (
+                self.b_o(J_p) @ self.w + (M_without + m_extra) * my_cross(R_p, V_p) -
                 m_extra * my_cross(r, u) - M_without * my_cross(R, V))  # ORF
+
         self.om_update()
         self.C_r[id_app] = get_c_hkw(r, u, self.w_hkw)
         self.C_R = get_c_hkw(R, V, self.w_hkw)
@@ -489,19 +510,43 @@ class AllProblemObjects(object):
 
     def capturing_change_params(self, id_app: int):
         J_p, r_center_p = call_inertia(self, self.taken_beams_p, app_n=id_app)
-        J, r_center = call_inertia(self, self.taken_beams, app_y=id_app)
+        m_extra, M_without = self.get_masses(id_app)
         R_p = self.R.copy()
         V_p = self.V.copy()
         r_p = self.a.r[id_app].copy()
         v_p = self.a.v[id_app].copy()
-        m_extra, M_without = self.get_masses(id_app)
-        self.R += self.S.T @ (r_center - r_center_p)
+
+        id_beam = self.a.flag_beam[id_app]
+        if id_beam is not None:
+            if np.linalg.norm(np.array(self.s.r1[id_beam]) - np.array(self.a.target[0])) < 1e-2:
+                if self.main_numerical_simulation:
+                    self.my_print(f"Стержень id:{id_beam} устанавливается", mode="b")
+                self.s.flag[id_beam] = np.array([1., 1.])
+                self.a.flag_beam[id_app] = None
+                self.taken_beams = np.delete(self.taken_beams, np.argmax(self.taken_beams == id_beam))
+        else:
+            if self.a.target[id_app][0] < -0.6:  # Если "слева" нет промежуточных точек, то окей
+                if self.main_numerical_simulation:
+                    self.my_print(f'Аппарат id:{id_app} в грузовом отсеке')
+                self.a.flag_start[id_app] = True
+
+        J, r_center = call_inertia(self, self.taken_beams, app_y=id_app)
+        m, M = self.get_masses(id_app)
+
+        self.R -= self.S.T @ (r_center - r_center_p)
+        self.R = np.zeros(3)  # ШАМАНСТВО
         self.V = (V_p * M_without + v_p * m_extra) / (M_without + m_extra)
         self.w = np.linalg.inv(self.b_o(J)) @ (self.b_o(J_p) @ self.w -
-                                               (M_without + m_extra) * my_cross(self.R, self.V) +
+                                               (M + m) * my_cross(self.R, self.V) +
                                                m_extra * my_cross(r_p, v_p) + M_without * my_cross(R_p, V_p))
         self.om_update()
         self.C_R = get_c_hkw(self.R, self.V, self.w_hkw)
+        '''if self.main_numerical_simulation:
+            print(f"R:{R_p}")
+            print(f"c:{self.S.T @ r_center} ~ {self.S.T @ r_center_p} = {self.S.T @ (r_center - r_center_p)}")
+            print(f"R:{self.R}")
+            print(f"V:{self.V}")
+            print(f"C:{self.C_R}")'''
         self.a.busy_time[id_app] = self.time_to_be_busy
         self.a.flag_hkw[id_app] = True
         self.a.flag_fly[id_app] = False

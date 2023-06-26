@@ -1,3 +1,5 @@
+import matplotlib.pyplot as plt
+
 from all_objects import *
 from vedo import *
 from datetime import datetime
@@ -126,7 +128,8 @@ def get_repilsions(filename: str = ""):
     f.close()
 
 def plot_params_while_main(filename: str = "", trial_episodes: bool = False, show_rate: int = 1, limit: int = 1e5,
-                           show_probe_episodes=True, dt: float = 1., energy_show=True, t_from=0.):
+                           show_probe_episodes=True, dt: float = 1., energy_show=True, t_from=0., show_w=True,
+                           show_j=True, show_V=True, show_R=True):
     f = open('storage/main'+ filename + '.txt', 'r')
     o = AllProblemObjects()
 
@@ -176,13 +179,13 @@ def plot_params_while_main(filename: str = "", trial_episodes: bool = False, sho
     print(Fore.BLUE + f"Точек на графиах: {len(dr[0])}" + Style.RESET_ALL)
 
     fig, axs = plt.subplots(3)
-    axs[0].set_xlabel('время, с', fontsize=13)
-    axs[0].set_ylabel('Невязка, м', fontsize=13)
-    axs[0].set_title('Параметры в процессе алгоритма', fontsize=15)
-    axs[1].set_xlabel('время t, с', fontsize=13)
-    axs[1].set_ylabel('ограниченные величины', fontsize=13)
-    axs[2].set_xlabel('итерации', fontsize=13)
-    axs[2].set_ylabel('бортовое ускорение, м/с2', fontsize=13)
+    axs[0].set_xlabel('время, с', fontsize=11)
+    axs[0].set_ylabel('Невязка, м', fontsize=11)
+    axs[0].set_title('Параметры в процессе алгоритма', fontsize=13)
+    axs[1].set_xlabel('время t, с', fontsize=11)
+    axs[1].set_ylabel('ограниченные величины', fontsize=11)
+    axs[2].set_xlabel('время t, с', fontsize=11)
+    axs[2].set_ylabel('бортовое ускорение, м/с2', fontsize=11)
 
     clr = ['c', 'indigo', 'm', 'violet', 'teal', 'slategray', 'greenyellow', 'sienna']
     clr2 = [['skyblue', 'bisque', 'palegreen', 'darksalmon'], ['teal', 'tan', 'g', 'brown']]
@@ -222,14 +225,18 @@ def plot_params_while_main(filename: str = "", trial_episodes: bool = False, sho
             t[id_app] = np.linspace(0, len(dr[id_app]), len(dr[id_app])) * dt * show_rate
             axs[0].plot(t[id_app], dr[id_app], c=clr[2 * id_app])
             axs[1].plot(t[id_app], [1 for _ in range(len(t[id_app]))], c='gray')
-            axs[2].plot(range(len(a[id_app])), a[id_app], c='c')
+            axs[2].plot(t[id_app], a[id_app], c='c')
             axs[0].plot(t[id_app], np.zeros(len(t[id_app])), c='khaki')
-            axs[2].plot(range(len(a[id_app])), np.zeros(len(a[id_app])), c='khaki')
+            # axs[2].plot(range(len(a[id_app])), np.zeros(len(a[id_app])), c='khaki')
         id_app = 0
-        axs[1].plot(t[id_app], np.array(e[id_app]) / e_max, c=clr2[1][0], label='энергия')
-        axs[1].plot(t[id_app], np.array(j[id_app]) / j_max, c=clr2[1][1], label='угол')
-        axs[1].plot(t[id_app], np.array(V[id_app]) / V_max, c=clr2[1][2], label='V')
-        axs[1].plot(t[id_app], np.array(R[id_app]) / R_max, c=clr2[1][3], label='R')
+        if show_w:
+            axs[1].plot(t[id_app], np.array(e[id_app]) / e_max, c=clr2[1][0], label='w')
+        if show_j:
+            axs[1].plot(t[id_app], np.array(j[id_app]) / j_max, c=clr2[1][1], label='alpha')
+        if show_V:
+            axs[1].plot(t[id_app], np.array(V[id_app]) / V_max, c=clr2[1][2], label='V')
+        if show_R:
+            axs[1].plot(t[id_app], np.array(R[id_app]) / R_max, c=clr2[1][3], label='R')
     axs[1].legend()
     plt.show()
 
@@ -753,10 +760,11 @@ def full_bundle_of_trajectories_controlled(name: str = '', dt: float = 0.5, t_ma
     show(msh, __doc__, viewup="xz", axes=0, bg='white', zoom=1, size=(1920, 1080)).close()
 
 
-def reader_heatmap_function(name: str = '', max_value: float = 1e5):
+def reader_heatmap_function(name: str = '',  n_x: int = 10, n_y: int = 10, max_value: float = 1e5):
+    import seaborn as sns
     filename = 'storage/heatmap_function_' + name + '.txt'
     f = open(filename, 'r')
-    anw = [[0. for _ in range(10)] for _ in range(10)]
+    anw = [[0. for _ in range(n_x)] for _ in range(n_y)]
     for line in f:
         lst = line.split()
         if len(lst) == 2:
@@ -769,10 +777,29 @@ def reader_heatmap_function(name: str = '', max_value: float = 1e5):
             a = float(lst[2])
             c = int(lst[3])
             anw[x][y] = 1e9999 if c else min(a, max_value)
-    plt.imshow(anw, cmap='plasma')
-    plt.colorbar()
-    plt.show()
     f.close()
+
+    rate = 20
+    y_list = np.linspace(-15, 5, n_x)
+    x_list = np.linspace(-10, 10, n_y)
+
+    xlabels = ['{:4.2f}'.format(x) for x in x_list]
+    ylabels = ['{:4.2f}'.format(y) for y in y_list]
+
+    fig, axes = plt.subplots(1, 1)  # , figsize=(8, 6)
+    ax = sns.heatmap(anw, ax=axes, cmap="plasma", xticklabels=xlabels, yticklabels=ylabels,
+                     cbar_kws={'label': 'Невязка Δr, м'}, )
+    ax.figure.axes[-1].yaxis.label.set_size(17)
+    ax.set_xticks(ax.get_xticks()[::rate])
+    ax.set_xticklabels(xlabels[::rate])
+    ax.set_yticks(ax.get_yticks()[::rate])
+    ax.set_yticklabels(ylabels[::rate])
+
+    # plt.imshow(anw, cmap='plasma')
+    axes.set_xlabel(f"x, м", fontsize=17)
+    axes.set_ylabel(f"z, м", fontsize=17)
+    # axes.colorbar()
+    plt.show()
 
 
 def heatmap_function(name: str = '', n_x: int = 10, n_y: int = 10, target_toward: bool = True, scipy_meh=False):
@@ -808,3 +835,29 @@ def heatmap_function(name: str = '', n_x: int = 10, n_y: int = 10, target_toward
                 o.my_print(f"Карта целевой функции: {tmp}/{n_x * n_y} : {visible} {crhper * 100}%", mode='c')
                 f.write(f"{ix} {iy} {np.linalg.norm(anw)} {int(n_crashes)}\n")
     f.close()
+
+def plot_iter_downgrade(filename: str = ''):
+    """Функция смотрит че там сделала пристрелка и насколько быстро она работает и хоб шух в итерациях"""
+    f = open('storage/iteration_docking' + filename + '.txt', 'r')
+    tmp = []
+    max_len = 0
+    for line in f:
+        lst = line.split()
+        if int(lst[0]) == 0:
+            color = "#" + ''.join([random.choice('0123456789ABCDEF') for j in range(6)])
+            if len(tmp) > 1 and tmp[len(tmp) - 1] > 0.5:
+                plt.plot(np.arange(len(tmp)), tmp, c=color)
+                plt.scatter(np.arange(len(tmp)), tmp, c=color)
+            tmp = []
+        tmp += [float(lst[1])]
+        max_len = max(max_len, len(tmp))
+    plt.plot(np.arange(len(tmp)), tmp, c=color)
+    plt.scatter(np.arange(len(tmp)), tmp, c=color)
+    plt.plot([0, max_len - 1], [0.5, 0.5], c='b', label='зона захвата')
+    plt.plot([0, max_len - 1], [0, 0], c='b')
+    plt.xlabel('Количество шагов, безразм.', fontsize=13)
+    plt.ylabel('Невязка, м', fontsize=13)
+    plt.legend()
+    f.close()
+    plt.show()
+
