@@ -104,7 +104,7 @@ def pd_control_params_search(name: str = '', dt=0.2, n_p=5, n_a=10, T_max=700., 
                     o.control_step(id_app)
 
                     tmp = o.get_discrepancy(id_app)
-                    collide = call_crash(o, o.a.r[id_app], o.R, o.S, o.taken_beams)
+                    collide = call_crash(o, o.a.r[id_app], o.r_ub, o.S, o.taken_beams)
                     if tolerance is None or tolerance > tmp:
                         tolerance = tmp
                     if collide:
@@ -359,7 +359,7 @@ def plot_avoid_field_params_search(name: str = '', dt=1.0, N=10, T_max=2000., k_
 
                     # Docking
                     if (o.t - o.t_start[id_app]) > 100:
-                        res = 0 if call_crash(o, o.a.r[0], o.R, o.S, o.taken_beams) else res
+                        res = 0 if call_crash(o, o.a.r[0], o.r_ub, o.S, o.taken_beams) else res
                         if not res:
                             break
                     if o.get_discrepancy(id_app=0) < o.d_to_grab:
@@ -694,7 +694,7 @@ def full_bundle_of_trajectories(name: str = '', dt: float = 0.1, t_max: float = 
                 tmp += 1
                 o.my_print(f"Разброс траекторий {tmp}/{len(u_list)*len(phi_list)*len(theta_list)} | "
                            f"t:{datetime.now() - start_time}")
-                dr, _, e, V, R, j, _, line = calculation_motion(o=o, u=get_v(u, phi, theta), T_max=t_max, id_app=0,
+                dr, _, e, V, R, j, _, line = calculation_motion(o=o, u=polar2dec(u, phi, theta), T_max=t_max, id_app=0,
                                                                 interaction=True, line_return=True, control=control)
                 f0.write(f"{np.linalg.norm(dr)} {e} {u} {phi} {theta} {dt} {t_max}\n")
                 for l in line:
@@ -738,7 +738,7 @@ def full_bundle_of_trajectories_controlled(name: str = '', dt: float = 0.5, t_ma
         for theta in theta_list:
             r = np.zeros(3)
             v = np.zeros(3)
-            a = get_v(control, phi, theta)
+            a = polar2dec(control, phi, theta)
             lines[tmp] += [r[0], r[1], r[2]]
             for _ in range(int(t_max // dt)):
                 r, v = rk4_acceleration(r, v, a + get_hkw_acceleration(np.append(r, v)))
@@ -824,12 +824,12 @@ def heatmap_function(name: str = '', n_x: int = 10, n_y: int = 10, target_toward
             o.flag_vision[0] = False
             r_sat = o.b_o(np.array([x_list[ix], y_list[iy], 0.]))
             if scipy_meh:
-                anw = call_crash(o, r_sat, o.R, o.S, iFunc=True, brf=True)
+                anw = call_crash(o, r_sat, o.r_ub, o.S, iFunc=True, brf=True)
                 f.write(f"{ix} {iy} {anw} {0}\n")
             else:
                 o.a.r[0] = r_sat
                 dr = o.S @ o.get_discrepancy(id_app=0, vector=True)
-                n_crashes = call_crash(o, o.a.r[0], o.R, o.S)
+                n_crashes = call_crash(o, o.a.r[0], o.r_ub, o.S)
                 visible, crhper = control_condition(o, 0, return_percentage=True)
                 anw = capturing_penalty(o, dr, 0, 0, 0, 0, 0, n_crashes, visible, crhper, o.mu_ipm)
                 o.my_print(f"Карта целевой функции: {tmp}/{n_x * n_y} : {visible} {crhper * 100}%", mode='c')

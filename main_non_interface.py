@@ -2,13 +2,13 @@
 from all_objects import *
 
 vedo_picture = False
-tosave = True
+to_save = True
 o_global = AllProblemObjects(if_impulse_control=False,
                              if_PID_control=False,
                              if_LQR_control=False,
                              if_avoiding=True,
 
-                             is_saving=vedo_picture and tosave,
+                             is_saving=vedo_picture and to_save,
                              save_rate=50,
                              if_talk=False,
                              if_testing_mode=True,
@@ -40,10 +40,9 @@ print(f"Количество стержней: {o_global.s.n_beams}")
 
 def iteration_func(o):
     o.time_step()
-    o.line_str = np.append(o.line_str, o.R)
+    o.line_str_orf = np.append(o.line_str_orf, o.r_ub)
 
     for id_app in o.a.id:
-        # print(f"S={o.S}, cos={(o.S[0][0] + o.S[2][2])/2}, phi={np.arccos((o.S[0][0] + o.S[2][2])/2)}")
         # Repulsion
         o.a.busy_time[id_app] -= o.dt if o.a.busy_time[id_app] >= 0 else 0
         if (not o.a.flag_fly[id_app]) and o.a.busy_time[id_app] < 0:  # [-0.0111501  -0.01204346 -0.00513348]
@@ -64,12 +63,12 @@ def iteration_func(o):
         # Docking
         o.file_save(f'график {id_app} {discrepancy} {np.linalg.norm(o.w)} '
                     f'{np.linalg.norm(180 / np.pi * np.arccos(clip((np.trace(o.S) - 1) / 2, -1, 1)))} '
-                    f'{np.linalg.norm(o.V)} {np.linalg.norm(o.R)} {np.linalg.norm(o.a_self[id_app])}')
-        o.line_app[id_app] = np.append(o.line_app[id_app], o.o_b(o.a.r[id_app]))
+                    f'{np.linalg.norm(o.v_ub)} {np.linalg.norm(o.r_ub)} {np.linalg.norm(o.a_self[id_app])}')
+        o.line_app_brf[id_app] = np.append(o.line_app_brf[id_app], o.o_b(o.a.r[id_app]))
         o.line_app_orf[id_app] = np.append(o.line_app_orf[id_app], o.a.r[id_app])
 
         # Stop criteria
-        if np.linalg.norm(o.a.r[id_app]) > 1000:
+        if np.linalg.norm(o.a.r[id_app]) > 1e3:
             o.my_print(f"МИССИЯ ПРОВАЛЕНА! ДОПУЩЕНА ПОТЕРЯ АППАРАТА!", mode='m')
             o.t = 2 * o.T_total
     return o

@@ -1,7 +1,6 @@
 from mylibs.im_sample import *
 from mylibs.numerical_methods import *
-from mylibs.control_function import control_condition
-from datetime import datetime
+from mylibs.control_function import control_condition, force_from_beam, simple_control
 import scipy
 
 
@@ -43,7 +42,7 @@ def call_crash_internal_func(r, r1, r2, diam, return_force=False, k_av=None, lev
             return (np.sqrt(f1 ** 2 + f2 ** 2) - 1) * diam +\
                 (abs(f0) - 1) * (np.linalg.norm(n) / 2) - reserve
     if return_force:
-        return forсe_from_beam(a, diam, n, tau, b, f0, f1, f2, k_av, level)
+        return force_from_beam(a, diam, n, tau, b, f0, f1, f2, k_av, level)
     if not ((f0 > -1) and (f0 < 1) and (f1**2 + f2**2 < 1)):
         return False
     return True
@@ -63,7 +62,7 @@ def call_crash(o, r_sat, R, S, taken_beams=np.array([]), iFunc=False, brf=False)
         if o.d_crash is None:
             return False
         r = r_sat if brf else o.o_b(r_sat, S=S, R=R)
-        for i in range(o.N_beams):
+        for i in range(o.s.n_beams):
             if not(np.any(taken_beams == i)):
                 if np.sum(o.s.flag[i]) > 0:
                     r1 = o.s.r1[i]
@@ -119,81 +118,55 @@ def call_inertia(o, id_s=np.array([]), app_y=None, app_n=None):
     Output:                                                                         \n
     -> Тензор инерции, вектор центра масс. """
     J = np.zeros((3, 3))
-    N_points_m = 20                                                 # количество материальных точек на стержень
-    N_m = N_points_m * (o.N_beams + o.N_cont_beams)                 # материальных точек всего
-    m = [0. for _ in range(N_m + o.a.n)]
-    r = [np.zeros(3) for _ in range(N_m + o.a.n)]
+    r = np.zeros(3)
+    m = 0
 
-    # Выделение координат стержня - на месте или в грузовом отсеке
-    for n in range(o.N_beams):
-        if not np.any(id_s == n):
-            flag = True
-            for a in range(o.N_app):
-                if o.a.flag_beam[a] is not None and int(o.a.flag_beam[a]) == n:
-                    # print("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAa")
-                    flag = False
-            if flag:
-                if np.sum(o.s.flag[n]) > 0:
-                    r_1 = np.array(o.s.r1[n])
-                    r_2 = np.array(o.s.r2[n])
-                else:
-                    r_1 = o.s.r_st[n]
-                    r_2 = o.s.r_st[n] - np.array([o.s.length[n], 0, 0])
-                for i in range(N_points_m):
-                    m[n * N_points_m + i] = o.s.mass[n] / N_points_m
-                    r[n * N_points_m + i] = r_1 + (r_2 - r_1) * i / N_points_m
-
-    # Учёт грузового отсека на тензор инерции
-    for n in range(o.N_cont_beams):
+    # Truss construction
+    for n in range(o.s.n):
+        flag = not np.any(id_s == n)
+        for a in range(o.a.n):
+            if o.a.flag_beam[a] is not None and int(o.a.flag_beam[a]) == n:
+                flag = False
+        if flag:
+            if np.sum(o.s.flag[n]) > 0:
+                r_1 = np.array(o.s.r1[n])
+                r_2 = np.array(o.s.r2[n])
+            else:
+                r_1 = o.s.r_st[n]
+                r_2 = o.s.r_st[n] - np.array([o.s.length[n], 0, 0])
+            r += o.s.mass[n] * (r_1 + r_2) / 2
+            m += o.s.mass[n]
+            J += o.s.mass[n] * local_tensor_of_rod(r_1, r_2)
+    # Cargo container
+    for n in range(o.c.n):
         r_1 = np.array(o.c.r1[n])
         r_2 = np.array(o.c.r2[n])
-        for i in range(N_points_m):
-            m[(o.N_beams + n) * N_points_m + i] = o.c.mass[n] / N_points_m
-            if n > 0:
-                r[(o.N_beams + n) * N_points_m + i] = r_1 + (r_2 - r_1) * i / N_points_m
-            else:
-                r_0 = r_1  # (r_1 + r_2) / 2
-                b = o.c.diam[n] * my_cross((r_2 - r_1), [0, 1, 0]) / np.linalg.norm(r_2 - r_1)
-                k = o.c.diam[n] * my_cross((r_2 - r_1), b) / np.linalg.norm(r_2 - r_1) / np.linalg.norm(b)
-                r[(o.N_beams + n) * N_points_m + i] = r_0 + b * np.sin(2*np.pi * i / N_points_m) + \
-                                                            k * np.cos(2*np.pi * i / N_points_m)
-
-    # Учёт аппаратов
-    for a in range(o.N_app):
+        r += o.c.mass[n] * (r_1 + r_2) / 2
+        m += o.c.mass[n]
+        J += o.c.mass[n] * local_tensor_of_rod(r_1, r_2) if n > 0 else o.c.mass[n] * np.array(
+            [[(o.c.diam[n]/2) ** 2 / 2, 0, 0],
+             [0, (o.c.diam[n]/2) ** 2 / 4 + np.linalg.norm(r_1 - r_2) ** 2 / 12, 0],
+             [0, 0, (o.c.diam[n]/2) ** 2 / 4 + np.linalg.norm(r_1 - r_2) ** 2 / 12]])
+    # Servicing spacecraft
+    for a in range(o.a.n):
         if (not o.a.flag_fly[a] and app_n != a) or app_y == a:
-            m[N_m + a] = o.a.mass[a]
-            r[N_m + a] = o.a.target_p[a].copy()
-            # print(m[N_m + a])
-            if o.a.flag_beam[a] is not None:
-                m[N_m + a] += o.s.mass[int(o.a.flag_beam[a])]
-            # print(m[N_m + a])
+            tmp = o.a.mass[a] if o.a.flag_beam[a] is None else o.a.mass[a] + o.s.mass[int(o.a.flag_beam[a])]
+            r += tmp * o.a.target_p[a]
+            m += tmp
+            J += local_tensor_of_point(tmp, o.a.target_p[a])
 
-    # Вычисление центра масс
-    tmp_numerator = np.zeros(3)
-    tmp_denominator = np.zeros(3)
-    for k in range(N_m + o.a.n):
-        tmp_numerator += m[k] * np.array(r[k])
-        tmp_denominator += m[k]
-    r_mass_center = tmp_numerator / tmp_denominator
-    for k in range(N_m + o.a.n):
-        r[k] -= r_mass_center  # С заботой о ваших нервах J считается относительно центра масс
-
-    for k in range(N_m + o.a.n):
-        for i in range(3):
-            for j in range(3):
-                J[i][j] += m[k] * (
-                        kronoker(i, j) * (r[k][0] ** 2 + r[k][1] ** 2 + r[k][2] ** 2) - r[k][i] * r[k][j])
-    
-    # print(f"СУММАРНАЯ МАССА {np.sum(m)}")
-    return J, r_mass_center
+    # Расчёт центра масс + теорема Гюйгенца-Штейнера
+    r /= m
+    J -= local_tensor_of_point(m, r)
+    return J, r
 
 
-def call_middle_point(X_cont, r_right):
+def call_middle_point(X_cont, r_1):
     """ Функция возвращает id удобной ручки грузового отсека как промежуточная цель;    \n
     Input:                                                                              \n
     -> информационная матрица X_cont, содержашая столбцы:                               \n
     id | mass | length | diam | r1 | r2 | flag_grab                                     \n
-    -> r_right - радиус-вектор таргетной точки на конструкции ССК                       \n
+    -> r_1 - радиус-вектор целевой точки на конструкции СтСК                            \n
     Output:                                                                             \n
     -> id-номер удобной ручки крепления с конструкцией """
     X_middles = []
@@ -204,7 +177,7 @@ def call_middle_point(X_cont, r_right):
     N_middles = len(difference)
     difs = np.zeros(N_middles)
     for i in range(N_middles):
-        difs[i] = np.linalg.norm(difference[i] - r_right)
+        difs[i] = np.linalg.norm(difference[i] - r_1)
     i_needed = np.argmin(difs)
 
     return np.array(X_middles)[i_needed]
@@ -271,8 +244,8 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False,
             f_min = f.copy()
             crah_percantage = tmp if check_visible else crah_percantage
         e_max = max(e_max, o_lcl.get_e_deviation())
-        V_max = max(V_max, np.linalg.norm(o_lcl.V))
-        R_max = max(R_max, np.linalg.norm(o_lcl.R))
+        V_max = max(V_max, np.linalg.norm(o_lcl.v_ub))
+        R_max = max(R_max, np.linalg.norm(o_lcl.r_ub))
         w_max = max(w_max, np.linalg.norm(o_lcl.w))
         j_max = max(j_max, 180/np.pi*np.arccos((np.trace(o_lcl.S)-1)/2))
         f_mean += np.linalg.norm(f)
@@ -288,7 +261,7 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False,
                     break
             if o_lcl.d_crash is not None:
                 if (o_lcl.t - o.t) > o.freetime:
-                    if call_crash(o, o_lcl.a.r[id_app], o_lcl.R, o_lcl.S, o_lcl.taken_beams):
+                    if call_crash(o, o_lcl.a.r[id_app], o_lcl.r_ub, o_lcl.S, o_lcl.taken_beams):
                         n_crashes += 1
                         break
             if not o_lcl.control and \
@@ -297,7 +270,7 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False,
             if i % 5 == 0:
                 o_lcl.file_save(f'график {id_app} {np.linalg.norm(f)} {np.linalg.norm(o_lcl.w)} '
                                 f'{np.linalg.norm(180 / np.pi * np.arccos(clip((np.trace(o_lcl.S) - 1) / 2, -1, 1)))} '
-                                f'{np.linalg.norm(o_lcl.V)} {np.linalg.norm(o_lcl.R)} '
+                                f'{np.linalg.norm(o_lcl.v_ub)} {np.linalg.norm(o_lcl.r_ub)} '
                                 f'{np.linalg.norm(o_lcl.a_self[id_app])}')
 
         # Iterating
@@ -318,8 +291,8 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False,
     # ШАМАНСТВО
     if True:  # interaction is False:   # Пристыковка
         o_lcl.capturing_change_params(id_app)
-        V_max = np.linalg.norm(o_lcl.V)
-        R_max = np.linalg.norm(o_lcl.R)
+        V_max = np.linalg.norm(o_lcl.v_ub)
+        R_max = np.linalg.norm(o_lcl.r_ub)
         w_max = np.linalg.norm(o_lcl.w)
         e_max = o_lcl.get_e_deviation()
 
@@ -327,8 +300,8 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False,
             o_lcl.time_step()
 
             e_max = max(e_max, o_lcl.get_e_deviation())
-            V_max = max(V_max, np.linalg.norm(o_lcl.V))
-            R_max = max(R_max, np.linalg.norm(o_lcl.R))
+            V_max = max(V_max, np.linalg.norm(o_lcl.v_ub))
+            R_max = max(R_max, np.linalg.norm(o_lcl.r_ub))
             j_max = max(j_max, 180/np.pi*np.arccos((np.trace(o_lcl.S)-1)/2))
             w_max = max(w_max, np.linalg.norm(o_lcl.w))
 
@@ -400,7 +373,7 @@ def find_repulsion_velocity_new(o, id_app: int, target=None, interaction: bool =
         # u = o.cases['repulse_vel_control'](s1[0:3])
         dr, e_max, V_max, R_max, w_max, j_max, g = calculation_motion(o=o, u=np.array(s1[0:3]), T_max=T_max, id_app=id_app,
                                                                       interaction=interaction, to_scipy=True)
-        anw = [call_crash(o, i, o.R, o.S, o.taken_beams, iFunc=True, brf=True) for i in g]
+        anw = [call_crash(o, i, o.r_ub, o.S, o.taken_beams, iFunc=True, brf=True) for i in g]
         # print(f"g {np.sum(np.array(anw) > 0) / len(anw)} | dr={np.linalg.norm(target - dr)}")
         if ifunc:
             tmp = dr - np.array(s1[3:6])

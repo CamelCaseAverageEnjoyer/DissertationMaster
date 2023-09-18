@@ -31,7 +31,7 @@ plt.xlabel("Итерации", fontsize=15)
 plt.legend()
 plt.show()'''
 
-y1 = [3.2620e+03, 8.6042e+03, 8.2748e+03, 3.0384e+03, 8.4549e+02, 3.4871e+02, 1.6901e+02, 1.1868e+02, 1.1067e+02, 1.1016e+02, 1.1034e+02,
+'''y1 = [3.2620e+03, 8.6042e+03, 8.2748e+03, 3.0384e+03, 8.4549e+02, 3.4871e+02, 1.6901e+02, 1.1868e+02, 1.1067e+02, 1.1016e+02, 1.1034e+02,
         1.1053e+02, 1.1063e+02, 1.1059e+02, 1.1041e+02, 1.1041e+02, 1.1041e+02, 1.1041e+02, 1.1041e+02, 1.1038e+02, 1.1038e+02, 1.1035e+02,
         1.1035e+02, 1.1034e+02, 1.1019e+02, 1.1001e+02, 1.1001e+02, 1.0996e+02, 1.0982e+02, 1.0958e+02, 1.0846e+02, 1.0783e+02, 1.0670e+02,
         1.0670e+02, 1.0642e+02, 1.0598e+02, 1.0598e+02, 1.0582e+02, 1.0553e+02, 1.0496e+02, 1.0496e+02, 1.0458e+02, 1.0458e+02, 1.0433e+02,
@@ -41,7 +41,7 @@ y1 = [3.2620e+03, 8.6042e+03, 8.2748e+03, 3.0384e+03, 8.4549e+02, 3.4871e+02, 1.
 f = open('storage/iteration_docking_scipy.txt', 'w')
 for i in range(len(y1)):
         f.write(f"{i} {np.sqrt(y1[i])}\n")
-f.close()
+f.close()'''
 
 
 
@@ -86,11 +86,11 @@ name = 'scipy'
 # test_center_mass(u_max=3e-2, dt=100., T_max=100000.)
 # test_stitching_collision_function(n=100)
 
-# plot_params_while_main(dt=1., show_rate=20, limit=3000, show_probe_episodes=False, energy_show=True,
-#                        show_j=False, show_R=True, filename='')
+plot_params_while_main(dt=1., show_rate=20, limit=3000, show_probe_episodes=False, energy_show=True,
+                       show_j=False, show_R=True, filename='')
 # get_repilsions("")
 
-plot_iter_downgrade('_scipy')
+# plot_iter_downgrade('_scipy')
 
 '''a = np.linspace(0, 10*np.pi, 100)
 c = [np.cos(i) for i in a]

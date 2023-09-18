@@ -312,6 +312,7 @@ class Structure(object):
 
         # Post-init checks
         check_length()
+        self.n = len(self.mass)
 
     def copy(self):
         s = Structure(choice=self.choice, floor=self.floor)
@@ -491,6 +492,8 @@ class Container(object):
             self.r1 = np.array(r1 + [r2[len(r2) - 1]])
             self.r2 = np.array(r2 + [r2[len(r2) - 1] + [0., 0., 1.]])
             self.flag_grab = np.array([False] * (self.n - 1) + [True])
+
+        self.n = len(self.mass)
 
     def copy(self):
         c = Container(choice=self.choice, s=self.s)

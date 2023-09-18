@@ -64,11 +64,11 @@ def test_center_mass(u_max=None, dt=1., T_max=1000.):
         rx += [o.a.r[0][0]]
         ry += [o.a.r[0][1]]
         rz += [o.a.r[0][2]]
-        Rx += [o.R[0]]
-        Ry += [o.R[1]]
-        Rz += [o.R[2]]
+        Rx += [o.r_ub[0]]
+        Ry += [o.r_ub[1]]
+        Rz += [o.r_ub[2]]
         # print(f"Есть {M_without/m_extra}, надо {o.a.r[0][0]/o.R[0]} {o.a.r[0][1]/o.R[1]} {o.a.r[0][2]/o.R[2]}")
-        tmp = (M_without * o.R + m_extra * o.a.r[0]) / (m_extra + M_without)
+        tmp = (M_without * o.r_ub + m_extra * o.a.r[0]) / (m_extra + M_without)
         rcx += [tmp[0]]
         rcy += [tmp[1]]
         rcz += [tmp[2]]
@@ -245,7 +245,7 @@ def test_collision_map(n: int = 10, x_boards: list = np.array([-10, 10]), z_boar
     points = None
     for x in x_list:
         for z in z_list:
-            clr = 'm' if call_crash(o, np.array([x, 0., z]), o.R, o.S) else 'c'
+            clr = 'm' if call_crash(o, np.array([x, 0., z]), o.r_ub, o.S) else 'c'
             if points is None:
                 points = [vedo.Point(np.array([x, 0., z]), c=clr)]
             else:

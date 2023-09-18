@@ -1,6 +1,36 @@
 from mylibs.calculation_functions import *
 
 
+def simple_control(o, a, tau):
+    if len(a) == 3:
+        return o.cases['acceleration_control'](a)
+    elif len(a) == 4:
+        return polar2dec(o.a_pid_max, clip(tau, 0, 1) * a[0] + clip(1 - tau, 0, 1) * a[2], clip(tau, 0, 1) * a[1] + clip(1 - tau, 0, 1) * a[3])
+    elif len(a) == 6:
+        return o.cases['acceleration_control'](clip(tau, 0, 1) * np.array(a[0:3]) +
+                                               clip(1 - tau, 0, 1) * np.array(a[3:6]))
+    elif len(a) == 9:
+        if tau < 0.5:
+            return o.cases['acceleration_control'](clip(2 * tau, 0, 1) * np.array(a[0:3]) +
+                                                   clip(1 - 2 * tau, 0, 1) * np.array(a[3:6]))
+        else:
+            return o.cases['acceleration_control'](clip(2 * tau - 1, 0, 1) * np.array(a[3:6]) +
+                                                   clip(2 - 2 * tau, 0, 1) * np.array(a[6:9]))
+
+def kd_from_kp(k):
+    return 2 * np.sqrt(k)
+
+def force_from_beam(a, diam, n, tau, b, f0: float, f1: float, f2: float, k_av: float = 1e-5, level: int = 2):
+    """Возвращает в ССК!"""
+    if (f0 > -1) and (f0 < 1):
+        a1 = a - f0 * n / 2 if (f1**2 + f2**2 > 1) else np.zeros(3)
+    else:
+        a1 = a - np.sign(f0) * n / 2
+    # tmp = k_av / np.sqrt(clip(np.linalg.norm(a1) - diam, 1e-8, 1e9999)) # ** level
+    tmp = k_av / (clip(np.linalg.norm(a1) - diam, 1e-8, 1e9999)) ** level
+    return a1 / np.linalg.norm(a1) * tmp
+
+
 def avoiding_force(o, id_app, r=None):
     from mylibs.calculation_functions import call_crash_internal_func
     if r is None:
@@ -9,7 +39,7 @@ def avoiding_force(o, id_app, r=None):
         r = o.o_b(r)
     force = np.zeros(3)
 
-    for i in range(o.N_beams):
+    for i in range(o.s.n_beams):
         if not(np.any(o.taken_beams == i)):
             if np.sum(o.s.flag[i]) > 0:
                 r1 = o.s.r1[i]
@@ -80,12 +110,12 @@ def lqr_control(o, id_app):
     a = np.array([[0, 0, 0, 1., 0, 0],
                   [0, 0, 0, 0, 1., 0],
                   [0, 0, 0, 0, 0, 1.],
-                  [o.Om[1]**2 + o.Om[2]**2, o.e[2] - o.Om[0]*o.Om[1], -o.e[1] - o.Om[0]*o.Om[2],
-                   0, 2*(o.Om[2] - o.W_hkw[2]), -2*o.w_hkw - 2*(o.Om[1] - o.W_hkw[1])],
-                  [-o.e[2] - o.Om[0]*o.Om[1], o.Om[0]**2 + o.Om[2]**2 - o.w_hkw**2, o.e[0] - o.Om[1]*o.Om[2],
-                   -2*(o.Om[2] - o.W_hkw[2]), 0, 2*(o.Om[0] - o.W_hkw[0])],
-                  [o.e[1] - o.Om[0]*o.Om[2], -o.e[0] - o.Om[1]*o.Om[2], o.Om[0]**2 + o.Om[1]**2 + 3*o.w_hkw**2,
-                   2*o.w_hkw + 2*(o.Om[1] - o.W_hkw[1]), -2*(o.Om[0] - o.W_hkw[0]), 0]])
+                  [o.Om[1] ** 2 + o.Om[2] ** 2, o.e[2] - o.Om[0] * o.Om[1], -o.e[1] - o.Om[0] * o.Om[2],
+                   0, 2 * (o.Om[2] - o.w_hkw_vec[2]), -2 * o.w_hkw - 2 * (o.Om[1] - o.w_hkw_vec[1])],
+                  [-o.e[2] - o.Om[0] * o.Om[1], o.Om[0] ** 2 + o.Om[2] ** 2 - o.w_hkw ** 2, o.e[0] - o.Om[1] * o.Om[2],
+                   -2 * (o.Om[2] - o.w_hkw_vec[2]), 0, 2 * (o.Om[0] - o.w_hkw_vec[0])],
+                  [o.e[1] - o.Om[0] * o.Om[2], -o.e[0] - o.Om[1] * o.Om[2], o.Om[0] ** 2 + o.Om[1] ** 2 + 3 * o.w_hkw ** 2,
+                   2 * o.w_hkw + 2 * (o.Om[1] - o.w_hkw_vec[1]), -2 * (o.Om[0] - o.w_hkw_vec[0]), 0]])
     # print(f"a:{a}")
     b = np.array([[0, 0, 0],
                   [0, 0, 0],
@@ -103,8 +133,8 @@ def lqr_control(o, id_app):
     a_lqr = - np.linalg.inv(r) @ b.T @ p @ rv
     # a_lqr += tmp * o.R_e * (o.R[2] - (o.S.T @ o.a.target[id_app])[2]) - tmp * o.R_e * o.R[2] - tmp * o.U.T @ o.R * o.R[2] + \
     #          tmp * o.U.T @ o.a.r[id_app] + muRe * o.A.T @ o.a.target[id_app]
-    a_lqr += my_cross(o.W_hkw, my_cross(o.W_hkw, o.R)) + \
-             o.get_hkw_acceleration(np.append(o.S.T @ (o.a.target[id_app] - o.r_center), o.V + my_cross(o.w, o.a.target[id_app] - o.r_center)))
+    a_lqr += my_cross(o.w_hkw_vec, my_cross(o.w_hkw_vec, o.r_ub)) + \
+             o.get_hkw_acceleration(np.append(o.S.T @ (o.a.target[id_app] - o.r_center), o.v_ub + my_cross(o.w, o.a.target[id_app] - o.r_center)))
     print(f"проверка: {np.linalg.norm(a_lqr) / o.a_pid_max * 100}%")
     '''a_lqr = - np.linalg.inv(r) @ b.T @ p @ rv \
             + o.S.T @ (my_cross(o.S @ o.e, r1) + my_cross(o.S @ o.w, my_cross(o.S @ o.w, r1)) +
@@ -157,7 +187,7 @@ def control_condition(o, id_app, return_percentage=False):
         o.flag_vision[id_app] = True
         for j in range(points):
             intermediate = (target_orf * j + np.array(o.a.r[id_app]) * (points - j)) / points
-            if call_crash(o, intermediate, o.R, o.S, o.taken_beams):
+            if call_crash(o, intermediate, o.r_ub, o.S, o.taken_beams):
                 o.flag_vision[id_app] = False 
                 crash_points = j
                 break

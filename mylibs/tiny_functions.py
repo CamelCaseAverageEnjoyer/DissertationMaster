@@ -1,57 +1,43 @@
-# Standard libraries
 import numpy as np
-import random
 
 
-# Умные функции
-def simple_control(o, a, tau):
-    if len(a) == 3:
-        return o.cases['acceleration_control'](a)
-    elif len(a) == 4:
-        return get_v(o.a_pid_max, clip(tau, 0, 1) * a[0] + clip(1 - tau, 0, 1) * a[2], clip(tau, 0, 1) * a[1] + clip(1 - tau, 0, 1) * a[3])
-    elif len(a) == 6:
-        return o.cases['acceleration_control'](clip(tau, 0, 1) * np.array(a[0:3]) +
-                                               clip(1 - tau, 0, 1) * np.array(a[3:6]))
-    elif len(a) == 9:
-        if tau < 0.5:
-            return o.cases['acceleration_control'](clip(2 * tau, 0, 1) * np.array(a[0:3]) +
-                                                   clip(1 - 2 * tau, 0, 1) * np.array(a[3:6]))
-        else:
-            return o.cases['acceleration_control'](clip(2 * tau - 1, 0, 1) * np.array(a[3:6]) +
-                                                   clip(2 - 2 * tau, 0, 1) * np.array(a[6:9]))
+def local_tensor_of_rod(r1, r2):
+    """Тензор инерции стрежня в СтСК, без учёта массы"""
+    J_xx = (r1[1] ** 2 + r1[1] * r2[1] + r2[1] ** 2 + r1[2] ** 2 + r1[2] * r2[2] + r2[2] ** 2) / 3
+    J_yy = (r1[0] ** 2 + r1[0] * r2[0] + r2[0] ** 2 + r1[2] ** 2 + r1[2] * r2[2] + r2[2] ** 2) / 3
+    J_zz = (r1[0] ** 2 + r1[0] * r2[0] + r2[0] ** 2 + r1[1] ** 2 + r1[1] * r2[1] + r2[1] ** 2) / 3
+    J_xy = - (2 * r1[0] * r1[1] + r1[0] * r2[1] + r2[0] * r1[1] + 2 * r2[0] * r2[1]) / 6
+    J_yz = - (2 * r1[1] * r1[2] + r1[1] * r2[2] + r2[1] * r1[2] + 2 * r2[1] * r2[2]) / 6
+    J_zx = - (2 * r1[0] * r1[2] + r1[0] * r2[2] + r2[0] * r1[2] + 2 * r2[0] * r2[2]) / 6
+    return np.array([[J_xx, J_xy, J_zx],
+                     [J_xy, J_yy, J_yz],
+                     [J_zx, J_yz, J_zz]])
+
+def local_tensor_of_point(m, r):
+    anw = np.zeros((3, 3))
+    for v in range(3):
+        for w in range(3):
+            anw[v][w] = m * (int(v == w) * np.linalg.norm(r) ** 2 - r[v] * r[w])
+    return anw
 
 def velocity_spread(u, k_u):
-    return np.array(u) + np.array([random.uniform(-1, 1)] * 3) * np.linalg.norm(u) * k_u
+    """Добавляет к вектору u шум с относительной величиной k_u"""
+    tmp = np.random.rand(len(u))
+    return np.array(u) + tmp / np.linalg.norm(tmp) * np.linalg.norm(u) * k_u
 
-def kd_from_kp(k):
-    return 2 * np.sqrt(k)
-
-def forсe_from_beam(a, diam, n, tau, b, f0: float, f1: float, f2: float, k_av: float = 1e-5, level: int = 2):
-    """Возвращает в ССК!"""
-    if (f0 > -1) and (f0 < 1):
-        a1 = a - f0 * n / 2 if (f1**2 + f2**2 > 1) else np.zeros(3)
-    else:
-        a1 = a - np.sign(f0) * n / 2
-    # tmp = k_av / np.sqrt(clip(np.linalg.norm(a1) - diam, 1e-8, 1e9999)) # ** level
-    tmp = k_av / (clip(np.linalg.norm(a1) - diam, 1e-8, 1e9999)) ** level
-    return a1 / np.linalg.norm(a1) * tmp
-
-def get_v0(o, id_app, t_):
-    w_ = o.w_hkw
-    tmp = o.a.r[id_app]
-    x0_ = tmp[0]
-    y0_ = tmp[1]
-    z0_ = tmp[2]
-    tmp = o.b_o(o.a.target[id_app])
-    x1_ = tmp[0]
-    y1_ = tmp[1]
-    z1_ = tmp[2]
-    den = -3*t_*w_*np.sin(t_*w_) - 8*np.cos(t_*w_) + 8
-    num1 = w_*(6*t_*w_*z0_*np.sin(t_*w_) - x0_*np.sin(t_*w_) + x1_*np.sin(t_*w_) + 14*z0_*np.cos(t_*w_) -
-              14*z0_ - 2*z1_*np.cos(t_*w_) + 2*z1_)
-    num2 = w_*(3*t_*w_*z0_*np.cos(t_*w_) - 3*t_*w_*z1_ - 2*x0_*np.cos(t_*w_) + 2*x0_ + 2*x1_*np.cos(t_*w_) -
-               2*x1_ - 4*z0_*np.sin(t_*w_) + 4*z1_*np.sin(t_*w_))
-    return np.array([num1 / den, w_*(-y0_*np.cos(t_*w_) + y1_)/np.sin(t_*w_), num2 / den])
+def get_v0(o, id_app, t):
+    """Функция начального приближения по ХКУ"""
+    w = o.w_hkw
+    x0, y0, z0 = o.a.r[id_app]
+    x1, y1, z1 = o.b_o(o.a.target[id_app])
+    den = -3 * t * w * np.sin(t * w) - 8 * np.cos(t * w) + 8
+    num1 = w * (6 * t * w * z0 * np.sin(t * w) - x0 * np.sin(t * w) + x1 * np.sin(t * w) + 14 * z0 * np.cos(t * w) -
+                14 * z0 - 2 * z1 * np.cos(t * w) + 2 * z1)
+    num2 = w * (3 * t * w * z0 * np.cos(t * w) - 3 * t * w * z1 - 2 * x0 * np.cos(t * w) + 2 * x0 +
+                2 * x1 * np.cos(t * w) - 2 * x1 - 4 * z0 * np.sin(t * w) + 4 * z1 * np.sin(t * w))
+    return np.array([num1 / den,
+                     w * (-y0 * np.cos(t * w) + y1)/np.sin(t * w),
+                     num2 / den])
 
 def get_c_hkw(r, v, w):
     """Возвращает константы C[0]..C[5] движения Хилла-Клохесси-Уилтштира"""
@@ -62,9 +48,9 @@ def r_hkw(C, w, t):
     Уравнения движения Хилла-Клохесси-Уилтштира; \n
     Константы C передаются массивом C[0]..C[5]; \n
     Частота w, время t должны быть скалярными величинами."""
-    return np.array([-3*C[0]*w*t + 2*C[1]*np.cos(w*t) - 2*C[2]*np.sin(w*t) + C[3],
-                     C[5]*np.cos(w*t) + C[4]*np.sin(w*t),
-                     2*C[0] + C[2]*np.cos(w*t) + C[1]*np.sin(w*t)])
+    return np.array([-3 * C[0] * w * t + 2 * C[1] * np.cos(w * t) - 2 * C[2] * np.sin(w * t) + C[3],
+                     C[5] * np.cos(w * t) + C[4] * np.sin(w * t),
+                     2 * C[0] + C[2] * np.cos(w * t) + C[1] * np.sin(w * t)])
 
 def v_hkw(C, w, t):
     """Возвращает вектор скоростей в момент времени t; \n
@@ -96,12 +82,11 @@ def q_dot(L1, L2):
     """Функция является кватернионным умножением; \n
     Кватернион L1,L2 передаются векторами длины 4; \n
     Возвращает кватернион L[0]..L[3]."""
-    return np.array([L1[0]*L2[0] - L1[1]*L2[1] - L1[2]*L2[2] - L1[3]*L2[3],
-                     L1[0]*L2[1] + L1[1]*L2[0] + L1[2]*L2[3] - L1[3]*L2[2],
-                     L1[0]*L2[2] + L1[2]*L2[0] + L1[3]*L2[1] - L1[1]*L2[3],
-                     L1[0]*L2[3] + L1[3]*L2[0] + L1[1]*L2[2] - L1[2]*L2[1]])
+    return np.array([L1[0] * L2[0] - L1[1] * L2[1] - L1[2] * L2[2] - L1[3] * L2[3],
+                     L1[0] * L2[1] + L1[1] * L2[0] + L1[2] * L2[3] - L1[3] * L2[2],
+                     L1[0] * L2[2] + L1[2] * L2[0] + L1[3] * L2[1] - L1[1] * L2[3],
+                     L1[0] * L2[3] + L1[3] * L2[0] + L1[1] * L2[2] - L1[2] * L2[1]])
 
-# Не такие умные функции
 def clip(a, bot, top):
     if a < bot:
         return bot
@@ -110,7 +95,7 @@ def clip(a, bot, top):
     return a
 
 def my_atan2(c, s):
-    """Возвращает угол в радианах из косинуса, синуса"""
+    """Возвращает угол в радианах из косинуса и синуса"""
     if c > 0 and s > 0:
         return np.arccos(c)
     if c > 0 >= s:
@@ -121,12 +106,12 @@ def my_atan2(c, s):
 
 def my_cross(a, b):
     """Функция векторного произведения"""
-    return np.array([a[1]*b[2] - a[2]*b[1],
-                     a[2]*b[0] - a[0]*b[2],
-                     a[0]*b[1] - a[1]*b[0]])
+    return np.array([a[1] * b[2] - a[2] * b[1],
+                     a[2] * b[0] - a[0] * b[2],
+                     a[0] * b[1] - a[1] * b[0]])
 
 def matrix_from_vector(v):
-    """[v]x..."""
+    """Функция возвращает матрицу как оператор векторного умножения слева"""
     return np.array([[0, -v[2], v[1]], 
                      [v[2], 0, -v[0]], 
                      [-v[1], v[0], 0]])
@@ -135,13 +120,14 @@ def flatten(lst):
     """Функция берёт 2D массив, делает 1D"""
     return [item for sublist in lst for item in sublist]
 
-def get_v(v, phi, theta):
-    return np.array([v*np.cos(phi)*np.cos(theta),
-                     v*np.sin(phi)*np.cos(theta),
-                     v*np.sin(theta)])
+def polar2dec(v, phi, theta):
+    """Функция переводит полярные координаты в декартовы"""
+    return np.array([v * np.cos(phi) * np.cos(theta),
+                     v * np.sin(phi) * np.cos(theta),
+                     v * np.sin(theta)])
 
-def kronoker(a, b, tolerance=1e-6):
-    """Функция является функцией кронокера;"""
+def kronecker(a, b, tolerance=1e-6):
+    """Функция является функцией кронокера"""
     tmp = abs(np.linalg.norm(a - np.array(b)))
     return 1 if tmp < tolerance else 0
 

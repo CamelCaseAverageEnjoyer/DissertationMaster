@@ -15,7 +15,7 @@ def def_o():
     o_local = AllProblemObjects(if_impulse_control=True, if_PID_control=False,
                                 is_saving=False,  diff_evolve_vectors=20, dt=0.5, if_talk=True)
     o_local.w = np.array([0, -3e-5, 0])
-    o_local.Om = o_local.w + o_local.W_hkw
+    o_local.Om = o_local.w + o_local.w_hkw_vec
     return o_local
 
 

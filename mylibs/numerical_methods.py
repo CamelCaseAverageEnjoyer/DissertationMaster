@@ -1,4 +1,4 @@
-import numpy as np
+import random
 from colorama import Fore, Style
 from p_tqdm import p_map
 import copy
@@ -17,7 +17,7 @@ def capturing_penalty(o, dr, dr_average, e, V, R, w, j, n_crashes, visible, crhp
     e_R = 1 - abs(R)/o.R_max + reserve_rate if (1 - abs(R)/o.R_max) > 0 else reserve_rate * np.exp(1 - abs(R)/o.R_max)
     # print(f"eV={e_V}, eR={e_R}, ew={e_w}, ej={e_j} {(o.w_max - w)/o.w_max}")
     id_app = 0
-    a = o.a.target[id_app] - o.o_b(o.R)
+    a = o.a.target[id_app] - o.o_b(o.r_ub)
     tau = my_cross(dr, a + dr)
     tau /= np.linalg.norm(tau)
     b = my_cross(tau, dr)
@@ -275,12 +275,12 @@ def diff_evolve(func: any, search_domain: list, vector_3d: bool = False, *args, 
     # попробовать tuple(search_domain[i])
     if vector_3d:
         if len_vec == 3:
-            v = np.array([get_v(np.exp(random.uniform(np.log(search_domain[0]), np.log(search_domain[1]))),
-                                random.uniform(0, 2 * np.pi),
-                                random.uniform(- np.pi / 2, np.pi / 2)) for _ in range(n_vec)])
+            v = np.array([polar2dec(np.exp(random.uniform(np.log(search_domain[0]), np.log(search_domain[1]))),
+                                    random.uniform(0, 2 * np.pi),
+                                    random.uniform(- np.pi / 2, np.pi / 2)) for _ in range(n_vec)])
         else:
-            v = np.array([np.append(get_v(np.exp(random.uniform(np.log(search_domain[0]), np.log(search_domain[1]))),
-                                          random.uniform(0, 2 * np.pi), random.uniform(- np.pi / 2, np.pi / 2)),
+            v = np.array([np.append(polar2dec(np.exp(random.uniform(np.log(search_domain[0]), np.log(search_domain[1]))),
+                                              random.uniform(0, 2 * np.pi), random.uniform(- np.pi / 2, np.pi / 2)),
                                     [random.uniform(search_domain[2], search_domain[3])
                                      for _ in range(len_vec - 3)]) for _ in range(n_vec)])
     else:

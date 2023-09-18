@@ -1,5 +1,3 @@
-import copy
-
 from mylibs.calculation_functions import *
 from mylibs.construction_functions import *
 from mylibs.plot_functions import *
@@ -10,7 +8,7 @@ from mylibs.numerical_methods import *
 
 
 class AllProblemObjects(object):
-    """Класс содержит в себе абсолютно все нужные параметры и некоторые методы"""
+    """Класс содержит в себе абсолютно все параметры задачи и некоторые методы"""
     def __init__(self,
                  if_impulse_control=False,              # Управление импульсное
                  if_PID_control=False,                  # Управление ПД-регулятором
@@ -25,23 +23,23 @@ class AllProblemObjects(object):
 
                  diff_evolve_F=0.8,                     # Гиперпараметр дифф. эволюции
                  diff_evolve_chance=0.5,                # Гиперпараметр дифф. эволюции
-                 mu_IPM=0.001,                           # Гиперпараметр дифф. эволюции
+                 mu_IPM=0.001,                          # Гиперпараметр дифф. эволюции
                  mu_e=0.1,
 
-                 T_total=100000.,                       # Необязательное ограничение по времени на строительство
+                 T_total=1e10,                          # Необязательное ограничение по времени на строительство
                  T_max=500.,                            # Максимальное время перелёта
                  T_max_hard_limit=2000.,                # Максимальное время перелёта при близости нарушении 
-                 freetime=50.,                          # Время неучёта столкновения после отталкиванияы
+                 freetime=50.,                          # Время неучёта столкновения после отталкивания
                  dt=1.0,                                # Шаг по времени
                  t_reaction=10.,                        # Время между обнаружением цели и включением управления
-                 time_to_be_busy=100.,                   # Время занятости между перелётами
+                 time_to_be_busy=100.,                  # Время занятости между перелётами
                  u_max=0.04,                            # Максимальная скорость отталкивания
                  du_impulse_max=0.4,                    # Максимальная скорость импульса при импульсном управлении
                  w_twist=0.,
-                 e_max=1e10,          # ОТНОСИТЕЛЬНАЯ максимальная допустимая отнлонение энергии (иск огр)
+                 e_max=1e10,        # Относительное максимальная допустимое отклонение энергии (иск огр)
                  w_max=0.001,       # Максимально допустимая скорость вращения станции (искуственное ограничение)
-                 V_max=0.04,          # Максимально допустимая поступательная скорость станции (искуственное ограничение)
-                 R_max=50.,           # Максимально допустимое отклонение станции (искуственное ограничение)
+                 V_max=0.04,        # Максимально допустимая поступательная скорость станции (искуственное ограничение)
+                 R_max=50.,         # Максимально допустимое отклонение станции (искуственное ограничение)
                  j_max=45,          # Максимально допустимый след матрицы поворота S (искуственное ограничение)
                  a_pid_max=1e-5,    # Максимальное ускорение при непрерывном управлении
 
@@ -65,7 +63,7 @@ class AllProblemObjects(object):
 
                  k_p=3e-4,                      # Коэффициент ПД-регулятора
                  k_u=1e-1,                      # Коэффициент разброса скорости
-                 k_av=1e-5,                     # Коэффициент при поле отталкивания
+                 k_av=1e-5,                     # Коэффициент поля отталкивания
                  k_ac=0.,                       # Коэффициент паразитного ускорения
                  level_avoid=2,
                  s=None,                        # готовый объект класса Structure
@@ -73,14 +71,14 @@ class AllProblemObjects(object):
                  a=None,                        # готовый объект класса Apparatus
                  file_reset=False,
                  method='trust-const',
-                 fons_fluminis=True,
+                 fons_fluminis=True,  # А что делаешь ты?
                  if_T_in_shooting=False,
                  begin_rotation='xx'):
 
-        # Init
+        # Параметры типа bool
         self.file_name = 'storage/main.txt'
         self.main_numerical_simulation = s is None
-        self.survivor = True            # Зафиксирован ли проход "через текстуры" / можно сделать вылет программы
+        self.survivor = True            # Зафиксирован ли проход "через текстуры" (можно сделать вылет программы)
         self.warning_message = True     # Если где-то проблема, вместо вылета программы я обозначаю её сообщениями
         self.t_flyby = T_max * 0.95     # Время необходимости облёта
         self.if_talk = if_talk
@@ -90,23 +88,29 @@ class AllProblemObjects(object):
         self.flag_impulse = True
         self.collision_foo = None
 
+        # Параметры управления
         self.d_crash = d_crash
         self.if_impulse_control = if_impulse_control
         self.if_PID_control = if_PID_control
         self.if_LQR_control = if_LQR_control
         self.if_avoiding = if_avoiding
         self.control = if_impulse_control or if_PID_control or if_LQR_control
-
         self.diff_evolve_vectors = diff_evolve_vectors
         self.diff_evolve_times = diff_evolve_times
         self.shooting_amount_repulsion = shooting_amount_repulsion
         self.shooting_amount_impulse = shooting_amount_impulse
-
         self.diff_evolve_F = diff_evolve_F
         self.diff_evolve_chance = diff_evolve_chance
         self.mu_ipm = mu_IPM
         self.mu_e = mu_e
+        self.k_p = k_p
+        self.k_d = kd_from_kp(k_p)
+        self.k_u = k_u
+        self.k_av = k_av
+        self.k_ac = k_ac
+        self.level_avoid = level_avoid
 
+        # Параметры времени
         self.T_total = T_total
         self.T_max = T_max
         self.T_max_hard_limit = T_max_hard_limit
@@ -118,6 +122,8 @@ class AllProblemObjects(object):
         self.t_reaction = t_reaction
         self.t_reaction_counter = t_reaction
         self.t_flyby_counter = self.t_flyby
+
+        # Кинематические параметры и ограничения
         self.u_max = u_max
         self.u_min = u_max / 1e2
         self.du_impulse_max = du_impulse_max
@@ -127,27 +133,12 @@ class AllProblemObjects(object):
         self.R_max = R_max
         self.j_max = j_max
         self.a_pid_max = a_pid_max
-
-        self.is_saving = is_saving
-        self.save_rate = save_rate
-        self.coordinate_system = coordinate_system
-
         self.Radius_orbit = Radius_orbit
         self.Re = Radius_orbit
-        self.mu = mu
         self.d_to_grab = d_to_grab
+        self.mu = mu
 
-        self.k_p = k_p
-        self.k_d = kd_from_kp(k_p)
-        self.k_u = k_u
-        self.k_av = k_av
-        self.k_ac = k_ac
-        self.level_avoid = level_avoid
-
-        q12 = [[1/np.sqrt(2) * (begin_rotation[j] in i) for i in ['xyz', 'x', 'y', 'z']] for j in range(2)]
-        self.La = np.array(q_dot(q12[0], q12[1]))
-
-        self.choice = choice
+        # Параметры рассматриваемых объектов
         if s is None:
             self.s, self.c, self.a = get_all_components(choice=choice, complete=choice_complete, n_app=N_apparatus,
                                                         floor=floor)
@@ -163,32 +154,28 @@ class AllProblemObjects(object):
             self.s = s
             self.c = c
             self.a = a
-        self.N_nodes = self.s.n_nodes
-        self.N_beams = self.s.n_beams
-        self.N_cont_beams = len(self.c.mass)
-        self.N_app = N_apparatus
-        self.t_start = np.zeros(self.N_app + 1)
+        # self.N_cont_beams = len(self.c.mass)
+        # self.N_app = N_apparatus
+        self.choice = choice
+        self.t_start = np.zeros(self.a.n + 1)
         self.M = np.sum(self.s.mass) + np.sum(self.c.mass)
-        # print(f"Начальная масса {self.M}")
 
+        q12 = [[1 / np.sqrt(2) * (begin_rotation[j] in i) for i in ['xyz', 'x', 'y', 'z']] for j in range(2)]
         self.w_hkw = np.sqrt(mu / Radius_orbit ** 3)
-        self.W_hkw = np.array([0., 0., self.w_hkw])
+        self.w_hkw_vec = np.array([0., 0., self.w_hkw])  # ИСК
+        self.La = np.array(q_dot(q12[0], q12[1]))
         self.U, self.S, self.A, self.R_e = self.get_matrices(self.La, 0.)
-        self.R = np.zeros(3)
-        self.V = np.zeros(3)
+        self.r_ub = np.zeros(3)
+        self.v_ub = np.zeros(3)
         self.J, self.r_center = call_inertia(self, [], app_y=0)  # НЕУЧЁТ НЕСКОЛЬКИХ АППАРАТОВ
-        if self.main_numerical_simulation:
-            for i in range(self.N_app):
-                self.a.r[i] = self.b_o(self.a.target[i])
         self.J_1 = np.linalg.inv(self.J)
-        self.line_app = [[] for _ in range(self.N_app)]
-        self.line_app_orf = [[] for _ in range(self.N_app)]
-        self.line_str = self.R
+        if self.main_numerical_simulation:
+            for i in range(self.a.n):
+                self.a.r[i] = self.b_o(self.a.target[i])
         self.taken_beams = np.array([])
         self.taken_beams_p = np.array([])
-        self.tmp_numer_frame = 0
 
-        self.C_R = get_c_hkw(self.R, np.zeros(3), self.w_hkw)
+        self.C_R = get_c_hkw(self.r_ub, np.zeros(3), self.w_hkw)
         self.C_r = [get_c_hkw(self.a.r[i], self.a.v[i], self.w_hkw) for i in range(self.a.n)]
 
         self.v_p = [np.zeros(3) for _ in range(self.a.n)]
@@ -202,7 +189,7 @@ class AllProblemObjects(object):
         self.w_twist = w_twist
         self.w = np.array([0., w_twist, 0.])
         self.w_diff = 0.
-        self.Om = self.U.T @ self.w + self.W_hkw
+        self.Om = self.U.T @ self.w + self.w_hkw_vec
         self.e = np.zeros(3)
         self.tg_tmp = np.array([100., 0., 0.])
         self.flag_vision = [False for _ in range(self.a.n)]
@@ -215,7 +202,22 @@ class AllProblemObjects(object):
         self.fons_fluminis = fons_fluminis
         self.method = method
         self.if_T_in_shooting = if_T_in_shooting
-        self.repulsion_counters = [0 for i in range(self.a.n)]
+        self.repulsion_counters = [0 for _ in range(self.a.n)]
+
+        # Параметры отображения
+        self.is_saving = is_saving
+        self.save_rate = save_rate
+        self.coordinate_system = coordinate_system
+        self.frame_counter = 0
+        self.line_app_brf = [[] for _ in range(self.a.n)]
+        self.line_app_orf = [[] for _ in range(self.a.n)]
+        self.line_str_orf = self.r_ub
+
+        # Отображение параметров задачи
+        if self.main_numerical_simulation:
+            self.my_print(f"Масса стержней {round(float(np.sum(self.s.mass)), 2)}, масса контейнера "
+                          f"{round(float(np.sum(self.c.mass)))}, всего {round(self.M, 2)}. Масса аппарата "
+                          f"{round(float(self.a.mass[0]), 2)}", mode='m')
 
         # Выбор значений в зависимости от аргументов
         self.cases = dict({'acceleration_control': lambda v: v if np.linalg.norm(v) < self.a_pid_max else
@@ -230,7 +232,7 @@ class AllProblemObjects(object):
                                                                a / np.linalg.norm(a) * self.u_min * 1.05) if cnd
                                                                                                           else a})
 
-    #################> РАСЧЁТ ПАРАМЕТРОВ <#################
+    # ----------------------------------------- РАСЧЁТ ПАРАМЕТРОВ
     def get_e_deviation(self):
         if self.E_max > 1e-4:
             return self.T / self.E_max
@@ -239,10 +241,8 @@ class AllProblemObjects(object):
 
     def get_discrepancy(self, id_app: int, vector: bool = False, r=None):
         """Возвращает невязку аппарата с целью"""
-        if r is None:
-            discrepancy = self.a.r[id_app] - self.b_o(self.a.target[id_app])
-        else:
-            discrepancy = r - self.b_o(self.a.target[id_app])
+        tmp = self.a.r[id_app] if r is None else r
+        discrepancy = tmp - self.b_o(self.a.target[id_app])
         return discrepancy if vector else np.linalg.norm(discrepancy)
 
     def get_angular_momentum(self):
@@ -264,7 +264,7 @@ class AllProblemObjects(object):
 
     def get_matrices(self, La=None, t=None):
         """Функция подсчёта матриц поворота из кватернионов; \n
-        На вход подаются кватернионы Lu,Ls и скаляр \n
+        На вход подаётся кватернион La и скаляр \n
         Заодно считает вектор от центра Земли до центра масс системы в ИСК."""
         La = self.La if (La is None) else La
         La /= np.linalg.norm(La)
@@ -289,11 +289,12 @@ class AllProblemObjects(object):
         return 3 * self.mu * my_cross(A @ R_e, J @ A @ R_e) / self.Radius_orbit ** 5
 
     def get_masses(self, id_app: int):
+        """Нет учёта нескольких аппаратов!"""
         id_beam = self.a.flag_beam[id_app]
         m_beam = 0. if (id_beam is None) else self.s.mass[id_beam]
-        M_without = self.M - m_beam
-        m_extra = self.a.mass[id_app] + m_beam
-        return m_extra, M_without
+        m_ub = self.M - m_beam
+        m_a = self.a.mass[id_app] + m_beam
+        return m_a, m_ub
 
     def get_repulsion(self, id_app: int):
         file = open('storage/repulsions_-1.txt', 'r')
@@ -308,8 +309,7 @@ class AllProblemObjects(object):
         file.close()
         return anw
 
-
-    #################> РУНГЕ-КУТТЫ 4 ПОРЯДКА <#################
+    # ----------------------------------------- РУНГЕ-КУТТЫ 4 ПОРЯДКА
     def rv_right_part(self, rv, a):
         return np.array([rv[3], rv[4], rv[5], a[0], a[1], a[2]])
 
@@ -345,12 +345,12 @@ class AllProblemObjects(object):
         LaOm = self.dt / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
         return La + LaOm[0:4], LaOm[4:7] + Om
 
-    #################> ОБНОВЛЕНИЕ ПЕРЕМЕННЫХ КЛАССА <#################
+    # ----------------------------------------- ОБНОВЛЕНИЕ ПЕРЕМЕННЫХ КЛАССА
     def w_update(self):
-        self.w = self.U @ (self.Om - self.W_hkw)
+        self.w = self.U @ (self.Om - self.w_hkw_vec)
 
     def om_update(self):
-        self.Om = self.U.T @ self.w + self.W_hkw
+        self.Om = self.U.T @ self.w + self.w_hkw_vec
 
     def time_step(self):
         self.iter += 1
@@ -369,9 +369,9 @@ class AllProblemObjects(object):
         self.e = (self.Om - tmp) / self.dt
 
         # Translational movement of the structure
-        self.R = r_hkw(self.C_R, self.w_hkw, self.t - self.t_start[self.N_app])
-        self.V = v_hkw(self.C_R, self.w_hkw, self.t - self.t_start[self.N_app])
-        self.A_orbital = self.get_hkw_acceleration(np.append(self.R, self.V))
+        self.r_ub = r_hkw(self.C_R, self.w_hkw, self.t - self.t_start[self.a.n])
+        self.v_ub = v_hkw(self.C_R, self.w_hkw, self.t - self.t_start[self.a.n])
+        self.A_orbital = self.get_hkw_acceleration(np.append(self.r_ub, self.v_ub))
 
         # Translational movement of devices
         for id_app in self.a.id:
@@ -392,9 +392,11 @@ class AllProblemObjects(object):
             self.a.v[id_app] = v
             
             if self.d_crash is not None:
-                if self.warning_message and self.main_numerical_simulation and (self.t - self.t_start[id_app]) > self.freetime:
+                if self.warning_message and self.main_numerical_simulation \
+                        and (self.t - self.t_start[id_app]) > self.freetime:
                     if self.survivor:
-                        self.survivor = not call_crash(o=self, r_sat=r, R=self.R, S=self.S, taken_beams=self.taken_beams)
+                        self.survivor = not call_crash(o=self, r_sat=r, R=self.r_ub,
+                                                       S=self.S, taken_beams=self.taken_beams)
                         if not self.survivor:
                             self.my_print(get_angry_message(), mode='y')
         if not self.survivor and self.warning_message and self.iter % 200 == 0 and self.if_testing_mode:
@@ -407,22 +409,19 @@ class AllProblemObjects(object):
         :return: None
         """
         if self.method == 'linear-propulsion' and self.a_self_params[id_app] is not None:
-            self.a_self[id_app] = simple_control(self, self.a_self_params[id_app], (self.t - self.t_start[id_app]) / self.T_max)
+            self.a_self[id_app] = simple_control(self, self.a_self_params[id_app],
+                                                 (self.t - self.t_start[id_app]) / self.T_max)
         if self.control and control_condition(o=self, id_app=id_app):
-            # print(f"ПЕРВАЯ БАЗА")
             if self.if_impulse_control:
                 impulse_control(o=self, id_app=id_app)
             if self.if_PID_control and self.t_reaction_counter < 0:
-                # print(f"SECOND БАЗА")
                 pd_control(o=self, id_app=id_app)
             if self.if_LQR_control and self.t_reaction_counter < 0:
                 lqr_control(o=self, id_app=id_app)
             if self.if_avoiding:
-                # print(f"TRETYA БАЗА")
                 self.a_self[id_app] += avoiding_force(self, id_app)
         if np.linalg.norm(self.a_self[id_app]) > self.a_pid_max:
             self.a_self[id_app] *= self.a_pid_max / np.linalg.norm(self.a_self[id_app])
-        # print(f"------{np.linalg.norm(self.a_self[id_app])} {self.t_reaction_counter}")
 
     def repulse_app_config(self, id_app: int):
         # Алгоритм выбора цели
@@ -454,8 +453,8 @@ class AllProblemObjects(object):
         self.flag_vision[id_app] = False
 
     def get_repulsion_change_params(self, id_app: int):
-        R_p = self.R.copy()
-        V_p = self.V.copy()
+        R_p = self.r_ub.copy()
+        V_p = self.v_ub.copy()
         J_p, r_center_p = call_inertia(self, self.taken_beams_p, app_y=id_app)
         r0 = np.array(self.a.target_p[id_app])
         r = self.b_o(self.a.target_p[id_app], r_center=r_center_p)
@@ -511,8 +510,8 @@ class AllProblemObjects(object):
     def capturing_change_params(self, id_app: int):
         J_p, r_center_p = call_inertia(self, self.taken_beams_p, app_n=id_app)
         m_extra, M_without = self.get_masses(id_app)
-        R_p = self.R.copy()
-        V_p = self.V.copy()
+        R_p = self.r_ub.copy()
+        V_p = self.v_ub.copy()
         r_p = self.a.r[id_app].copy()
         v_p = self.a.v[id_app].copy()
 
@@ -533,14 +532,14 @@ class AllProblemObjects(object):
         J, r_center = call_inertia(self, self.taken_beams, app_y=id_app)
         m, M = self.get_masses(id_app)
 
-        self.R -= self.S.T @ (r_center - r_center_p)
-        self.R = np.zeros(3)  # ШАМАНСТВО
-        self.V = (V_p * M_without + v_p * m_extra) / (M_without + m_extra)
+        self.r_ub -= self.S.T @ (r_center - r_center_p)
+        self.r_ub = np.zeros(3)  # ШАМАНСТВО
+        self.v_ub = (V_p * M_without + v_p * m_extra) / (M_without + m_extra)
         self.w = np.linalg.inv(self.b_o(J)) @ (self.b_o(J_p) @ self.w -
-                                               (M + m) * my_cross(self.R, self.V) +
+                                               (M + m) * my_cross(self.r_ub, self.v_ub) +
                                                m_extra * my_cross(r_p, v_p) + M_without * my_cross(R_p, V_p))
         self.om_update()
-        self.C_R = get_c_hkw(self.R, self.V, self.w_hkw)
+        self.C_R = get_c_hkw(self.r_ub, self.v_ub, self.w_hkw)
         '''if self.main_numerical_simulation:
             print(f"R:{R_p}")
             print(f"c:{self.S.T @ r_center} ~ {self.S.T @ r_center_p} = {self.S.T @ (r_center - r_center_p)}")
@@ -556,7 +555,7 @@ class AllProblemObjects(object):
         self.flag_impulse = True
         self.taken_beams_p = self.taken_beams.copy()
 
-    #################> ПЕРЕХОДЫ МЕЖДУ СИСТЕМАМИ КООРДИНАТ <#################
+    # ----------------------------------------- ПЕРЕХОДЫ МЕЖДУ СИСТЕМАМИ КООРДИНАТ
     def i_o(self, a, U=None):
         """Инерциальная -> Орбитальная"""
         a_np = np.array(a)
@@ -581,7 +580,7 @@ class AllProblemObjects(object):
         """Орбитальная -> Связная"""
         a_np = np.array(a)
         S = self.S if (S is None) else S
-        R = self.R if (R is None) else R
+        R = self.r_ub if (R is None) else R
         r_center = self.r_center if (r_center is None) else r_center
         if len(a_np.shape) == 1:
             return S @ (a_np - R) + r_center
@@ -593,7 +592,7 @@ class AllProblemObjects(object):
         """Связная -> Орбитальная"""
         a_np = np.array(a)
         S = self.S if (S is None) else S
-        R = self.R if (R is None) else R
+        R = self.r_ub if (R is None) else R
         r_center = self.r_center if (r_center is None) else r_center
         if len(a_np.shape) == 1:
             return S.T @ (a_np - r_center) + R
@@ -606,7 +605,7 @@ class AllProblemObjects(object):
         a_np = np.array(a)
         U = self.U if (U is None) else U
         S = self.S if (S is None) else S
-        R = self.R if (R is None) else R
+        R = self.r_ub if (R is None) else R
         r_center = self.r_center if (r_center is None) else r_center
         if len(a_np.shape) == 1:
             return S @ ((U @ a_np - np.array([0, 0, self.Re])) - R) + r_center
@@ -619,7 +618,7 @@ class AllProblemObjects(object):
         a_np = np.array(a)
         U = self.U if (U is None) else U
         S = self.S if (S is None) else S
-        R = self.R if (R is None) else R
+        R = self.r_ub if (R is None) else R
         r_center = self.r_center if (r_center is None) else r_center
         if len(a_np.shape) == 1:
             return U.T @ ((S.T @ (a_np - r_center) + R) + np.array([0, 0, self.Re]))
@@ -627,7 +626,7 @@ class AllProblemObjects(object):
             return U.T @ S.T @ a_np @ S @ U
         raise Exception("Put vector or matrix")
 
-    #################> КОСМЕТИКА <#################
+    # ----------------------------------------- КОСМЕТИКА
     def file_save(self, txt):
         file = open(self.file_name, 'a')
         file.write(txt + f" {int(self.main_numerical_simulation)}\n")
@@ -721,7 +720,7 @@ class AllProblemObjects(object):
         slf.M = self.M
 
         slf.w_hkw = self.w_hkw
-        slf.W_hkw = copy.deepcopy(self.W_hkw)
+        slf.w_hkw_vec = copy.deepcopy(self.w_hkw_vec)
         slf.U = copy.deepcopy(self.U)
         slf.S = copy.deepcopy(self.S)
         slf.A = copy.deepcopy(self.A)
@@ -729,8 +728,8 @@ class AllProblemObjects(object):
 
         slf.J = copy.deepcopy(self.J)
         slf.r_center = copy.deepcopy(self.r_center)
-        slf.R = copy.deepcopy(self.R)
-        slf.V = copy.deepcopy(self.V)
+        slf.r_ub = copy.deepcopy(self.r_ub)
+        slf.v_ub = copy.deepcopy(self.v_ub)
         slf.J_1 = copy.deepcopy(self.J_1)
 
         slf.taken_beams = copy.deepcopy(self.taken_beams)

@@ -331,8 +331,8 @@ def plot_iterations_new(o):
             r1 = o.s.r_st[b]
             r2 = o.s.r_st[b] - np.array([o.s.length[b], 0, 0])
         if o.coordinate_system == 'orbital':
-            r1 = o.R + o.S.T @ (r1 - o.r_center)
-            r2 = o.R + o.S.T @ (r2 - o.r_center)
+            r1 = o.r_ub + o.S.T @ (r1 - o.r_center)
+            r2 = o.r_ub + o.S.T @ (r2 - o.r_center)
         if o.coordinate_system == 'support':
             r1 = o.S.T @ r1
             r2 = o.S.T @ r2
@@ -354,8 +354,8 @@ def plot_iterations_new(o):
         r1 = o.c.r1[b]
         r2 = o.c.r2[b]
         if o.coordinate_system == 'orbital':
-            r1 = o.R + o.S.T @ (r1 - o.r_center)
-            r2 = o.R + o.S.T @ (r2 - o.r_center)
+            r1 = o.r_ub + o.S.T @ (r1 - o.r_center)
+            r2 = o.r_ub + o.S.T @ (r2 - o.r_center)
         if o.coordinate_system == 'support':
             r1 = o.S.T @ r1
             r2 = o.S.T @ r2
@@ -383,11 +383,11 @@ def plot_apps_new(o):
     """Возвращает mesh аппаратов"""
     ready_mesh = None
     for app in range(o.N_app):
-        r_tmp = o.S @ (o.a.r[app] - o.R) + o.r_center
+        r_tmp = o.S @ (o.a.r[app] - o.r_ub) + o.r_center
         if o.coordinate_system == 'orbital':
             r_tmp = o.a.r[app]
         if o.coordinate_system == 'support':
-            r_tmp = (o.a.r[app] - o.R) + o.r_center
+            r_tmp = (o.a.r[app] - o.r_ub) + o.r_center
         main_body = mesh.Mesh(draw_apparatus(0.2, 0.3, r_tmp, np.array([0, 0, 1]), np.array([0, -1, 0]), 0,
                                              30 * np.pi / 180, 70 * np.pi / 180, 0, 30 * np.pi / 180,
                                              70 * np.pi / 180).data)
@@ -462,10 +462,10 @@ def draw_vedo_and_save(o, i_time: int, fig_view, app_diagram: bool = True):
     msh = plot_iterations_new(o).color("silver")
     msh += plot_apps_new(o)
     if o.coordinate_system == 'orbital':
-        msh += fig_plot(o, o.line_str, None)
+        msh += fig_plot(o, o.line_str_orf, None)
         # msh += avoid_field(o)  # А вот это ты крутой конечно, но оно кушает много
         for i in range(o.N_app):
-            msh += fig_plot(o, o.line_app[i], o.b_o(o.a.target[i]))
+            msh += fig_plot(o, o.line_app_brf[i], o.b_o(o.a.target[i]))
             msh += fig_plot(o, o.line_app_orf[i])
             msh += fig_plot(o, line_target(r=o.a.target[i], d=o.d_to_grab), o.b_o(o.a.target[i]))
             if o.method == 'linear-propulsion':
@@ -480,14 +480,14 @@ def draw_vedo_and_save(o, i_time: int, fig_view, app_diagram: bool = True):
             msh += fig_plot(o, line_chaos(), None)
     else:
         if o.coordinate_system == 'body':
-            msh += fig_plot(o, o.line_app, o.a.target[0])
+            msh += fig_plot(o, o.line_app_brf, o.a.target[0])
         else:
             raise Exception("Укажите систему координат правильно!")
     fig_view.pop().add(msh)
 
     if o.is_saving and (i_time % o.save_rate) == 0:
-        o.tmp_numer_frame += 1
-        filename = 'img/gibbon_' + str('{:04}'.format(o.tmp_numer_frame)) + '.png'
+        o.frame_counter += 1
+        filename = 'img/gibbon_' + str('{:04}'.format(o.frame_counter)) + '.png'
         fig_view.screenshot(filename)
         draw_reference_frames(o, 8)
         img = Image.open(filename)
