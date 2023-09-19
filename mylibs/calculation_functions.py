@@ -226,7 +226,7 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False,
     f_min = o_lcl.S @ o_lcl.get_discrepancy(id_app=id_app, vector=True) if interaction else \
         o_lcl.get_discrepancy(id_app=id_app, vector=True)
 
-    # ШАМАНСТВО ЕБАТЬ
+    # ШАМАНСТВО
     check_visible = False
 
     # Iterations

@@ -213,12 +213,6 @@ class AllProblemObjects(object):
         self.line_app_orf = [[] for _ in range(self.a.n)]
         self.line_str_orf = self.r_ub
 
-        # Отображение параметров задачи
-        if self.main_numerical_simulation:
-            self.my_print(f"Масса стержней {round(float(np.sum(self.s.mass)), 2)}, масса контейнера "
-                          f"{round(float(np.sum(self.c.mass)))}, всего {round(self.M, 2)}. Масса аппарата "
-                          f"{round(float(self.a.mass[0]), 2)}", mode='m')
-
         # Выбор значений в зависимости от аргументов
         self.cases = dict({'acceleration_control': lambda v: v if np.linalg.norm(v) < self.a_pid_max else
                                                              v / np.linalg.norm(v) * self.a_pid_max * 0.95,
@@ -453,53 +447,41 @@ class AllProblemObjects(object):
         self.flag_vision[id_app] = False
 
     def get_repulsion_change_params(self, id_app: int):
-        R_p = self.r_ub.copy()
-        V_p = self.v_ub.copy()
+        r_ub_orf_p = self.r_ub.copy()
+        v_ub_p = self.v_ub.copy()
         J_p, r_center_p = call_inertia(self, self.taken_beams_p, app_y=id_app)
-        r0 = np.array(self.a.target_p[id_app])
+        if self.main_numerical_simulation:
+            print(f"rep-1--{self.taken_beams_p}, r={r_center_p}")
+        r0_crf = np.array(self.a.target_p[id_app])
         r = self.b_o(self.a.target_p[id_app], r_center=r_center_p)
         J, r_center = call_inertia(self, self.taken_beams, app_n=id_app)
+        if self.main_numerical_simulation:
+            print(f"rep-2--{self.taken_beams}, r={r_center}")
         J_1 = np.linalg.inv(self.J)
         R0c = r_center - r_center_p
-        r0c = r0 - r_center_p
-        R = R_p + self.S.T @ R0c
-        m_extra, M_without = self.get_masses(id_app)
+        r0c = r0_crf - r_center_p
+        r_ub_orf = r_ub_orf_p + self.S.T @ R0c
+        m_ss, m_ub = self.get_masses(id_app)
 
-        return m_extra, M_without, J, J_1, J_p, r_center, r_center_p, r, R, r0c, R0c, R_p, V_p
+        return m_ss, m_ub, J, J_1, J_p, r_center, r_center_p, r, r_ub_orf, r0c, R0c, r_ub_orf_p, v_ub_p
 
     def repulsion_change_params(self, id_app: int, u0):
         if len(u0.shape) != 1 or len(u0) != 3:
             raise Exception("Неправильный входной вектор скорости!")
-        '''R_p = self.R.copy()
-        V_p = self.V.copy()
-        self.J, self.r_center = call_inertia(self, self.taken_beams_p, app_y=id_app)
-        J_p = self.J.copy()
-        r_center_p = self.r_center.copy()
-        r0 = np.array(self.a.target_p[id_app])
-        r = self.b_o(self.a.target_p[id_app])
-        self.J, self.r_center = call_inertia(self, self.taken_beams, app_n=id_app)
-        self.J_1 = np.linalg.inv(self.J)
-        R0 = self.r_center
-        R0c = self.r_center - r_center_p
-        r0c = r0 - r_center_p
-        R = R_p + self.S.T @ R0c
-
-        m_extra, M_without = self.get_masses(id_app)'''
-
-        m_extra, M_without, J, J_1, J_p, r_center, r_center_p, r, R, r0c, R0c, R_p, V_p = \
+        m_ss, m_ub, J, J_1, J_p, r_ub_crf, r_ub_crf_p, r, r_ub_orf, r0c, R0c, r_ub_orf_p, v_ub_p = \
             self.get_repulsion_change_params(id_app)
         u_rot = my_cross(self.w, self.S.T @ r0c)                        # ORF
         V_rot = my_cross(self.w, self.S.T @ R0c)                        # ORF
-        V0 = - u0 * m_extra / M_without                                 # BRF
-        u = self.S.T @ u0 + V_p + u_rot                                 # ORF
-        V = self.S.T @ V0 + V_p + V_rot                                 # ORF
+        V0 = - u0 * m_ss / m_ub                                         # BRF
+        u = self.S.T @ u0 + v_ub_p + u_rot                              # ORF
+        V = self.S.T @ V0 + v_ub_p + V_rot                              # ORF
         self.w = self.b_o(J_1) @ (
-                self.b_o(J_p) @ self.w + (M_without + m_extra) * my_cross(R_p, V_p) -
-                m_extra * my_cross(r, u) - M_without * my_cross(R, V))  # ORF
+                self.b_o(J_p) @ self.w + (m_ub + m_ss) * my_cross(r_ub_orf_p, v_ub_p) -
+                m_ss * my_cross(r, u) - m_ub * my_cross(r_ub_orf, V))   # ORF
 
         self.om_update()
         self.C_r[id_app] = get_c_hkw(r, u, self.w_hkw)
-        self.C_R = get_c_hkw(R, V, self.w_hkw)
+        self.C_R = get_c_hkw(r_ub_orf, V, self.w_hkw)
         self.t_start[id_app] = self.t
         self.t_start[self.a.n] = self.t
         self.repulsion_counters[id_app] += 1
@@ -508,8 +490,11 @@ class AllProblemObjects(object):
         self.a.v[id_app] = u
 
     def capturing_change_params(self, id_app: int):
-        J_p, r_center_p = call_inertia(self, self.taken_beams_p, app_n=id_app)
-        m_extra, M_without = self.get_masses(id_app)
+        self.a.target_p[id_app] = self.a.target[id_app].copy()
+        J_p, r_center_p = call_inertia(self, self.taken_beams, app_n=id_app)
+        if self.main_numerical_simulation:
+            print(f"cap-1--{self.taken_beams}, r={r_center_p}")
+        m_ss, m_ub = self.get_masses(id_app)
         R_p = self.r_ub.copy()
         V_p = self.v_ub.copy()
         r_p = self.a.r[id_app].copy()
@@ -530,30 +515,30 @@ class AllProblemObjects(object):
                 self.a.flag_start[id_app] = True
 
         J, r_center = call_inertia(self, self.taken_beams, app_y=id_app)
-        m, M = self.get_masses(id_app)
+        if self.main_numerical_simulation:
+            print(f"cap-2--{self.taken_beams}, r={r_center}")
+        # m, M = self.get_masses(id_app)
 
-        self.r_ub -= self.S.T @ (r_center - r_center_p)
-        self.r_ub = np.zeros(3)  # ШАМАНСТВО
-        self.v_ub = (V_p * M_without + v_p * m_extra) / (M_without + m_extra)
+        self.r_ub += self.S.T @ (r_center - r_center_p)  # Спорный момент
+        self.v_ub = (V_p * m_ub + v_p * m_ss) / (m_ub + m_ss)
+        if self.main_numerical_simulation:
+            self.my_print(f"r_ub: {self.r_ub}", mode='r')
+            self.my_print(f"v_ub: {self.v_ub}: V={np.linalg.norm(V_p)}, v={np.linalg.norm(v_p)}", mode='r')
         self.w = np.linalg.inv(self.b_o(J)) @ (self.b_o(J_p) @ self.w -
-                                               (M + m) * my_cross(self.r_ub, self.v_ub) +
-                                               m_extra * my_cross(r_p, v_p) + M_without * my_cross(R_p, V_p))
+                                               (m_ub + m_ss) * my_cross(self.r_ub, self.v_ub) +
+                                               m_ss * my_cross(r_p, v_p) + m_ub * my_cross(R_p, V_p))
+
         self.om_update()
         self.C_R = get_c_hkw(self.r_ub, self.v_ub, self.w_hkw)
-        '''if self.main_numerical_simulation:
-            print(f"R:{R_p}")
-            print(f"c:{self.S.T @ r_center} ~ {self.S.T @ r_center_p} = {self.S.T @ (r_center - r_center_p)}")
-            print(f"R:{self.R}")
-            print(f"V:{self.V}")
-            print(f"C:{self.C_R}")'''
+
+        # Capture config
+        self.taken_beams_p = self.taken_beams.copy()
         self.a.busy_time[id_app] = self.time_to_be_busy
-        self.a.flag_hkw[id_app] = True
-        self.a.flag_fly[id_app] = False
         self.t_reaction_counter = self.t_reaction
         self.t_start[self.a.n] = self.t
-        self.a.target_p[id_app] = self.a.target[id_app].copy()
+        self.a.flag_hkw[id_app] = True
+        self.a.flag_fly[id_app] = False
         self.flag_impulse = True
-        self.taken_beams_p = self.taken_beams.copy()
 
     # ----------------------------------------- ПЕРЕХОДЫ МЕЖДУ СИСТЕМАМИ КООРДИНАТ
     def i_o(self, a, U=None):

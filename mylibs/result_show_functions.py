@@ -141,9 +141,9 @@ def plot_params_while_main(filename: str = "", trial_episodes: bool = False, sho
     f.close()
 
     def params_reset():
-        return [[[] for _ in range(id_max)] for _ in range(8)]
+        return [[[] for _ in range(id_max)] for _ in range(10)]
 
-    dr, e, j, V, R, t, a, m = params_reset()
+    dr, e, j, V, R, t, a, m, mc, ub = params_reset()  # mc - mass center
     R_max, V_max, j_max, e_max = (1., 1., 1., 1.)
 
     f = open('storage/main'+ filename + '.txt', 'r')
@@ -159,15 +159,28 @@ def plot_params_while_main(filename: str = "", trial_episodes: bool = False, sho
                     V_max = float(lst[2])
                     j_max = 1e5
                     e_max = float(lst[4])
-                if lst[0] == 'график' and tmp*dt > t_from and tmp % show_rate == 0 and len(lst) == 9 and (show_probe_episodes or bool(int(lst[8]))):
-                    id_app = int(lst[1])
-                    dr[id_app].append(float(lst[2]))
-                    e[id_app].append(float(lst[3]))
-                    j[id_app].append(float(lst[4]))
-                    V[id_app].append(float(lst[5]))
-                    R[id_app].append(float(lst[6]))
-                    a[id_app].append(float(lst[7]))
-                    m[id_app].append(int(lst[8]))
+                if lst[0] == 'график' and tmp*dt > t_from and tmp % show_rate == 0:
+                    if len(lst) == 9 and (show_probe_episodes or bool(int(lst[8]))):
+                        id_app = int(lst[1])
+                        dr[id_app].append(float(lst[2]))
+                        e[id_app].append(float(lst[3]))
+                        j[id_app].append(float(lst[4]))
+                        V[id_app].append(float(lst[5]))
+                        R[id_app].append(float(lst[6]))
+                        a[id_app].append(float(lst[7]))
+                        m[id_app].append(int(lst[8]))
+                    if len(lst) == 11 and (show_probe_episodes or bool(int(lst[10]))):
+                        id_app = int(lst[1])
+                        dr[id_app].append(float(lst[2]))
+                        e[id_app].append(float(lst[3]))
+                        j[id_app].append(float(lst[4]))
+                        V[id_app].append(float(lst[5]))
+                        R[id_app].append(float(lst[6]))
+                        a[id_app].append(float(lst[7]))
+                        mc[id_app].append(float(lst[8]))
+                        ub[id_app].append(float(lst[9]))
+                        m[id_app].append(int(lst[10]))
+
             if lst[0] == 'отталкивание':
                 print(f"Отталкивание {lst[1]}: [{lst[2]}, {lst[3]}, {lst[4]}]")
         else:
@@ -223,10 +236,12 @@ def plot_params_while_main(filename: str = "", trial_episodes: bool = False, sho
     else:
         for id_app in range(id_max):
             t[id_app] = np.linspace(0, len(dr[id_app]), len(dr[id_app])) * dt * show_rate
-            axs[0].plot(t[id_app], dr[id_app], c=clr[2 * id_app])
+            axs[0].plot(t[id_app], ub[id_app], c=clr[2 * id_app + 3], label='UB mass center')
+            axs[0].plot(t[id_app], mc[id_app], c=clr[2 * id_app + 1], label='Total mass center')
+            axs[0].plot(t[id_app], dr[id_app], c=clr[2 * id_app], label='Δr(t)')
             axs[1].plot(t[id_app], [1 for _ in range(len(t[id_app]))], c='gray')
             axs[2].plot(t[id_app], a[id_app], c='c')
-            axs[0].plot(t[id_app], np.zeros(len(t[id_app])), c='khaki')
+            # axs[0].plot(t[id_app], np.zeros(len(t[id_app])), c='khaki')
             # axs[2].plot(range(len(a[id_app])), np.zeros(len(a[id_app])), c='khaki')
         id_app = 0
         if show_w:
@@ -237,6 +252,7 @@ def plot_params_while_main(filename: str = "", trial_episodes: bool = False, sho
             axs[1].plot(t[id_app], np.array(V[id_app]) / V_max, c=clr2[1][2], label='V')
         if show_R:
             axs[1].plot(t[id_app], np.array(R[id_app]) / R_max, c=clr2[1][3], label='R')
+    axs[0].legend()
     axs[1].legend()
     plt.show()
 

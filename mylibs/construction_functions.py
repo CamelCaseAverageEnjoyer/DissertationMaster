@@ -520,7 +520,7 @@ class Apparatus(object):
         self.flag_beam = np.array([None] * n)
         self.flag_hkw = np.array([True] * n)
         self.flag_to_mid = np.array([True] * n)
-        self.busy_time = np.array([i * 40. for i in range(n)])
+        self.busy_time = np.array([(i + 1) * 100. for i in range(n)])
         self.v = np.array([np.zeros(3) for _ in range(n)])
         id_list = X.call_possible_transport([]) if n > 0 else [0]
         self.target = np.array([(np.array(X.r_st[id_list[i]]) + np.array([-0.1 - X.length[id_list[i]], 0, 0]))
