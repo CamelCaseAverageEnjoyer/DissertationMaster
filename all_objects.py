@@ -1,10 +1,10 @@
-from mylibs.calculation_functions import *
 from mylibs.construction_functions import *
-from mylibs.plot_functions import *
-from mylibs.tiny_functions import *
 from mylibs.control_function import *
 from mylibs.im_sample import *
 from mylibs.numerical_methods import *
+from mylibs.plot_functions import *
+from mylibs.tiny_functions import *
+from mylibs.calculation_functions import *
 
 
 class AllProblemObjects(object):
@@ -37,9 +37,10 @@ class AllProblemObjects(object):
                  du_impulse_max=0.4,                    # Максимальная скорость импульса при импульсном управлении
                  w_twist=0.,
                  e_max=1e10,        # Относительное максимальная допустимое отклонение энергии (иск огр)
-                 w_max=0.001,       # Максимально допустимая скорость вращения станции (искуственное ограничение)
+                 # 0,12 градуса в секунду
+                 w_max=0.002,       # Максимально допустимая скорость вращения станции (искуственное ограничение)
                  V_max=0.04,        # Максимально допустимая поступательная скорость станции (искуственное ограничение)
-                 R_max=50.,         # Максимально допустимое отклонение станции (искуственное ограничение)
+                 R_max=10.,         # Максимально допустимое отклонение станции (искуственное ограничение)
                  j_max=45,          # Максимально допустимый след матрицы поворота S (искуственное ограничение)
                  a_pid_max=1e-5,    # Максимальное ускорение при непрерывном управлении
 
@@ -490,7 +491,7 @@ class AllProblemObjects(object):
         self.a.v[id_app] = u
 
     def capturing_change_params(self, id_app: int):
-        self.a.target_p[id_app] = self.a.target[id_app].copy()
+        # Параметры пока аппарат летит
         J_p, r_center_p = call_inertia(self, self.taken_beams, app_n=id_app)
         if self.main_numerical_simulation:
             print(f"cap-1--{self.taken_beams}, r={r_center_p}")
@@ -500,7 +501,9 @@ class AllProblemObjects(object):
         r_p = self.a.r[id_app].copy()
         v_p = self.a.v[id_app].copy()
 
+        # Мгновенная посадка и установка стержня
         id_beam = self.a.flag_beam[id_app]
+        self.a.target_p[id_app] = self.a.target[id_app].copy()
         if id_beam is not None:
             if np.linalg.norm(np.array(self.s.r1[id_beam]) - np.array(self.a.target[0])) < 1e-2:
                 if self.main_numerical_simulation:
@@ -514,11 +517,10 @@ class AllProblemObjects(object):
                     self.my_print(f'Аппарат id:{id_app} в грузовом отсеке')
                 self.a.flag_start[id_app] = True
 
+        # Параметры когда аппарат уже на месте, стержень установлен
         J, r_center = call_inertia(self, self.taken_beams, app_y=id_app)
         if self.main_numerical_simulation:
             print(f"cap-2--{self.taken_beams}, r={r_center}")
-        # m, M = self.get_masses(id_app)
-
         self.r_ub += self.S.T @ (r_center - r_center_p)  # Спорный момент
         self.v_ub = (V_p * m_ub + v_p * m_ss) / (m_ub + m_ss)
         if self.main_numerical_simulation:
@@ -530,6 +532,8 @@ class AllProblemObjects(object):
 
         self.om_update()
         self.C_R = get_c_hkw(self.r_ub, self.v_ub, self.w_hkw)
+        # ШАМАНСТВО И РАЗГЕЛЬДЯЙСТВО
+        self.C_R = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
         # Capture config
         self.taken_beams_p = self.taken_beams.copy()

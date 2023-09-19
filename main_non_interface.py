@@ -67,7 +67,7 @@ def iteration_func(o):
         o.file_save(f'график {id_app} {discrepancy} {np.linalg.norm(o.w)} '
                     f'{np.linalg.norm(180 / np.pi * np.arccos(clip((np.trace(o.S) - 1) / 2, -1, 1)))} '
                     f'{np.linalg.norm(o.v_ub)} {np.linalg.norm(o.r_ub)} {np.linalg.norm(o.a_self[id_app])} '
-                    f'{np.linalg.norm(tmp)} {np.linalg.norm(o.r_ub)}')
+                    f'{np.linalg.norm(tmp)} {o.r_ub[0]}')  # np.linalg.norm(o.r_ub)
         o.line_app_brf[id_app] = np.append(o.line_app_brf[id_app], o.o_b(o.a.r[id_app]))
         o.line_app_orf[id_app] = np.append(o.line_app_orf[id_app], o.a.r[id_app])
 

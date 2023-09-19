@@ -119,8 +119,8 @@ def pd_control_params_search(name: str = '', dt=0.2, n_p=5, n_a=10, T_max=700., 
     reader_pd_control_params(name=name)
     return k_p_best
 
-def get_repilsions(filename: str = ""):
-    f = open('storage/main'+ filename + '.txt', 'r')
+def get_repulsions(filename: str = ""):
+    f = open('storage/main' + filename + '.txt', 'r')
     for line in f:
         lst = line.split()
         if lst[0] == 'отталкивание':
@@ -129,8 +129,8 @@ def get_repilsions(filename: str = ""):
 
 def plot_params_while_main(filename: str = "", trial_episodes: bool = False, show_rate: int = 1, limit: int = 1e5,
                            show_probe_episodes=True, dt: float = 1., energy_show=True, t_from=0., show_w=True,
-                           show_j=True, show_V=True, show_R=True):
-    f = open('storage/main'+ filename + '.txt', 'r')
+                           show_j=True, show_V=True, show_R=True, propulsion_3d_plot: bool = True):
+    f = open('storage/main' + filename + '.txt', 'r')
     o = AllProblemObjects()
 
     id_max = 0
@@ -146,7 +146,7 @@ def plot_params_while_main(filename: str = "", trial_episodes: bool = False, sho
     dr, e, j, V, R, t, a, m, mc, ub = params_reset()  # mc - mass center
     R_max, V_max, j_max, e_max = (1., 1., 1., 1.)
 
-    f = open('storage/main'+ filename + '.txt', 'r')
+    f = open('storage/main' + filename + '.txt', 'r')
     tmp = 0
     for line in f:
         lst = line.split()
@@ -155,9 +155,9 @@ def plot_params_while_main(filename: str = "", trial_episodes: bool = False, sho
                 # print(len(lst))
                 if lst[0] == 'ограничения' and len(lst) == 5:
                     print(f"Есть ограничения")
-                    R_max = 1e9
+                    R_max = float(lst[1])
                     V_max = float(lst[2])
-                    j_max = 1e5
+                    j_max = float(lst[3])
                     e_max = float(lst[4])
                 if lst[0] == 'график' and tmp*dt > t_from and tmp % show_rate == 0:
                     if len(lst) == 9 and (show_probe_episodes or bool(int(lst[8]))):
@@ -191,27 +191,30 @@ def plot_params_while_main(filename: str = "", trial_episodes: bool = False, sho
     print(Fore.CYAN + f"Аппаратов на графиках: {id_max}" + Style.RESET_ALL)
     print(Fore.BLUE + f"Точек на графиах: {len(dr[0])}" + Style.RESET_ALL)
 
-    fig, axs = plt.subplots(3)
+    p = 3 if propulsion_3d_plot else 2
+    fig, axs = plt.subplots(p)
     axs[0].set_xlabel('время, с', fontsize=11)
     axs[0].set_ylabel('Невязка, м', fontsize=11)
     axs[0].set_title('Параметры в процессе алгоритма', fontsize=13)
     axs[1].set_xlabel('время t, с', fontsize=11)
     axs[1].set_ylabel('ограниченные величины', fontsize=11)
-    axs[2].set_xlabel('время t, с', fontsize=11)
-    axs[2].set_ylabel('бортовое ускорение, м/с2', fontsize=11)
+    if propulsion_3d_plot:
+        axs[2].set_xlabel('время t, с', fontsize=11)
+        axs[2].set_ylabel('бортовое ускорение, м/с2', fontsize=11)
 
     clr = ['c', 'indigo', 'm', 'violet', 'teal', 'slategray', 'greenyellow', 'sienna']
     clr2 = [['skyblue', 'bisque', 'palegreen', 'darksalmon'], ['teal', 'tan', 'g', 'brown']]
     if show_probe_episodes:
         for id_app in range(id_max):
-            t[id_app] = np.linspace(t_from, t_from + len(dr[id_app])  * dt * show_rate, len(dr[id_app]))
+            t[id_app] = np.linspace(t_from, t_from + len(dr[id_app]) * dt * show_rate, len(dr[id_app]))
             for i in range(len(dr[id_app]) - 1):
                 axs[0].plot([t[id_app][i], t[id_app][i+1]], np.array([dr[id_app][i], dr[id_app][i+1]]),
                             c=clr[2 * id_app + 2 * m[id_app][i]])
             axs[1].plot(t[id_app], [1 for _ in range(len(t[id_app]))], c='gray')
-            axs[2].plot(range(len(a[id_app])), a[id_app], c='c')
             axs[0].plot(t[id_app], np.zeros(len(t[id_app])), c='khaki')
-            axs[2].plot(range(len(a[id_app])), np.zeros(len(a[id_app])), c='khaki')
+            if propulsion_3d_plot:
+                axs[2].plot(range(len(a[id_app])), a[id_app], c='c')
+                axs[2].plot(range(len(a[id_app])), np.zeros(len(a[id_app])), c='khaki')
         id_app = 0
         clr = [['skyblue', 'bisque', 'palegreen', 'darksalmon'], ['teal', 'tan', 'g', 'brown']]
         if energy_show:
@@ -240,7 +243,8 @@ def plot_params_while_main(filename: str = "", trial_episodes: bool = False, sho
             axs[0].plot(t[id_app], mc[id_app], c=clr[2 * id_app + 1], label='Total mass center')
             axs[0].plot(t[id_app], dr[id_app], c=clr[2 * id_app], label='Δr(t)')
             axs[1].plot(t[id_app], [1 for _ in range(len(t[id_app]))], c='gray')
-            axs[2].plot(t[id_app], a[id_app], c='c')
+            if propulsion_3d_plot:
+                axs[2].plot(t[id_app], a[id_app], c='c')
             # axs[0].plot(t[id_app], np.zeros(len(t[id_app])), c='khaki')
             # axs[2].plot(range(len(a[id_app])), np.zeros(len(a[id_app])), c='khaki')
         id_app = 0

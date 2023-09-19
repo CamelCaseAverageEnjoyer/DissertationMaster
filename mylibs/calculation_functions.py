@@ -151,6 +151,8 @@ def call_inertia(o, id_s=np.array([]), app_y=None, app_n=None):
     for a in range(o.a.n):
         if (not o.a.flag_fly[a] and app_n != a) or app_y == a:
             tmp = o.a.mass[a] if o.a.flag_beam[a] is None else o.a.mass[a] + o.s.mass[int(o.a.flag_beam[a])]
+            '''if o.main_numerical_simulation:
+                o.my_print(f"\nbeam: {o.a.flag_beam[a] is None}\n", test=True)'''
             r += tmp * o.a.target_p[a]
             m += tmp
             J += local_tensor_of_point(tmp, o.a.target_p[a])

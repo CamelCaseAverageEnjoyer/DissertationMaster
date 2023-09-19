@@ -1,7 +1,7 @@
-from mylibs.calculation_functions import *
-
+import numpy as np
 
 def simple_control(o, a, tau):
+    from mylibs.tiny_functions import polar2dec, clip
     if len(a) == 3:
         return o.cases['acceleration_control'](a)
     elif len(a) == 4:
@@ -21,6 +21,7 @@ def kd_from_kp(k):
     return 2 * np.sqrt(k)
 
 def force_from_beam(a, diam, n, tau, b, f0: float, f1: float, f2: float, k_av: float = 1e-5, level: int = 2):
+    from mylibs.tiny_functions import clip
     """Возвращает в ССК!"""
     if (f0 > -1) and (f0 < 1):
         a1 = a - f0 * n / 2 if (f1**2 + f2**2 > 1) else np.zeros(3)
@@ -85,6 +86,9 @@ def pd_control(o, id_app):
     o.a_self[id_app] = a_pid.copy()
 
 def lqr_control(o, id_app):
+    import scipy
+    from mylibs.tiny_functions import my_cross, clip
+
     o.a.flag_hkw[id_app] = False
     r = np.array(o.a.r[id_app])
     v = np.array(o.a.v[id_app])
@@ -145,6 +149,9 @@ def lqr_control(o, id_app):
     o.a_self[id_app] = a_lqr.copy()
 
 def impulse_control(o, id_app):
+    from mylibs.tiny_functions import get_c_hkw
+    from mylibs.calculation_functions import diff_evolve, f_to_detour, talk_flyby, calc_shooting, talk_shoot
+
     if not o.flag_vision[id_app]:
         o.t_flyby_counter -= o.dt
         o.t_reaction_counter = o.t_flyby

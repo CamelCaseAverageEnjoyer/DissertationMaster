@@ -86,8 +86,8 @@ name = 'scipy'
 # test_center_mass(u_max=3e-2, dt=100., T_max=100000.)
 # test_stitching_collision_function(n=100)
 
-plot_params_while_main(dt=5., show_rate=1, limit=3000, show_probe_episodes=False, energy_show=True,
-                       show_j=False, show_R=True, filename='')
+plot_params_while_main(dt=5., show_rate=10, limit=3000, show_probe_episodes=False, energy_show=True,
+                       show_j=False, show_R=True, filename='', propulsion_3d_plot=False)
 # get_repilsions("")
 
 # plot_iter_downgrade('_scipy')
