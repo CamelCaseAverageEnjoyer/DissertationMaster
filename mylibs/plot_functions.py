@@ -479,7 +479,7 @@ def avoid_field(o):
     return force_vectors
 
 
-def draw_vedo_and_save(o, i_time: int, fig_view, app_diagram: bool = True):
+def draw_vedo_and_save(o, i_time: int, fig_view, camera, app_diagram: bool = True):
     """Функция рисует всё, берёт и возрвращает объект vedo"""
     msh = plot_iterations_new(o).color("silver")
     msh += plot_apps_new(o)
@@ -496,7 +496,16 @@ def draw_vedo_and_save(o, i_time: int, fig_view, app_diagram: bool = True):
         msh += fig_plot(o, o.line_app_brf, o.a.target[0])
     else:
         raise Exception("Укажите систему координат правильно!")
+
+    # help(fig_view.pop())
     fig_view.pop().add(msh)
+    fig_view.fly_to(o.a.r[0])
+
+    n, b, tau = orientation_taken_rod(o, id_app=0)
+    camera.SetPosition(o.a.r[0] + o.S.T @ n * 3 + o.S.T @ tau * 3)
+    camera.SetRoll(180)
+    camera.SetEyePosition(- o.S.T @ tau)
+    # help(camera)
 
     if o.is_saving and (i_time % o.save_rate) == 0:
         o.frame_counter += 1

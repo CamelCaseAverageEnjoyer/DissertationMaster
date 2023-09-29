@@ -81,11 +81,11 @@ def iteration_func(o):
     return o
 
 def iteration_timer(eventId=None):
-    global o_global, vedo_picture, fig_view
+    global o_global, vedo_picture, fig_view, camera
     if o_global.t <= o_global.T_total:
         o_global = iteration_func(o_global)
         if vedo_picture and o_global.iter % o_global.save_rate == 0:
-            fig_view = draw_vedo_and_save(o_global, o_global.iter, fig_view, app_diagram=False)
+            fig_view = draw_vedo_and_save(o_global, o_global.iter, fig_view, camera, app_diagram=False)
 
 def button_func():
     global timerId
@@ -96,7 +96,7 @@ def button_func():
 
 
 if __name__ == "__main__":
-    global timerId, fig_view, button, evnetId
+    global timerId, fig_view, button, evnetId, camera
     if vedo_picture:
         timerId = 1
         fig_view = Plotter(bg='white', size=(1920, 1080))
@@ -107,7 +107,12 @@ if __name__ == "__main__":
 
         my_mesh = plot_iterations_new(o_global).color("silver")
         app_mesh = plot_apps_new(o_global)
-        fig_view.show(__doc__, my_mesh + app_mesh, zoom=0.5, bg="hdri/kloppenheim_02_puresky_4k.hdr")
+
+        n, b, tau = orientation_taken_rod(o_global, id_app=0)
+        camera = vedo.oriented_camera(center=o_global.a.r[0],
+                                      up_vector=o_global.S.T @ n,
+                                      backoff_vector=o_global.S.T @ tau)
+        fig_view.show(__doc__, my_mesh + app_mesh, zoom=0.5, camera=camera, bg="hdri/kloppenheim_02_puresky_4k.hdr")
 
     else:
         while True:
