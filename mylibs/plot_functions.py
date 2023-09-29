@@ -15,7 +15,9 @@ import vedo
 # Local libraries
 from mylibs.tiny_functions import *
 
-N_BEAM_ROUND = 100
+RADIUS_PER_LEN = 0.1
+N_BEAM_ROUND = 20
+LINE_WIDTH = 4
 
 
 def color_between(tau: float):
@@ -83,18 +85,19 @@ def plot_by_y(y, x=None, name=None, color: str = 'slategray', color_zero: str = 
 
 def fig_plot(o, line_0, point=None):
     """Функция распаковки линии, построения vedo.Line"""
+    global LINE_WIDTH
     N = int(np.floor(len(line_0) / 3))
     x = [line_0[3 * i + 0] for i in range(N)]
     y = [line_0[3 * i + 1] for i in range(N)]
     z = [line_0[3 * i + 2] for i in range(N)]
     if point is not None:
-        for i in range(N):
-            x[i], y[i], z[i] = o.b_o(np.array([x[i], y[i], z[i]]))
+        '''for i in range(N):
+            x[i], y[i], z[i] = o.b_o(np.array([x[i], y[i], z[i]]))'''
         vertices = [[x[i], y[i], z[i]] for i in range(N)]
-        line = vedo.Line(vertices, c=(238/255, 130/255, 238/255)) + vedo.Point(point, c='c')
+        line = vedo.Line(vertices, c=(238/255, 130/255, 238/255), lw=LINE_WIDTH) + vedo.Point(point, c='c')
     else:
         vertices = [[x[i], y[i], z[i]] for i in range(N)]
-        line = vedo.Line(vertices, c=(135/255, 206/255, 250/255), lw=3)
+        line = vedo.Line(vertices, c=(135/255, 206/255, 250/255), lw=LINE_WIDTH)
     return line
 
 
@@ -161,14 +164,15 @@ def draw_reference_frames(o, size: int = 10, showing: bool = False):
         plt.close()
 
 
-def show_beam(r1, r2, flag_non_relative=0, radius_per_len=0.1):
-    """Возвращает точки цилиндра стержня"""
-    global N_BEAM_ROUND
+def show_beam(r1, r2, flag_non_relative=0, raduis=None):
+    """Возвращает точки основания цилиндра стержня"""
+    global N_BEAM_ROUND, RADIUS_PER_LEN
+    raduis = RADIUS_PER_LEN if raduis is None else raduis
     L = np.sqrt((r1[0] - r2[0]) ** 2 + (r1[1] - r2[1]) ** 2 + (r1[2] - r2[2]) ** 2)
     if flag_non_relative > 0.5:
-        radius = radius_per_len
+        radius = raduis
     else:
-        radius = radius_per_len * L
+        radius = raduis * L
     x_up = [radius * np.cos(i / N_BEAM_ROUND * 2 * np.pi) for i in range(N_BEAM_ROUND)]
     y_up = [radius * np.sin(i / N_BEAM_ROUND * 2 * np.pi) for i in range(N_BEAM_ROUND)]
     z_up = [L for _ in range(N_BEAM_ROUND)]
@@ -197,7 +201,7 @@ def show_beam(r1, r2, flag_non_relative=0, radius_per_len=0.1):
 
 def draw_apparatus(a, l_h, r, h_up, h_front, phi_right_1, theta_right_1, theta_right_2, phi_left_1, theta_left_1,
                    theta_left_2):
-    """Возвращае mesh аппарата"""
+    """Возвращает mesh аппарата"""
     h_right = np.cross(h_front, h_up) / np.linalg.norm(h_up) / np.linalg.norm(h_front) * a / 2
     h_left = - h_right
 
@@ -228,8 +232,6 @@ def draw_apparatus(a, l_h, r, h_up, h_front, phi_right_1, theta_right_1, theta_r
         theta_left_2)
 
     # Отображение
-    diam_hands = 0.04
-
     r1 = r - h_up / np.linalg.norm(h_up) * a / 2  # Главное тельце
     r2 = r + h_up / np.linalg.norm(h_up) * a / 2
     vertices = show_beam(r1, r2, 1, a / 2)
@@ -243,7 +245,7 @@ def draw_apparatus(a, l_h, r, h_up, h_front, phi_right_1, theta_right_1, theta_r
 
     r1 = r + h_right  # Плечо правой руки
     r2 = r + h_right + h_right_1
-    vertices = show_beam(r1, r2, 0, diam_hands)
+    vertices = show_beam(r1, r2, 0)
     hull = spatial.ConvexHull(vertices)
     faces = hull.simplices
     myramid_mesh = mesh.Mesh(np.zeros(faces.shape[0], dtype=mesh.Mesh.dtype))
@@ -255,7 +257,7 @@ def draw_apparatus(a, l_h, r, h_up, h_front, phi_right_1, theta_right_1, theta_r
 
     r1 = r + h_right + h_right_1  # Предплечье правой руки
     r2 = r + h_right + h_right_1 + h_right_2
-    vertices = show_beam(r1, r2, 0, diam_hands)
+    vertices = show_beam(r1, r2, 0)
     hull = spatial.ConvexHull(vertices)
     faces = hull.simplices
     myramid_mesh = mesh.Mesh(np.zeros(faces.shape[0], dtype=mesh.Mesh.dtype))
@@ -267,7 +269,7 @@ def draw_apparatus(a, l_h, r, h_up, h_front, phi_right_1, theta_right_1, theta_r
 
     r1 = r + h_left  # Плечо левой руки
     r2 = r + h_left + h_left_1
-    vertices = show_beam(r1, r2, 0, diam_hands)
+    vertices = show_beam(r1, r2, 0)
     hull = spatial.ConvexHull(vertices)
     faces = hull.simplices
     myramid_mesh = mesh.Mesh(np.zeros(faces.shape[0], dtype=mesh.Mesh.dtype))
@@ -279,7 +281,7 @@ def draw_apparatus(a, l_h, r, h_up, h_front, phi_right_1, theta_right_1, theta_r
 
     r1 = r + h_left + h_left_1  # Предплечье левой руки
     r2 = r + h_left + h_left_1 + h_left_2
-    vertices = show_beam(r1, r2, 0, diam_hands)
+    vertices = show_beam(r1, r2, 0)
     hull = spatial.ConvexHull(vertices)
     faces = hull.simplices
     myramid_mesh = mesh.Mesh(np.zeros(faces.shape[0], dtype=mesh.Mesh.dtype))
@@ -292,10 +294,22 @@ def draw_apparatus(a, l_h, r, h_up, h_front, phi_right_1, theta_right_1, theta_r
     return main_body
 
 
+def orientation_taken_rod(o, id_app):
+    n = (o.o_b(o.a.r[id_app]) - o.r_center) / np.linalg.norm(o.o_b(o.a.r[id_app]) - o.r_center)
+    if np.linalg.norm(my_cross(n, [1., 0., 0.])) > 1e-4:
+        b = my_cross(n, [1., 0., 0.])
+        b /= np.linalg.norm(b)
+    else:
+        b = [0., 1., 0.]
+    tau = my_cross(n, b)
+    tau /= np.linalg.norm(tau)
+    return n, b, tau
+
+
 def plot_iterations_new(o):
     """Возвращает mesh конструкции"""
+    from mylibs.control_function import avoiding_force
     diam_cylinders_if_not = 0.001
-    diam_cylinders = 0.05
     main_body = None
     
     '''for b in range(o.N_beams):
@@ -322,14 +336,18 @@ def plot_iterations_new(o):
                 twist_lock = myramid_mesh
                 main_body = mesh.Mesh(np.concatenate([main_body.data, twist_lock.data]))'''
 
-    for b in range(o.N_beams):
+    for b in range(o.s.n_beams):
         # if b not in taken_beams:  # CДЕЛАТЬ ПО НОРМАЛЬНОМУ
         if np.sum(o.s.flag[b]) > 0:
             r1 = o.s.r1[b]
             r2 = o.s.r2[b]
-        else:
+        elif b not in o.taken_beams:
             r1 = o.s.r_st[b]
             r2 = o.s.r_st[b] - np.array([o.s.length[b], 0, 0])
+        else:  # Нет учёта нескольких аппаратов: взятый стержень
+            _, _, tau = orientation_taken_rod(o, id_app=0)
+            r1 = o.o_b(o.a.r[0]) + tau * o.s.length[b] / 2  # np.array([o.s.length[b] / 2, 0, 0])
+            r2 = o.o_b(o.a.r[0]) - tau * o.s.length[b] / 2  
         if o.coordinate_system == 'orbital':
             r1 = o.r_ub + o.S.T @ (r1 - o.r_center)
             r2 = o.r_ub + o.S.T @ (r2 - o.r_center)
@@ -337,7 +355,7 @@ def plot_iterations_new(o):
             r1 = o.S.T @ r1
             r2 = o.S.T @ r2
 
-        vertices = show_beam(r1, r2, 1, diam_cylinders)
+        vertices = show_beam(r1, r2, 1)
         hull = spatial.ConvexHull(vertices)
         faces = hull.simplices
         myramid_mesh = mesh.Mesh(np.zeros(faces.shape[0], dtype=mesh.Mesh.dtype))
@@ -350,7 +368,7 @@ def plot_iterations_new(o):
             twist_lock = myramid_mesh
             main_body = mesh.Mesh(np.concatenate([main_body.data, twist_lock.data]))
             
-    for b in range(o.N_cont_beams):
+    for b in range(o.c.n):
         r1 = o.c.r1[b]
         r2 = o.c.r2[b]
         if o.coordinate_system == 'orbital':
@@ -382,13 +400,17 @@ def plot_iterations_new(o):
 def plot_apps_new(o):
     """Возвращает mesh аппаратов"""
     ready_mesh = None
-    for app in range(o.N_app):
-        r_tmp = o.S @ (o.a.r[app] - o.r_ub) + o.r_center
+    for id_app in range(o.a.n):
+        r_tmp = o.S @ (o.a.r[id_app] - o.r_ub) + o.r_center
         if o.coordinate_system == 'orbital':
-            r_tmp = o.a.r[app]
+            r_tmp = o.a.r[id_app]
         if o.coordinate_system == 'support':
-            r_tmp = (o.a.r[app] - o.r_ub) + o.r_center
-        main_body = mesh.Mesh(draw_apparatus(0.2, 0.3, r_tmp, np.array([0, 0, 1]), np.array([0, -1, 0]), 0,
+            r_tmp = (o.a.r[id_app] - o.r_ub) + o.r_center
+        r_tmp += 0.5 * r_tmp / np.linalg.norm(r_tmp)
+        n, b, tau = orientation_taken_rod(o, id_app=id_app)
+        vec_up = o.S.T @ n
+        vec_front = o.S.T @ b
+        main_body = mesh.Mesh(draw_apparatus(0.2, 0.3, r_tmp, vec_up, vec_front, 0,
                                              30 * np.pi / 180, 70 * np.pi / 180, 0, 30 * np.pi / 180,
                                              70 * np.pi / 180).data)
         verts_temp, faces_temp = [], []
@@ -397,7 +419,7 @@ def plot_apps_new(o):
             verts_temp.append(main_body.v1[i])
             verts_temp.append(main_body.v2[i])
             faces_temp.append([i * 3, i * 3 + 1, i * 3 + 2])
-        app_color = "navy" if o.a.flag_beam[app] is None else "m"
+        app_color = "navy" if o.a.flag_beam[id_app] is None else "m"
         if ready_mesh is None:
             ready_mesh = vedo.Mesh([verts_temp, faces_temp]).clean().color(app_color)
         else:
@@ -464,25 +486,16 @@ def draw_vedo_and_save(o, i_time: int, fig_view, app_diagram: bool = True):
     if o.coordinate_system == 'orbital':
         msh += fig_plot(o, o.line_str_orf, None)
         # msh += avoid_field(o)  # А вот это ты крутой конечно, но оно кушает много
-        for i in range(o.N_app):
-            msh += fig_plot(o, o.line_app_brf[i], o.b_o(o.a.target[i]))
+        for i in range(o.a.n):
+            # msh += fig_plot(o, o.line_app_brf[i], o.b_o(o.a.target[i]))
             msh += fig_plot(o, o.line_app_orf[i])
-            msh += fig_plot(o, line_target(r=o.a.target[i], d=o.d_to_grab), o.b_o(o.a.target[i]))
-            if o.method == 'linear-propulsion':
-                tmp = simple_control(o, o.a_self[i], (o.t - o.t_start[i]) / o.T_max)
-            else:
-                tmp = o.a_self[i]
-            if np.linalg.norm(tmp) > 1e-9:
-                msh += draw_flat_arrow(np.array(tmp) * 3 / o.a_pid_max, o, i, 'c')
-            if np.linalg.norm(o.a_orbital[i]) > 1e-9:
-                msh += draw_flat_arrow(np.array(o.a_orbital[i]) * 3 / o.a_pid_max, o, i, 'g')
+            msh += fig_plot(o, line_target(r=o.b_o(o.a.target[i]), d=o.d_to_grab), o.b_o(o.a.target[i]))
         if (not o.survivor) and o.collision_foo == 'Line':
             msh += fig_plot(o, line_chaos(), None)
+    elif o.coordinate_system == 'body':
+        msh += fig_plot(o, o.line_app_brf, o.a.target[0])
     else:
-        if o.coordinate_system == 'body':
-            msh += fig_plot(o, o.line_app_brf, o.a.target[0])
-        else:
-            raise Exception("Укажите систему координат правильно!")
+        raise Exception("Укажите систему координат правильно!")
     fig_view.pop().add(msh)
 
     if o.is_saving and (i_time % o.save_rate) == 0:

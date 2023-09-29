@@ -880,4 +880,3 @@ def plot_iter_downgrade(filename: str = ''):
     plt.legend()
     f.close()
     plt.show()
-

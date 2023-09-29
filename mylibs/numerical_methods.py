@@ -72,7 +72,7 @@ def f_to_capturing(u, *args):
     u = o.cases['repulse_vel_control'](u)
     dr, dr_average, e, V, R, w, j, n_crashes, visible, crhper = calculation_motion(o=o, u=u, T_max=T_max, id_app=id_app,
                                                                                    interaction=interaction,
-                                                                                   check_visible=check_visible)
+                                                                                   check_visible=False)
     return capturing_penalty(o, dr, dr_average, e, V, R, w, j, n_crashes, visible, crhper, mu_ipm), np.linalg.norm(dr)
 
 def f_to_detour(u, *args):
@@ -152,10 +152,7 @@ def calc_shooting(o, id_app, r_1, interaction: bool = True, u0: any = None, n: i
     Output:                                                                                 \n
     -> u - оптимальный вектор скорости отталкивания/импульса (ССК при interaction=True, ОСК иначе)"""
     shooting_amount = o.shooting_amount_repulsion if interaction else o.shooting_amount_impulse
-    if interaction:
-        tmp = r_1 - np.array(o.o_b(o.a.r[id_app]))
-    else:
-        tmp = o.b_o(r_1) - np.array(o.a.r[id_app])
+    tmp = r_1 - o.o_b(o.a.r[id_app]) if interaction else o.b_o(r_1) - np.array(o.a.r[id_app])
     mu_e = o.mu_e
     T_max = o.T_max if T_max is None else T_max
     u = o.u_min * tmp / np.linalg.norm(tmp) if u0 is None else u0
@@ -179,7 +176,7 @@ def calc_shooting(o, id_app, r_1, interaction: bool = True, u0: any = None, n: i
             u_i = np.diag([du * o.u_max] * 3 + [du * o.a_pid_max] * (n - 3) + [10])
         else:
             u_i = np.diag([du * o.u_max] * 3 + [du * o.a_pid_max] * (n - 3))
-        # mu_ipm /= 2
+        mu_ipm /= 2
         mu_e /= 2
         i_iteration += 1
 

@@ -411,6 +411,7 @@ def repulsion(o, id_app, u_a_priori=None):
     -> id_app - номер аппарата                                                  \n
     -> u_a_priori - заданный вектор скорости отталкивания"""
     # Параметры до отталкивания
+    N = 100
     o.repulse_app_config(id_app=id_app)
     r_1 = o.a.target[id_app]
 
@@ -425,7 +426,6 @@ def repulsion(o, id_app, u_a_priori=None):
                                 n_vec=o.diff_evolve_vectors, chance=0.5, f=0.8, len_vec=3, n_times=o.diff_evolve_times,
                                 multiprocessing=True, print_process=True)
         elif '2d_analytics' in method_comps:
-            N = 40
             m_extra, M_without, J, J_1, J_p, r_center, r_center_p, r, R, r0c, R0c, R_p, V_p = \
                 o.get_repulsion_change_params(id_app)
             r1 = o.b_o(r_1)
@@ -451,10 +451,9 @@ def repulsion(o, id_app, u_a_priori=None):
                     u0 = u1.copy()
                     break
         elif 'hkw_analytics' in method_comps:
-            N = 40
             u0 = np.zeros(3)
             count = 0
-            for T in np.linspace(4500, o.T_max, N):
+            for T in np.linspace(3000, o.T_max, N):
                 count += 1
                 flag_in_sphere = False
                 r1 = o.b_o(r_1)

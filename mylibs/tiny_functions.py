@@ -1,6 +1,17 @@
 import numpy as np
 
 
+def ortogonal_vec(r1, r2):
+    """Функция возвращает какой-то ортогональный вектор к отрезку r1-r2"""
+    n = r1 - r2
+    if np.linalg.norm(my_cross(n, [1., 0., 0.])) > 1e-4:
+        b = my_cross(n, [1., 0., 0.])
+        b /= np.linalg.norm(b)
+    else:
+        b = [0., 1., 0.]
+    t = my_cross(n, b)
+    return t / np.linalg.norm(t)
+
 def local_tensor_of_rod(r1, r2):
     """Тензор инерции стрежня в СтСК, без учёта массы"""
     J_xx = (r1[1] ** 2 + r1[1] * r2[1] + r2[1] ** 2 + r1[2] ** 2 + r1[2] * r2[2] + r2[2] ** 2) / 3

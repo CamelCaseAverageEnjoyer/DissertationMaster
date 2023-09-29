@@ -1,6 +1,16 @@
-from PIL import Image
+"""Embed a mesh into a skybox environment
+Mesh lighting is by Physically Based Rendering (PBR)"""
+from vedo import *
+import vedo
 
-for i in range(1757):  # 1757
-    im = Image.open(f"img/gibbon_{(i+1):04}.png")
-    im1 = im.crop((600, 390, 1370, 760))
-    im1.save(f"img2/gibbon_{(i+1):04}.png")
+msh = Mesh(dataurl+"man.vtk").rotate_x(-90)
+
+# Use physically based rendering (PBR):
+msh.c("white").lighting(metallicity=1, roughness=0.05)
+
+# Specify a skybox environment from a HDR file
+# (more skybox example HDR files at https://polyhaven.com/hdris)
+# cubemap_path = download(dataurl+"kloppenheim_06_4k.hdr")
+cubemap_path = "hdri/kloppenheim_02_puresky_4k.hdr"
+
+show(msh, __doc__, bg=cubemap_path).close()

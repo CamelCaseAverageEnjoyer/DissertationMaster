@@ -16,9 +16,9 @@ class AllProblemObjects(object):
                  if_avoiding=False,                     # Исскуственное избежание столкновения
 
                  N_apparatus=1,                         # Количество аппаратов
-                 diff_evolve_vectors=10,                # Количество проб дифф. эволюции
+                 diff_evolve_vectors=20,                # Количество проб дифф. эволюции
                  diff_evolve_times=3,                   # Количество эпох дифф. эволюции
-                 shooting_amount_repulsion=15,          # Шаги пристрелки отталкивания
+                 shooting_amount_repulsion=25,          # Шаги пристрелки отталкивания
                  shooting_amount_impulse=10,            # Шаги пристрелки импульсного управления
 
                  diff_evolve_F=0.8,                     # Гиперпараметр дифф. эволюции
@@ -38,7 +38,7 @@ class AllProblemObjects(object):
                  w_twist=0.,
                  e_max=1e10,        # Относительное максимальная допустимое отклонение энергии (иск огр)
                  # 0,12 градуса в секунду
-                 w_max=0.002,       # Максимально допустимая скорость вращения станции (искуственное ограничение)
+                 w_max=0.001,       # Максимально допустимая скорость вращения станции (искуственное ограничение)
                  V_max=0.04,        # Максимально допустимая поступательная скорость станции (искуственное ограничение)
                  R_max=10.,         # Максимально допустимое отклонение станции (искуственное ограничение)
                  j_max=45,          # Максимально допустимый след матрицы поворота S (искуственное ограничение)
@@ -51,6 +51,7 @@ class AllProblemObjects(object):
                  choice='3',                    # Тип конструкции
                  choice_complete=False,         # Уже собранная конструкция (для отладки)
                  floor=5,
+                 extrafloor=0,
 
                  if_talk=False,                 # Мне было скучно
                  if_multiprocessing=True,       # Многопроцессорность
@@ -80,7 +81,7 @@ class AllProblemObjects(object):
         self.file_name = 'storage/main.txt'
         self.main_numerical_simulation = s is None
         self.survivor = True            # Зафиксирован ли проход "через текстуры" (можно сделать вылет программы)
-        self.warning_message = True     # Если где-то проблема, вместо вылета программы я обозначаю её сообщениями
+        self.warning_message = False    # Если где-то проблема, вместо вылета программы я обозначаю её сообщениями
         self.t_flyby = T_max * 0.95     # Время необходимости облёта
         self.if_talk = if_talk
         self.if_multiprocessing = if_multiprocessing
@@ -142,7 +143,7 @@ class AllProblemObjects(object):
         # Параметры рассматриваемых объектов
         if s is None:
             self.s, self.c, self.a = get_all_components(choice=choice, complete=choice_complete, n_app=N_apparatus,
-                                                        floor=floor)
+                                                        floor=floor, extrafloor=extrafloor)
             if file_reset:
                 f = open(self.file_name, 'w')
                 f.write(f"ограничения {self.R_max} {self.V_max} {self.j_max} {self.w_max}\n")
@@ -160,11 +161,16 @@ class AllProblemObjects(object):
         self.choice = choice
         self.t_start = np.zeros(self.a.n + 1)
         self.M = np.sum(self.s.mass) + np.sum(self.c.mass)
+        if self.main_numerical_simulation:
+            self.my_print(f"m_a: {self.a.mass[0]}, m_ub= {'{:.2f}'.format(np.sum(self.s.mass))} + {np.sum(self.c.mass)} = {'{:.2f}'.format(self.M)}", mode='c')
 
-        q12 = [[1 / np.sqrt(2) * (begin_rotation[j] in i) for i in ['xyz', 'x', 'y', 'z']] for j in range(2)]
+        q12 = [[1 / np.sqrt(2) * (begin_rotation[j] in i) for i in ['xyz', 'x', 'y', 'z']] for j in range(len(begin_rotation))]
         self.w_hkw = np.sqrt(mu / Radius_orbit ** 3)
         self.w_hkw_vec = np.array([0., 0., self.w_hkw])  # ИСК
-        self.La = np.array(q_dot(q12[0], q12[1]))
+        if len(q12) == 1:
+            self.La = np.array(q12[0])
+        else:
+            self.La = np.array(q_dot(q12[0], q12[1]))
         self.U, self.S, self.A, self.R_e = self.get_matrices(self.La, 0.)
         self.r_ub = np.zeros(3)
         self.v_ub = np.zeros(3)

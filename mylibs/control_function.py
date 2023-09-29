@@ -50,20 +50,20 @@ def avoiding_force(o, id_app, r=None):
                 r2 = [o.s.r_st[i][0] - o.s.length[i], o.s.r_st[i][1], o.s.r_st[i][2]]
             tmp = call_crash_internal_func(r, r1, r2, o.d_crash, return_force=True, k_av=o.k_av, level=o.level_avoid)
             if tmp is not False:
-                if o.N_app > 0:
+                if o.a.n > 0:
                     if np.linalg.norm(tmp) > np.linalg.norm(force) and np.linalg.norm(o.a.target[id_app] - r1) > 0.5:
                         force = tmp.copy()
                 else:
                     if np.linalg.norm(tmp) > np.linalg.norm(force):
                         force = tmp.copy()
 
-    for i in range(o.N_cont_beams):
+    for i in range(o.c.n):
         r1 = o.c.r1[i]
         r2 = o.c.r2[i]
         tmp_point = (np.array(r1) + np.array(r2)) / 2
         tmp_force = call_crash_internal_func(r, r1, r2, o.c.diam[i], return_force=True, k_av=o.k_av, level=o.level_avoid)
         if tmp_force is not False:
-            if o.N_app > 0:
+            if o.a.n > 0:
                 if np.linalg.norm(tmp_force) > np.linalg.norm(force) and np.linalg.norm(o.a.target[id_app] - tmp_point) > 0.5:
                     force = tmp_force.copy()
             else:

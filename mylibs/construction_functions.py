@@ -52,11 +52,12 @@ def package_beams(N, h):
 
 
 class Structure(object):
-    def __init__(self, choice: str = '1', complete: bool = False, floor: int = 5, mass_per_length: float = 1.,
+    def __init__(self, choice: str = '1', complete: bool = False, floor: int = 5, extrafloor: int = 0, mass_per_length: float = 1.,
                  testing=False):
         if floor < 1:
             raise "Поменяй параметры конструкции: floor должен быть равным 1 или больше"
         self.floor = floor
+        self.extrafloor = extrafloor
         self.choice = choice
         self.container_length = 12.
         self.h = 0.15
@@ -255,7 +256,7 @@ class Structure(object):
                                         [-np.sin(phi), 0., np.cos(phi)]])
 
             for i in range(big_circle_floors):
-                for j in range(12):
+                for j in range(12 * (1 + 2 * extrafloor)):
                     self.id += [self.n_beams]
                     self.n_beams += 1
                 copies = copy.deepcopy(rot_nods)
@@ -421,6 +422,17 @@ class Container(object):
 
             r_beams = 0.05
             r_around = r_container - 0.2
+            self.r_around = r_around
+            self.id += [self.n]
+            self.mass += [0.5]
+            self.diam += [r_around]
+            self.r1 += [[-s.x_start, 0, 0]]
+            self.r2 += [[-s.x_start - s.container_length, 0, 0]]
+            self.flag_grab += [False]
+            self.n += 1
+
+            '''r_beams = 0.05
+            r_around = r_container - 0.2
             n_around = round(2 * np.pi * r_container / r_beams * 0.6)
             self.r_around = r_around
             for i in range(n_around):
@@ -461,7 +473,7 @@ class Container(object):
             r1 = [rotation_matrix @ r1[i] for i in range(n_crossbar)]
             r2 = [rotation_matrix @ r2[i] for i in range(n_crossbar)]
             self.r1 += r1
-            self.r2 += r2
+            self.r2 += r2'''
 
             self.id = np.array(self.id)
             self.mass = np.array(self.mass)
@@ -546,9 +558,9 @@ class Apparatus(object):
 
 
 def get_all_components(choice: str = '1', testing: bool = False, complete: bool = False, n_app: int = 1,
-                       floor: int = 5):
+                       floor: int = 5, extrafloor: int = 0):
     """Функция инициализирует классы конструкции и аппаратов"""
-    s = Structure(choice=choice, testing=testing, complete=complete, floor=floor)
+    s = Structure(choice=choice, testing=testing, complete=complete, floor=floor, extrafloor=extrafloor)
     c = Container(s=s, choice=choice)
     a = Apparatus(s, n=n_app)
     return s, c, a
