@@ -5,31 +5,32 @@ import copy
 from mylibs.tiny_functions import *
 
 
+def e_combined(c: float, c_max: float, delta: float = 1e-2):
+    if c/c_max <= 1 - delta:
+        e = 1 - c/c_max
+    else:
+        e = delta * np.exp((1 - c/c_max - delta) / delta)
+    return clip(e, 1e-3, 1e10)
+
+def f_combined(e: float, dr: float = 5., mu: float = 1e-2):
+    return dr**2 - mu*np.log(e)
+
 def capturing_penalty(o, dr, dr_average, e, V, R, w, j, n_crashes, visible, crhper, mu_ipm):
-    reserve_rate = 0.0001
-    '''e_V = reserve_rate if (o.V_max - V) > 0 else abs((o.V_max - V)/o.V_max + reserve_rate*np.exp((o.V_max - V)/o.V_max))
-    e_R = reserve_rate if (o.R_max - R) > 0 else abs((o.R_max - R)/o.R_max + reserve_rate*np.exp((o.R_max - R)/o.R_max))
-    e_w = reserve_rate if (o.w_max - w) > 0 else abs((o.w_max - w)/o.w_max + reserve_rate*np.exp((o.w_max - w)/o.w_max))
-    e_j = reserve_rate if (o.j_max - j) > 0 else abs((o.j_max - j)/o.j_max + reserve_rate*np.exp((o.j_max - j)/o.j_max))'''
-    e_w = 1 - abs(w)/o.w_max + reserve_rate if (1 - abs(w)/o.w_max) > 0 else reserve_rate * np.exp(1 - abs(w)/o.w_max)
-    e_j = 1 - abs(j)/o.j_max + reserve_rate if (1 - abs(j)/o.j_max) > 0 else reserve_rate * np.exp(1 - abs(j)/o.j_max)
-    e_V = 1 - abs(V)/o.V_max + reserve_rate if (1 - abs(V)/o.V_max) > 0 else reserve_rate * np.exp(1 - abs(V)/o.V_max)
-    e_R = 1 - abs(R)/o.R_max + reserve_rate if (1 - abs(R)/o.R_max) > 0 else reserve_rate * np.exp(1 - abs(R)/o.R_max)
-    # print(f"eV={e_V}, eR={e_R}, ew={e_w}, ej={e_j} {(o.w_max - w)/o.w_max}")
-    id_app = 0
-    a = o.a.target[id_app] - o.o_b(o.r_ub)
+    delta = 1e-1
+    id_app = 0  # ШАМАНСТВО, нет учёта нескольких аппаратов
+    e_w = e_combined(c=abs(w), c_max=o.w_max, delta=delta)
+    e_j = e_combined(c=abs(j), c_max=o.j_max, delta=delta)
+    e_V = e_combined(c=abs(V), c_max=o.V_max, delta=delta)
+    e_R = e_combined(c=abs(R), c_max=o.R_max, delta=delta)
+    '''a = o.a.target[id_app] - o.o_b(o.r_ub)
     tau = my_cross(dr, a + dr)
     tau /= np.linalg.norm(tau)
     b = my_cross(tau, dr)
     b /= np.linalg.norm(b)
-    tmp = abs(np.dot(dr / np.linalg.norm(dr), a / np.linalg.norm(a))) * 1e2 
+    tmp = abs(np.dot(dr / np.linalg.norm(dr), a / np.linalg.norm(a))) * 1e2 '''
     # anw = np.linalg.norm(dr) * (clip(1 - crhper, 0, 1) + clip(crhper, 0, 1) * tmp)
-    anw = dr * (clip(1 - crhper, 0, 1) + clip(crhper, 0, 1) * tmp)
+    anw = dr * np.linalg.norm(dr)  # * (clip(1 - crhper, 0, 1) + clip(crhper, 0, 1) * tmp)
     anw += (-mu_ipm * (np.log(e_w) + np.log(e_V) + np.log(e_R) + np.log(e_j))) * dr / np.linalg.norm(dr)
-    '''min_local = -1e10
-    anw += (mu_ipm * (clip(w/o.w_max - 1, min_local, 1e10)**2 + clip(j/o.j_max - 1, min_local, 1e10)**2 +
-                      clip(R/o.R_max - 1, min_local, 1e10)**2 + clip(V/o.V_max - 1, min_local, 1e10)**2)) * \
-           dr / np.linalg.norm(dr)'''
     return anw
 
 def detour_penalty(o, dr, dr_average, e, V, R, w, j, n_crashes, visible, crhper, mu_ipm):

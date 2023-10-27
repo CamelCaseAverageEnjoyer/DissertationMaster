@@ -1,16 +1,49 @@
-"""Embed a mesh into a skybox environment
-Mesh lighting is by Physically Based Rendering (PBR)"""
-from vedo import *
-import vedo
+from PIL import Image
 
-msh = Mesh(dataurl+"man.vtk").rotate_x(-90)
+# Уменьшить число кадров
+n = 8614
+rate = 6
+for i in range(int(n // rate)):
+        im = Image.open(f"img/10/gibbon_{((i + 1) * rate):0{4}}.png") 
+        im.save(f"img2/10/gibbon_{(i + 1):0{4}}.jpg")
 
-# Use physically based rendering (PBR):
-msh.c("white").lighting(metallicity=1, roughness=0.05)
 
-# Specify a skybox environment from a HDR file
-# (more skybox example HDR files at https://polyhaven.com/hdris)
-# cubemap_path = download(dataurl+"kloppenheim_06_4k.hdr")
-cubemap_path = "hdri/kloppenheim_02_puresky_4k.hdr"
+'''y1 = [54.5, 1.28, 0.47453]
+y2 = [13.998, 16.11, 3.196, 3.21, 3.2618, 3.244, 3.0996, 0.95499, 0.38613]
+y3 = [12.74299, 0.4739]
+y4 = [17.74797, 1,457, 0.45737]
+x = [1, 2, 3]
+plt.plot([1, len(y2)], [0.5, 0.5], label='ε')
+plt.plot(np.arange(len(y1)) + 1, y1)
+plt.plot(np.arange(len(y2)) + 1, y2)
+plt.plot(np.arange(len(y3)) + 1, y3)
+plt.ylabel("Невязка Δr, м", fontsize=15)
+plt.xlabel("Итерации", fontsize=15)
+plt.legend()
+plt.show()
 
-show(msh, __doc__, bg=cubemap_path).close()
+y1 = [3.2620e+03, 8.6042e+03, 8.2748e+03, 3.0384e+03, 8.4549e+02, 3.4871e+02, 1.6901e+02, 1.1868e+02, 1.1067e+02, 1.1016e+02, 1.1034e+02, 
+        1.1053e+02, 1.1063e+02, 1.1059e+02, 1.1041e+02, 1.1041e+02, 1.1041e+02, 1.1041e+02, 1.1041e+02, 1.1038e+02, 1.1038e+02, 1.1035e+02, 
+        1.1035e+02, 1.1034e+02, 1.1019e+02, 1.1001e+02, 1.1001e+02, 1.0996e+02, 1.0982e+02, 1.0958e+02, 1.0846e+02, 1.0783e+02, 1.0670e+02, 
+        1.0670e+02, 1.0642e+02, 1.0598e+02, 1.0598e+02, 1.0582e+02, 1.0553e+02, 1.0496e+02, 1.0496e+02, 1.0458e+02, 1.0458e+02, 1.0433e+02, 
+        1.0271e+02, 1.0271e+02, 8.6593e+01, 6.1708e+01, 2.6835e+01, 1.3145e+01, 1.1598e+01, 1.1604e+01, 1.1604e+01, 1.1604e+01, 1.1604e+01, 
+        7.9902e+00, 4.9761e+00, 3.5065e+00, 3.5065e+00, 2.1466e+00, 1.3726e+00, 9.2869e-01, 9.3122e-01, 7.9038e-01, 7.9038e-01, 7.9038e-01,
+        3.7559e-01, 6.7691e-02, 4.0578e-02, 3.9191e-02, 3.6617e-02, 3.6559e-02, 3.6559e-02, 3.6559e-02, 3.6559e-02, 2.4321e-02]
+plt.plot([1, len(y1)], [0.5, 0.5], label='ε')
+plt.plot(np.arange(len(y1)) + 1, [np.sqrt(y) for y in y1])
+plt.ylabel("Невязка Δr, м", fontsize=15)
+plt.xlabel("Итерации", fontsize=15)
+plt.legend()
+plt.show()'''
+
+'''y1 = [3.2620e+03, 8.6042e+03, 8.2748e+03, 3.0384e+03, 8.4549e+02, 3.4871e+02, 1.6901e+02, 1.1868e+02, 1.1067e+02, 1.1016e+02, 1.1034e+02,
+        1.1053e+02, 1.1063e+02, 1.1059e+02, 1.1041e+02, 1.1041e+02, 1.1041e+02, 1.1041e+02, 1.1041e+02, 1.1038e+02, 1.1038e+02, 1.1035e+02,
+        1.1035e+02, 1.1034e+02, 1.1019e+02, 1.1001e+02, 1.1001e+02, 1.0996e+02, 1.0982e+02, 1.0958e+02, 1.0846e+02, 1.0783e+02, 1.0670e+02,
+        1.0670e+02, 1.0642e+02, 1.0598e+02, 1.0598e+02, 1.0582e+02, 1.0553e+02, 1.0496e+02, 1.0496e+02, 1.0458e+02, 1.0458e+02, 1.0433e+02,
+        1.0271e+02, 1.0271e+02, 8.6593e+01, 6.1708e+01, 2.6835e+01, 1.3145e+01, 1.1598e+01, 1.1604e+01, 1.1604e+01, 1.1604e+01, 1.1604e+01,
+        7.9902e+00, 4.9761e+00, 3.5065e+00, 3.5065e+00, 2.1466e+00, 1.3726e+00, 9.2869e-01, 9.3122e-01, 7.9038e-01, 7.9038e-01, 7.9038e-01,
+        3.7559e-01, 6.7691e-02, 4.0578e-02, 3.9191e-02, 3.6617e-02, 3.6559e-02, 3.6559e-02, 3.6559e-02, 3.6559e-02, 2.4321e-02]
+f = open('storage/iteration_docking_scipy.txt', 'w')
+for i in range(len(y1)):
+        f.write(f"{i} {np.sqrt(y1[i])}\n")
+f.close()'''

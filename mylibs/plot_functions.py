@@ -16,8 +16,8 @@ import vedo
 from mylibs.tiny_functions import *
 
 RADIUS_PER_LEN = 0.1
-N_BEAM_ROUND = 20
-LINE_WIDTH = 4
+N_BEAM_ROUND = 50
+LINE_WIDTH = 1
 
 
 def color_between(tau: float):
@@ -83,21 +83,21 @@ def plot_by_y(y, x=None, name=None, color: str = 'slategray', color_zero: str = 
     plt.show()
     
 
-def fig_plot(o, line_0, point=None):
+def fig_plot(o, line_0, point=None, color=None):
     """Функция распаковки линии, построения vedo.Line"""
     global LINE_WIDTH
     N = int(np.floor(len(line_0) / 3))
     x = [line_0[3 * i + 0] for i in range(N)]
     y = [line_0[3 * i + 1] for i in range(N)]
     z = [line_0[3 * i + 2] for i in range(N)]
-    if point is not None:
-        '''for i in range(N):
-            x[i], y[i], z[i] = o.b_o(np.array([x[i], y[i], z[i]]))'''
-        vertices = [[x[i], y[i], z[i]] for i in range(N)]
-        line = vedo.Line(vertices, c=(238/255, 130/255, 238/255), lw=LINE_WIDTH) + vedo.Point(point, c='c')
+    if o.coordinate_system == 'real':
+        vertices = [o.U.T @ np.array([x[i], y[i], z[i]]) for i in range(N)]
     else:
         vertices = [[x[i], y[i], z[i]] for i in range(N)]
-        line = vedo.Line(vertices, c=(135/255, 206/255, 250/255), lw=LINE_WIDTH)
+    color = (238/255, 130/255, 238/255) if color is None else color
+    line = vedo.Line(vertices, c=color, lw=LINE_WIDTH)
+    if point is not None: 
+        line += vedo.Point(point, c='c')
     return line
 
 
@@ -343,17 +343,20 @@ def plot_iterations_new(o):
             r2 = o.s.r2[b]
         elif b not in o.taken_beams:
             r1 = o.s.r_st[b]
-            r2 = o.s.r_st[b] - np.array([o.s.length[b], 0, 0])
+            r2 = o.s.r_st[b] - np.array([o.s.length[b] + 0.1, 0, 0])
         else:  # Нет учёта нескольких аппаратов: взятый стержень
             _, _, tau = orientation_taken_rod(o, id_app=0)
             r1 = o.o_b(o.a.r[0]) + tau * o.s.length[b] / 2  # np.array([o.s.length[b] / 2, 0, 0])
             r2 = o.o_b(o.a.r[0]) - tau * o.s.length[b] / 2  
         if o.coordinate_system == 'orbital':
-            r1 = o.r_ub + o.S.T @ (r1 - o.r_center)
-            r2 = o.r_ub + o.S.T @ (r2 - o.r_center)
+            r1 = o.b_o(r1)
+            r2 = o.b_o(r2)
         if o.coordinate_system == 'support':
             r1 = o.S.T @ r1
             r2 = o.S.T @ r2
+        if o.coordinate_system == 'real':
+            r1 = o.U.T @ o.b_o(r1)
+            r2 = o.U.T @ o.b_o(r2)
 
         vertices = show_beam(r1, r2, 1)
         hull = spatial.ConvexHull(vertices)
@@ -372,11 +375,14 @@ def plot_iterations_new(o):
         r1 = o.c.r1[b]
         r2 = o.c.r2[b]
         if o.coordinate_system == 'orbital':
-            r1 = o.r_ub + o.S.T @ (r1 - o.r_center)
-            r2 = o.r_ub + o.S.T @ (r2 - o.r_center)
+            r1 = o.b_o(r1)
+            r2 = o.b_o(r2)
         if o.coordinate_system == 'support':
             r1 = o.S.T @ r1
             r2 = o.S.T @ r2
+        if o.coordinate_system == 'real':
+            r1 = o.U.T @ o.b_o(r1)
+            r2 = o.U.T @ o.b_o(r2)
         vertices = show_beam(r1, r2, 1, o.c.diam[b])
         hull = spatial.ConvexHull(vertices)
         faces = hull.simplices
@@ -406,10 +412,16 @@ def plot_apps_new(o):
             r_tmp = o.a.r[id_app]
         if o.coordinate_system == 'support':
             r_tmp = (o.a.r[id_app] - o.r_ub) + o.r_center
+        if o.coordinate_system == 'real':
+            r_tmp = o.U.T @ o.a.r[id_app]
         r_tmp += 0.5 * r_tmp / np.linalg.norm(r_tmp)
         n, b, tau = orientation_taken_rod(o, id_app=id_app)
-        vec_up = o.S.T @ n
-        vec_front = o.S.T @ b
+        if o.coordinate_system == 'orbital':
+            vec_up = o.S.T @ n
+            vec_front = o.S.T @ b
+        if o.coordinate_system == 'real':
+            vec_up = o.A.T @ n
+            vec_front = o.A.T @ b
         main_body = mesh.Mesh(draw_apparatus(0.2, 0.3, r_tmp, vec_up, vec_front, 0,
                                              30 * np.pi / 180, 70 * np.pi / 180, 0, 30 * np.pi / 180,
                                              70 * np.pi / 180).data)
@@ -484,28 +496,31 @@ def draw_vedo_and_save(o, i_time: int, fig_view, camera, app_diagram: bool = Tru
     msh = plot_iterations_new(o).color("silver")
     msh += plot_apps_new(o)
     if o.coordinate_system == 'orbital':
-        msh += fig_plot(o, o.line_str_orf, None)
+        # msh += fig_plot(o, o.line_str_orf, None)
         # msh += avoid_field(o)  # А вот это ты крутой конечно, но оно кушает много
         for i in range(o.a.n):
             # msh += fig_plot(o, o.line_app_brf[i], o.b_o(o.a.target[i]))
-            msh += fig_plot(o, o.line_app_orf[i])
-            msh += fig_plot(o, line_target(r=o.b_o(o.a.target[i]), d=o.d_to_grab), o.b_o(o.a.target[i]))
+            msh += fig_plot(o, o.line_app_orf[i])  # , color='c')
+            msh += fig_plot(o, line_target(r=o.b_o(o.a.target[i]), d=o.d_to_grab), o.b_o(o.a.target[i]), color='c')
         if (not o.survivor) and o.collision_foo == 'Line':
             msh += fig_plot(o, line_chaos(), None)
     elif o.coordinate_system == 'body':
         msh += fig_plot(o, o.line_app_brf, o.a.target[0])
+    elif o.coordinate_system == 'real':
+        pass
     else:
         raise Exception("Укажите систему координат правильно!")
 
-    # help(fig_view.pop())
     fig_view.pop().add(msh)
-    fig_view.fly_to(o.a.r[0])
+    # fig_view.fly_to(o.a.r[0])
 
     n, b, tau = orientation_taken_rod(o, id_app=0)
-    camera.SetPosition(o.a.r[0] + o.S.T @ n * 3 + o.S.T @ tau * 3)
-    camera.SetRoll(180)
-    camera.SetEyePosition(- o.S.T @ tau)
-    # help(camera)
+    if o.coordinate_system == 'real':
+        pos = o.U.T @ o.a.r[0] + o.A.T @ n * 10 - o.A.T @ b * 1
+        view_to = o.U.T @ o.a.r[0] - pos
+        camera.SetPosition(pos)
+        camera.SetRoll(90)
+        camera.SetEyePosition(view_to)
 
     if o.is_saving and (i_time % o.save_rate) == 0:
         o.frame_counter += 1

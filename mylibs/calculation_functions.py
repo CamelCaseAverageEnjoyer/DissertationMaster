@@ -63,23 +63,21 @@ def call_crash(o, r_sat, R, S, taken_beams=np.array([]), iFunc=False, brf=False)
             return False
         r = r_sat if brf else o.o_b(r_sat, S=S, R=R)
         for i in range(o.s.n_beams):
-            if not(np.any(taken_beams == i)):
-                if np.sum(o.s.flag[i]) > 0:
+            last_id = 8 + i * 4 + (o.s.floor + 1) * 4
+            if o.choice == '4' and i < last_id or o.choice != '4':  # прикол на большой круг  контсрукции 4
+                if not(np.any(taken_beams == i)) and np.sum(o.s.flag[i]) > 0:
                     r1 = o.s.r1[i]
                     r2 = o.s.r2[i]
                     if call_crash_internal_func(r, r1, r2, o.d_crash):
                         return True
-                '''else:
-                    r1 = [o.s.r_st[i][0], o.s.r_st[i][1], o.s.r_st[i][2]]
-                    r2 = [o.s.r_st[i][0] - o.s.length[i], o.s.r_st[i][1], o.s.r_st[i][2]]
-                    if call_crash_internal_func(r, r1, r2, o.d_crash):
-                        return True
-        for i in range(o.N_cont_beams):
-            r1 = o.c.r1[i]
-            r2 = o.c.r2[i]
-            if call_crash_internal_func(r, r1, r2, o.c.diam[i] * 1.01):
-                return True'''
-        ######################################################
+        if o.choice == '4':  # собсна большой круг
+            ext = call_crash_internal_func(r, np.array([0., o.s.big_length / 2, 0.]), 
+                                           np.array([0., - o.s.big_length / 2, 0.]), o.s.r_big_circle + o.s.big_length)
+            int = call_crash_internal_func(r, np.array([0., o.s.big_length / 2, 0.]), 
+                                           np.array([0., - o.s.big_length / 2, 0.]), o.s.r_big_circle)
+            if not int and ext:
+                return True
+
         r1 = o.c.r1[0]
         r2 = o.c.r2[0]
         if call_crash_internal_func(r, r1, r2, o.c.diam[0] * 1.01):
@@ -88,7 +86,6 @@ def call_crash(o, r_sat, R, S, taken_beams=np.array([]), iFunc=False, brf=False)
                                     o.c.r_around + o.d_crash):
             return True
         return False
-        ######################################################
     else:
         if o.d_crash is None:
             return 1.
@@ -244,7 +241,7 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False,
         # ВЫ ЗАБЫЛИ САМИХ СЕБЯ
         if True:  # np.linalg.norm(f_min) > np.linalg.norm(f):
             f_min = f.copy()
-            crah_percantage = tmp if check_visible else crah_percantage
+            # crah_percantage = tmp if check_visible else crah_percantage
         e_max = max(e_max, o_lcl.get_e_deviation())
         V_max = max(V_max, np.linalg.norm(o_lcl.v_ub))
         R_max = max(R_max, np.linalg.norm(o_lcl.r_ub))
@@ -411,7 +408,7 @@ def repulsion(o, id_app, u_a_priori=None):
     -> id_app - номер аппарата                                                  \n
     -> u_a_priori - заданный вектор скорости отталкивания"""
     # Параметры до отталкивания
-    N = 100
+    N = 20
     o.repulse_app_config(id_app=id_app)
     r_1 = o.a.target[id_app]
 
@@ -435,7 +432,7 @@ def repulsion(o, id_app, u_a_priori=None):
             phi_0 = 0
             phi_0 = my_atan2((o.S[0][0] + o.S[2][2])/2, (o.S[0][2] - o.S[2][0])/2)
             print(f"phi_0 = {phi_0}")
-            for T in np.linspace(4500, o.T_max, N):
+            for T in np.linspace(3000, o.T_max, N):
                 u0 = approx_from_2d(Vp_x=V_p[0], Vp_z=V_p[2], Rp_x=R_p[0], Rp_z=R_p[2], r_x_0=r[0],
                                     r_z_0=r[2], phi_0=phi_0, wp_y=o.w[1], xp_c=r_center_p[0], zp_c=r_center_p[2],
                                     x_c=r_center[0], z_c=r_center[2], w_0=o.w_hkw,
@@ -490,7 +487,12 @@ def repulsion(o, id_app, u_a_priori=None):
         else:
             tmp = r_1 - np.array(o.o_b(o.a.r[id_app]))
             u0 = o.u_min * tmp / np.linalg.norm(tmp)
-            u0 = np.array([-0.00163023, -0.00777977,  0.0007209 ])
+            u0 = np.array([-0.00163023, -0.00777977,  0.0007209])
+        '''if not target_is_reached:
+            u1 = find_repulsion_velocity_new(o, id_app, r_1, True, u0, T, ifunc=False)
+            u1, target_is_reached = my_calc_shooting(o, id_app, r_1, True, u=np.append([T], u1), func=f_dr)
+            if target_is_reached:
+                u0 = u1.copy()'''
 
         # Доводка
         if 'shooting' in method_comps:
@@ -540,12 +542,16 @@ def repulsion(o, id_app, u_a_priori=None):
         o.my_print('Я не справляюсь, включаю импульсы', mode="test")
         o.control = True
         o.if_impulse_control = True
-    o.repulsion_change_params(id_app=id_app, u0=u0)
-    o.my_print(f"App id:{id_app} pushed off with u={np.linalg.norm(u0)}, w={np.linalg.norm(o.w)}", mode="b", test=True)
-    o.my_print(f"Taken beams list: {o.taken_beams}", mode="g", test=True)
-    talk_decision(o.if_talk)
 
     u0 = o.cases['repulse_vel_control'](u0)
+    if target_is_reached:
+        o.repulsion_change_params(id_app=id_app, u0=u0)
+        o.my_print(f"App id:{id_app} pushed off with u={np.linalg.norm(u0)}, w={np.linalg.norm(o.w)}",
+                   mode="b", test=True)
+        o.my_print(f"Taken beams list: {o.taken_beams}", mode="g", test=True)
+        talk_decision(o.if_talk)
+    else:
+        o.remove_repulse_app_config(id_app)
     return u0
 
 

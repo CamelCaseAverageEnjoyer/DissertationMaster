@@ -16,9 +16,9 @@ class AllProblemObjects(object):
                  if_avoiding=False,                     # Исскуственное избежание столкновения
 
                  N_apparatus=1,                         # Количество аппаратов
-                 diff_evolve_vectors=20,                # Количество проб дифф. эволюции
-                 diff_evolve_times=3,                   # Количество эпох дифф. эволюции
-                 shooting_amount_repulsion=25,          # Шаги пристрелки отталкивания
+                 diff_evolve_vectors=200,                # Количество проб дифф. эволюции
+                 diff_evolve_times=5,                   # Количество эпох дифф. эволюции
+                 shooting_amount_repulsion=30,          # Шаги пристрелки отталкивания
                  shooting_amount_impulse=10,            # Шаги пристрелки импульсного управления
 
                  diff_evolve_F=0.8,                     # Гиперпараметр дифф. эволюции
@@ -38,10 +38,10 @@ class AllProblemObjects(object):
                  w_twist=0.,
                  e_max=1e10,        # Относительное максимальная допустимое отклонение энергии (иск огр)
                  # 0,12 градуса в секунду
-                 w_max=0.001,       # Максимально допустимая скорость вращения станции (искуственное ограничение)
+                 w_max=0.002,       # Максимально допустимая скорость вращения станции (искуственное ограничение)
                  V_max=0.04,        # Максимально допустимая поступательная скорость станции (искуственное ограничение)
                  R_max=10.,         # Максимально допустимое отклонение станции (искуственное ограничение)
-                 j_max=45,          # Максимально допустимый след матрицы поворота S (искуственное ограничение)
+                 j_max=1e9,         # Максимально допустимый след матрицы поворота S (искуственное ограничение)
                  a_pid_max=1e-5,    # Максимальное ускорение при непрерывном управлении
 
                  is_saving=False,               # Сохранение vedo-изображений
@@ -153,18 +153,16 @@ class AllProblemObjects(object):
                 f = open('storage/iteration_docking.txt', 'w')
                 f.close()
         else:
-            self.s = s
-            self.c = c
-            self.a = a
-        # self.N_cont_beams = len(self.c.mass)
-        # self.N_app = N_apparatus
+            self.s, self.c, self.a = (s, c, a)
         self.choice = choice
         self.t_start = np.zeros(self.a.n + 1)
         self.M = np.sum(self.s.mass) + np.sum(self.c.mass)
         if self.main_numerical_simulation:
-            self.my_print(f"m_a: {self.a.mass[0]}, m_ub= {'{:.2f}'.format(np.sum(self.s.mass))} + {np.sum(self.c.mass)} = {'{:.2f}'.format(self.M)}", mode='c')
+            self.my_print(f"m_a: {self.a.mass[0]}, m_ub= {'{:.2f}'.format(np.sum(self.s.mass))} + {np.sum(self.c.mass)}"
+                          f" = {'{:.2f}'.format(self.M)}", mode='c')
 
-        q12 = [[1 / np.sqrt(2) * (begin_rotation[j] in i) for i in ['xyz', 'x', 'y', 'z']] for j in range(len(begin_rotation))]
+        q12 = [[1 / np.sqrt(2) * (begin_rotation[j] in i) for i in ['xyz', 'x', 'y', 'z']] for j in
+               range(len(begin_rotation))]
         self.w_hkw = np.sqrt(mu / Radius_orbit ** 3)
         self.w_hkw_vec = np.array([0., 0., self.w_hkw])  # ИСК
         if len(q12) == 1:
@@ -172,10 +170,13 @@ class AllProblemObjects(object):
         else:
             self.La = np.array(q_dot(q12[0], q12[1]))
         self.U, self.S, self.A, self.R_e = self.get_matrices(self.La, 0.)
+        self.S_0 = self.S
         self.r_ub = np.zeros(3)
         self.v_ub = np.zeros(3)
         self.J, self.r_center = call_inertia(self, [], app_y=0)  # НЕУЧЁТ НЕСКОЛЬКИХ АППАРАТОВ
         self.J_1 = np.linalg.inv(self.J)
+        # self.my_print(f"det(J)={np.linalg.det(self.J)} ---> log10={np.log10(np.linalg.det(self.J))}  | "
+        #               f"{self.J[0][0]}", mode='c')
         if self.main_numerical_simulation:
             for i in range(self.a.n):
                 self.a.r[i] = self.b_o(self.a.target[i])
@@ -294,8 +295,8 @@ class AllProblemObjects(object):
         id_beam = self.a.flag_beam[id_app]
         m_beam = 0. if (id_beam is None) else self.s.mass[id_beam]
         m_ub = self.M - m_beam
-        m_a = self.a.mass[id_app] + m_beam
-        return m_a, m_ub
+        m_ss = self.a.mass[id_app] + m_beam
+        return m_ss, m_ub
 
     def get_repulsion(self, id_app: int):
         file = open('storage/repulsions_-1.txt', 'r')
@@ -452,6 +453,19 @@ class AllProblemObjects(object):
         self.a.flag_hkw[id_app] = False if (self.if_PID_control or self.if_LQR_control) else True
         self.a.r_0[id_app] = self.get_discrepancy(id_app)
         self.flag_vision[id_app] = False
+
+    def remove_repulse_app_config(self, id_app: int):
+        if self.a.flag_beam[id_app] is not None:
+            id_beam = self.a.flag_beam[id_app]
+            self.a.flag_beam[id_app] = None
+            self.a.flag_start[id_app] = True
+            self.my_print(f"Аппарат {id_app} положил стержень {id_beam} обратно", mode="b")
+            self.taken_beams = self.taken_beams_p.copy()
+
+        self.a.target[id_app] = self.a.target_p[id_app].copy()
+        self.a.flag_fly[id_app] = False
+        self.a.busy_time[id_app] = self.time_to_be_busy
+        self.t_reaction_counter = self.t_reaction
 
     def get_repulsion_change_params(self, id_app: int):
         r_ub_orf_p = self.r_ub.copy()

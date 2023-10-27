@@ -200,6 +200,7 @@ class Structure(object):
         if choice == '4':
             length = 5.
             beam_length_multiplier = 2
+            self.beam_length_multiplier = beam_length_multiplier
             self.n_beams = 16
             self.h = 0.15
             self.id = list(range(self.n_beams))
@@ -245,6 +246,8 @@ class Structure(object):
 
             r_big_circle = length * (floor + 1)
             length *= beam_length_multiplier
+            self.big_length = length
+            self.r_big_circle = r_big_circle
             big_circle_floors = round(2 * np.pi * floor / beam_length_multiplier)
             phi = -np.pi * 2 / big_circle_floors
             rot_nods = np.array([np.array([0., -length / 2, r_big_circle + length]),
@@ -412,7 +415,7 @@ class Container(object):
             r_container = s.h * s.lvl * 1.5
             self.n = 13
             self.id = list(range(self.n))
-            self.mass = [5.] + [1.] * (self.n - 1)
+            self.mass = [50.] + [30.] * (self.n - 1)  # ШАМАНСТВО, убрать пару ноликов
             self.diam = [5.] + [0.1] * (self.n - 1)
             sequence_1 = [[1., 1., -1.], [6., 4., 4.]]
             sequence_2 = [[-1., 1., -1.], [6., 6., 6.]]

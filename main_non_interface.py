@@ -1,4 +1,6 @@
 """Assembling general problem solution"""
+"""КОСТЫЛЬ НА ОБЩИЙ ЦЕНТР МАСС"""
+"""КОСТЫЛЬ НА МАССУ КОНТЕЙНЕРА"""
 from all_objects import *
 
 choice = '3'
@@ -6,23 +8,23 @@ vedo_picture = True
 to_save = True
 
 # Безтопливный перелёт
-method = "2d_analytics"
-# method = "hkw_analytics"
-# method = "diffevolve"
+# method = "2d_analytics"
+method = "hkw_analytics"
+# method = "diffevolve+shooting"
 
-# Подходы с применением топлива
+'''# Подходы с применением топлива
 # method += "+pd"
 # method += "+imp"
 # method = "const-propulsion"
 # method = "linear-propulsion"
-# method = "linear-angle"
+# method = "linear-angle'''
 o_global = AllProblemObjects(if_impulse_control=False,
                              if_PID_control=False,
                              if_LQR_control=False,
                              if_avoiding=True,
 
                              is_saving=vedo_picture and to_save,
-                             save_rate=30,
+                             save_rate=200,
                              if_talk=False,
                              if_testing_mode=True,
                              choice_complete=False,
@@ -30,17 +32,20 @@ o_global = AllProblemObjects(if_impulse_control=False,
                              method=method,
                              if_T_in_shooting=False,
                              begin_rotation='x' if choice == '4' else 'xx',
-                             w_twist=0. if choice == '4' else 0.,
+                             w_twist=1e-4 if choice == '4' else 0.,
 
-                             dt=10., T_max=10000., u_max=0.1 if choice == '4' else 0.05,
+                             dt=10., T_max=5500., u_max=0.2 if choice == '4' else 0.05,
                              a_pid_max=1e-5, k_p=3e-4, freetime=50,
-                             choice=choice, floor=10, extrafloor=0, d_crash=0.2, d_to_grab=0.5,
-                             N_apparatus=1, file_reset=True, coordinate_system=['orbital', 'body'][0])
+                             choice=choice, floor=20, extrafloor=0, d_crash=0.2, d_to_grab=0.5,
+                             N_apparatus=1, file_reset=True, coordinate_system=['orbital', 'body', 'real'][0])
 
 o_global.my_print(f"Количество стержней: {o_global.s.n_beams}", mode='c')
 if o_global.choice == '4':
-    for j in range(500):
+    for j in range(100):
         o_global.s.flag[j] = np.array([1, 1])
+'''if o_global.choice == '3':
+    for j in range(12):
+        o_global.s.flag[j] = np.array([1, 1])'''
 
 def iteration_func(o):
     o.time_step()
@@ -50,9 +55,10 @@ def iteration_func(o):
         # Repulsion
         o.a.busy_time[id_app] -= o.dt if o.a.busy_time[id_app] >= 0 else 0
         if (not o.a.flag_fly[id_app]) and o.a.busy_time[id_app] < 0:
-            print(f"отталкивание из файла {o.get_repulsion(id_app)}")
-            u = repulsion(o, id_app, u_a_priori=np.array([-0.010698276089, -0.0085969593700, -0.000207605524215]))
-            # u = repulsion(o, id_app, u_a_priori=o.get_repulsion(id_app))
+            u_a_priori = o.get_repulsion(id_app)
+            print(f"отталкивание из файла {u_a_priori}")
+            # u = repulsion(o, id_app, u_a_priori=np.array([-0.010698276089, -0.0085969593700, -0.000207605524215]))
+            u = repulsion(o, id_app)  # , u_a_priori=u_a_priori)
             o.file_save(f'отталкивание {id_app} {u[0]} {u[1]} {u[2]}')
             o.repulsion_save(f'отталкивание {id_app} {u[0]} {u[1]} {u[2]}')
 
@@ -68,7 +74,7 @@ def iteration_func(o):
         m_a, m_ub = o.get_masses(0)
         tmp = (m_a * o.a.r[0] + m_ub * o.r_ub) / (m_a + m_ub) if o.a.flag_fly else o.r_ub
         o.file_save(f'график {id_app} {discrepancy} {np.linalg.norm(o.w)} '
-                    f'{np.linalg.norm(180 / np.pi * np.arccos(clip((np.trace(o.S) - 1) / 2, -1, 1)))} '
+                    f'{np.linalg.norm(180 / np.pi * np.arccos(clip((np.trace(o.S.T @ o.S_0) - 1) / 2, -1, 1)))} '
                     f'{np.linalg.norm(o.v_ub)} {np.linalg.norm(o.r_ub)} {np.linalg.norm(o.a_self[id_app])} '
                     f'{np.linalg.norm(tmp)} {np.linalg.norm(o.r_ub)}')
         o.line_app_brf[id_app] = np.append(o.line_app_brf[id_app], o.o_b(o.a.r[id_app]))
@@ -99,9 +105,10 @@ if __name__ == "__main__":
     global timerId, fig_view, button, evnetId, camera
     if vedo_picture:
         timerId = 1
+        bg = "hdri/6.hdr" if o_global.coordinate_system == 'real' else 'white'
         fig_view = Plotter(bg='white', size=(1920, 1080))
         button = fig_view.add_button(button_func, states=["Play ", "Pause"], size=20,
-                                     font='Bongas', bold=True, pos=[0.9, 0.9])
+                                     font='Bongas', bold=True, pos=[0.98, 0.96])
         fig_view.timer_callback("destroy", timerId)
         evnetId = fig_view.add_callback("timer", iteration_timer)
 
@@ -111,8 +118,9 @@ if __name__ == "__main__":
         n, b, tau = orientation_taken_rod(o_global, id_app=0)
         camera = vedo.oriented_camera(center=o_global.a.r[0],
                                       up_vector=o_global.S.T @ n,
-                                      backoff_vector=o_global.S.T @ tau)
-        fig_view.show(__doc__, my_mesh + app_mesh, zoom=0.5, camera=camera, bg="hdri/kloppenheim_02_puresky_4k.hdr")
+                                      backoff_vector=o_global.S.T @ tau) \
+            if o_global.coordinate_system == 'real' else None
+        fig_view.show(__doc__, my_mesh + app_mesh, zoom=0.5, camera=camera, bg=bg)
 
     else:
         while True:
