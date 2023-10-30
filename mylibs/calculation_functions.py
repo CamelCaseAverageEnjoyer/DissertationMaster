@@ -91,7 +91,7 @@ def call_crash(o, r_sat, R, S, taken_beams=np.array([]), iFunc=False, brf=False)
             return 1.
         r = o.o_b(r_sat, S=S, R=R)
         g = []
-        for i in range(o.N_beams):
+        for i in range(o.s.n_beams):
             if not(np.any(taken_beams == i)):
                 if np.sum(o.s.flag[i]) > 0:
                     r1 = o.s.r1[i]
@@ -488,11 +488,11 @@ def repulsion(o, id_app, u_a_priori=None):
             tmp = r_1 - np.array(o.o_b(o.a.r[id_app]))
             u0 = o.u_min * tmp / np.linalg.norm(tmp)
             u0 = np.array([-0.00163023, -0.00777977,  0.0007209])
-        '''if not target_is_reached:
+        if not target_is_reached:
             u1 = find_repulsion_velocity_new(o, id_app, r_1, True, u0, T, ifunc=False)
             u1, target_is_reached = my_calc_shooting(o, id_app, r_1, True, u=np.append([T], u1), func=f_dr)
             if target_is_reached:
-                u0 = u1.copy()'''
+                u0 = u1.copy()
 
         # Доводка
         if 'shooting' in method_comps:

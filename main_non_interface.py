@@ -24,7 +24,7 @@ o_global = AllProblemObjects(if_impulse_control=False,
                              if_avoiding=True,
 
                              is_saving=vedo_picture and to_save,
-                             save_rate=200,
+                             save_rate=2000,
                              if_talk=False,
                              if_testing_mode=True,
                              choice_complete=False,
@@ -34,7 +34,7 @@ o_global = AllProblemObjects(if_impulse_control=False,
                              begin_rotation='x' if choice == '4' else 'xx',
                              w_twist=1e-4 if choice == '4' else 0.,
 
-                             dt=10., T_max=5500., u_max=0.2 if choice == '4' else 0.05,
+                             dt=1., T_max=5500., u_max=0.2 if choice == '4' else 0.05,
                              a_pid_max=1e-5, k_p=3e-4, freetime=50,
                              choice=choice, floor=20, extrafloor=0, d_crash=0.2, d_to_grab=0.5,
                              N_apparatus=1, file_reset=True, coordinate_system=['orbital', 'body', 'real'][0])
@@ -58,7 +58,7 @@ def iteration_func(o):
             u_a_priori = o.get_repulsion(id_app)
             print(f"отталкивание из файла {u_a_priori}")
             # u = repulsion(o, id_app, u_a_priori=np.array([-0.010698276089, -0.0085969593700, -0.000207605524215]))
-            u = repulsion(o, id_app)  # , u_a_priori=u_a_priori)
+            u = repulsion(o, id_app, u_a_priori=u_a_priori)
             o.file_save(f'отталкивание {id_app} {u[0]} {u[1]} {u[2]}')
             o.repulsion_save(f'отталкивание {id_app} {u[0]} {u[1]} {u[2]}')
 
