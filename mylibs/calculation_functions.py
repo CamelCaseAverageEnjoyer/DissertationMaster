@@ -266,11 +266,11 @@ def calculation_motion(o, u, T_max, id_app, interaction=True, line_return=False,
             if not o_lcl.control and \
                     np.linalg.norm(o_lcl.a.r[id_app] - o_lcl.b_o(o_lcl.a.target_p[id_app])) > 15 * o_lcl.a.r_0[id_app]:
                 break
-            if i % 5 == 0:
+            '''if i % 5 == 0:
                 o_lcl.file_save(f'график {id_app} {np.linalg.norm(f)} {np.linalg.norm(o_lcl.w)} '
                                 f'{np.linalg.norm(180 / np.pi * np.arccos(clip((np.trace(o_lcl.S) - 1) / 2, -1, 1)))} '
                                 f'{np.linalg.norm(o_lcl.v_ub)} {np.linalg.norm(o_lcl.r_ub)} '
-                                f'{np.linalg.norm(o_lcl.a_self[id_app])}')
+                                f'{np.linalg.norm(o_lcl.a_self[id_app])}')'''
 
         # Iterating
         if control is not None:
@@ -488,11 +488,11 @@ def repulsion(o, id_app, u_a_priori=None):
             tmp = r_1 - np.array(o.o_b(o.a.r[id_app]))
             u0 = o.u_min * tmp / np.linalg.norm(tmp)
             u0 = np.array([-0.00163023, -0.00777977,  0.0007209])
-        if not target_is_reached:
+        '''if not target_is_reached:
             u1 = find_repulsion_velocity_new(o, id_app, r_1, True, u0, T, ifunc=False)
             u1, target_is_reached = my_calc_shooting(o, id_app, r_1, True, u=np.append([T], u1), func=f_dr)
             if target_is_reached:
-                u0 = u1.copy()
+                u0 = u1.copy()'''
 
         # Доводка
         if 'shooting' in method_comps:

@@ -107,7 +107,6 @@ def f_controlled_const(v, *args):
 def my_calc_shooting(o, id_app, r_1, interaction: bool = True, u: any = None, func: any = f_dr):
     """u = [T, u_x, u_y, u_z]"""
     shooting_amount = o.shooting_amount_repulsion if interaction else o.shooting_amount_impulse
-    mu_e = o.mu_e
     i_iteration = 0
 
     def local_correction(t, w, v_x, v_y, v_z, x0, y0, z0, x1, y1, z1):
@@ -154,7 +153,6 @@ def calc_shooting(o, id_app, r_1, interaction: bool = True, u0: any = None, n: i
     -> u - оптимальный вектор скорости отталкивания/импульса (ССК при interaction=True, ОСК иначе)"""
     shooting_amount = o.shooting_amount_repulsion if interaction else o.shooting_amount_impulse
     tmp = r_1 - o.o_b(o.a.r[id_app]) if interaction else o.b_o(r_1) - np.array(o.a.r[id_app])
-    mu_e = o.mu_e
     T_max = o.T_max if T_max is None else T_max
     u = o.u_min * tmp / np.linalg.norm(tmp) if u0 is None else u0
     if n > 3:
@@ -178,7 +176,6 @@ def calc_shooting(o, id_app, r_1, interaction: bool = True, u0: any = None, n: i
         else:
             u_i = np.diag([du * o.u_max] * 3 + [du * o.a_pid_max] * (n - 3))
         mu_ipm /= 2
-        mu_e /= 2
         i_iteration += 1
 
         anw = p_map(calc_shooting_sample,

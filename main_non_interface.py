@@ -1,29 +1,30 @@
 """Assembling general problem solution"""
+from all_objects import *
 """КОСТЫЛЬ НА ОБЩИЙ ЦЕНТР МАСС"""
 """КОСТЫЛЬ НА МАССУ КОНТЕЙНЕРА"""
-from all_objects import *
 
 choice = '3'
-vedo_picture = True
-to_save = True
+vedo_picture = False
+vedo_picsave = False
 
-# Безтопливный перелёт
-# method = "2d_analytics"
+"""Бестопливный перелёт"""
 method = "hkw_analytics"
+# method = "2d_analytics"
 # method = "diffevolve+shooting"
 
-'''# Подходы с применением топлива
+"""Подходы с применением топлива"""
 # method += "+pd"
 # method += "+imp"
 # method = "const-propulsion"
 # method = "linear-propulsion"
-# method = "linear-angle'''
+# method = "linear-angle
+
 o_global = AllProblemObjects(if_impulse_control=False,
                              if_PID_control=False,
                              if_LQR_control=False,
                              if_avoiding=True,
 
-                             is_saving=vedo_picture and to_save,
+                             is_saving=vedo_picture and vedo_picsave,
                              save_rate=2000,
                              if_talk=False,
                              if_testing_mode=True,
@@ -57,7 +58,6 @@ def iteration_func(o):
         if (not o.a.flag_fly[id_app]) and o.a.busy_time[id_app] < 0:
             u_a_priori = o.get_repulsion(id_app)
             print(f"отталкивание из файла {u_a_priori}")
-            # u = repulsion(o, id_app, u_a_priori=np.array([-0.010698276089, -0.0085969593700, -0.000207605524215]))
             u = repulsion(o, id_app, u_a_priori=u_a_priori)
             o.file_save(f'отталкивание {id_app} {u[0]} {u[1]} {u[2]}')
             o.repulsion_save(f'отталкивание {id_app} {u[0]} {u[1]} {u[2]}')
@@ -77,8 +77,9 @@ def iteration_func(o):
                     f'{np.linalg.norm(180 / np.pi * np.arccos(clip((np.trace(o.S.T @ o.S_0) - 1) / 2, -1, 1)))} '
                     f'{np.linalg.norm(o.v_ub)} {np.linalg.norm(o.r_ub)} {np.linalg.norm(o.a_self[id_app])} '
                     f'{np.linalg.norm(tmp)} {np.linalg.norm(o.r_ub)}')
-        o.line_app_brf[id_app] = np.append(o.line_app_brf[id_app], o.o_b(o.a.r[id_app]))
-        o.line_app_orf[id_app] = np.append(o.line_app_orf[id_app], o.a.r[id_app])
+        if o.iter % 10 == 0:
+            o.line_app_brf[id_app] = np.append(o.line_app_brf[id_app], o.o_b(o.a.r[id_app]))
+            o.line_app_orf[id_app] = np.append(o.line_app_orf[id_app], o.a.r[id_app])
 
         # Stop criteria
         if np.linalg.norm(o.a.r[id_app]) > 1e3:

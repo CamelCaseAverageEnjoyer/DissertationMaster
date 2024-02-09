@@ -1,88 +1,141 @@
 from mylibs.construction_functions import *
 from mylibs.control_function import *
+from mylibs.calculation_functions import *
 from mylibs.im_sample import *
 from mylibs.numerical_methods import *
 from mylibs.plot_functions import *
 from mylibs.tiny_functions import *
-from mylibs.calculation_functions import *
 
 
 class AllProblemObjects(object):
-    """Класс содержит в себе абсолютно все параметры задачи и некоторые методы"""
+    """Класс содержит в себе абсолютно все параметры задачи и некоторые методы
+    :param if_impulse_control: Импульсное управление сборочным КА
+    :param if_PID_control: Управление на основе ПД-регулятора сборочным КА
+    :param if_LQR_control: Управление на основе линейно квадратичного регулятора сборочным КА
+    :param if_avoiding: (только для непрерывного управления) Добавка отталкивающих потенциалов для уклонения
+    :param N_apparatus: Количество сборочных КА
+    :param diff_evolve_vectors: (параметр при выборе дифф эволюции) Количество векторов
+    :param diff_evolve_times: (параметр при выборе дифф эволюции) Количество шагов
+    :param shooting_amount_repulsion: Количество шагов пристрелки при отталкивании
+    :param shooting_amount_impulse: Количество шагов пристрелки импульсного управления
+    :param diff_evolve_F: (параметр при выборе дифф эволюции) Вес новых векторов
+    :param diff_evolve_chance: (параметр при выборе дифф эволюции) Шанс новых векторов
+    :param mu_IPM: Коэффициент метода внутренней точки
+    :param T_total: Общее ограничение времени на строительство
+    :param T_max: Максимальное время перелёта
+    :param T_max_hard_limit: Вот прям вообще максимальное время перелёта, дальше нельзя
+    :param freetime: Время неучёта столкновения после отталкивания
+    :param dt: Шаг по времени
+    :param t_reaction: Время между обнаружением цели и включением управления
+    :param time_to_be_busy: Время занятости между перелётами
+    :param u_max: Максимальная скорость отталкивания
+    :param du_impulse_max: (только для импульсного управления) Максимальная скорость двигательного импульса
+    :param w_twist: Угловая скорость закрутки собираемой конструкции по оси Оу ОСК
+    :param e_max: (не доделано) Ограничение полной энергии (вращательной и потенциальной угловой) собираемой конструкции
+    :param w_max: Ограничение угловой скорости вращения собираемой конструкции
+    :param V_max: Ограничение поступательной скорости центра масс собираемой конструкции
+    :param R_max: Ограничение допустимое отклонение центра масс собираемой конструкции от центра ОСК
+    :param j_max: Ограничение следа матрицы поворота S собираемой конструкции относительно ОСК
+    :param a_pid_max: Ограничение ускорения непрерывного управления
+    :param is_saving: Флаг записи картинок vedo для дальнейшей анимации
+    :param save_rate: Частота записи картинок vedo
+    :param coordinate_system: Относительно какой СК будут отображаться 3д-модели
+    :param choice: Выбор конструкции
+    :param choice_complete: Флаг уже собранной конструкции (не для основного моделирования)
+    :param floor: Количество уровней собираемой конструкции (конкретный смысл зависит от типа конструкции)
+    :param extrafloor: Количество сверх-уровней собираемой конструкции (чтобы проц сгорел)
+    :param if_talk: Флаг устного разговора с пользователем (на свой страх и риск)
+    :param if_multiprocessing: Флаг использования нескольких ядер процессора (не для Windows)
+    :param if_testing_mode: Флаг отображения экстра-информации
+    :param if_any_print: Флаг отображения вообще
+    :param Radius_orbit: Радиус круговой орбиты центра ОСК
+    :param d_to_grab: Расстояние захвата КА за целевую точку собираемой конструкции
+    :param d_crash: Опасное расстояние вокруг элементов собираемой конструкции (диаметры цилиндров стержней)
+    :param k_p: (при выборе if_PID_control) Коэффициент ПД-регулятора
+    :param k_u: Коэффициент неточности скорости (смотри velocity_spread)
+    :param k_av: (при выборе if_avoiding) Коэффициент перед полем
+    :param k_ac: Коэффициент постоянного паразитного ускорения (для проверки на неточности)
+    :param level_avoid: (при выборе if_avoiding) Степень дистанции до препятствия (1-2 нормально наверное)
+    :param s: (для копирования класса AllProblemObjects) Класс собираемой конструкции (переносимые стержни)
+    :param c: (для копирования класса AllProblemObjects) Класс собираемой конструкции (непереносимый каркас)
+    :param a: (для копирования класса AllProblemObjects) Класс сборочных КА
+    :param file_reset: Флаг стирания файла main.txt, где ведётся запись положений объектов и действия КА
+    :param method: Метод минимизации функционала, подаваемый в scipy
+    :param if_T_in_shooting: Есть ли вариация времени перелёта в пристрелке (дико неустойчивая затея, ужасная даже)
+    :param begin_rotation: Оси, относительно которых ИСК превращается в ОСК (повороты 90°)
+    """
+
     def __init__(self,
-                 if_impulse_control=False,              # Управление импульсное
-                 if_PID_control=False,                  # Управление ПД-регулятором
-                 if_LQR_control=False,                  # Управление ЛКР
-                 if_avoiding=False,                     # Исскуственное избежание столкновения
+                 if_impulse_control=False,  # Управление импульсное
+                 if_PID_control=False,  # Управление ПД-регулятором
+                 if_LQR_control=False,  # Управление ЛКР
+                 if_avoiding=False,  # Исскуственное избежание столкновения
 
-                 N_apparatus=1,                         # Количество аппаратов
-                 diff_evolve_vectors=200,                # Количество проб дифф. эволюции
-                 diff_evolve_times=5,                   # Количество эпох дифф. эволюции
-                 shooting_amount_repulsion=30,          # Шаги пристрелки отталкивания
-                 shooting_amount_impulse=10,            # Шаги пристрелки импульсного управления
+                 N_apparatus=1,  # Количество аппаратов
+                 diff_evolve_vectors=20,  # Количество проб дифф эволюции
+                 diff_evolve_times=5,  # Количество эпох дифф эволюции
+                 shooting_amount_repulsion=20,  # Шаги пристрелки отталкивания
+                 shooting_amount_impulse=10,  # Шаги пристрелки импульсного управления
 
-                 diff_evolve_F=0.8,                     # Гиперпараметр дифф. эволюции
-                 diff_evolve_chance=0.5,                # Гиперпараметр дифф. эволюции
-                 mu_IPM=0.001,                          # Гиперпараметр дифф. эволюции
-                 mu_e=0.1,
+                 diff_evolve_F=0.8,  # Гиперпараметр дифф эволюции
+                 diff_evolve_chance=0.5,  # Гиперпараметр дифф эволюции
+                 mu_IPM=0.001,  # Гиперпараметр дифф эволюции
 
-                 T_total=1e10,                          # Необязательное ограничение по времени на строительство
-                 T_max=500.,                            # Максимальное время перелёта
-                 T_max_hard_limit=2000.,                # Максимальное время перелёта при близости нарушении 
-                 freetime=50.,                          # Время неучёта столкновения после отталкивания
-                 dt=1.0,                                # Шаг по времени
-                 t_reaction=10.,                        # Время между обнаружением цели и включением управления
-                 time_to_be_busy=100.,                  # Время занятости между перелётами
-                 u_max=0.04,                            # Максимальная скорость отталкивания
-                 du_impulse_max=0.4,                    # Максимальная скорость импульса при импульсном управлении
+                 T_total=1e10,  # Необязательное ограничение по времени на строительство
+                 T_max=500.,  # Максимальное время перелёта
+                 T_max_hard_limit=2000.,  # Максимальное время перелёта при близости нарушении
+                 freetime=50.,  # Время неучёта столкновения после отталкивания
+                 dt=1.0,  # Шаг по времени
+                 t_reaction=10.,  # Время между обнаружением цели и включением управления
+                 time_to_be_busy=100.,  # Время занятости между перелётами
+                 u_max=0.04,  # Максимальная скорость отталкивания
+                 du_impulse_max=0.4,  # Максимальная скорость импульса при импульсном управлении
                  w_twist=0.,
-                 e_max=1e10,        # Относительное максимальная допустимое отклонение энергии (иск огр)
-                 # 0,12 градуса в секунду
-                 w_max=0.002,       # Максимально допустимая скорость вращения станции (искуственное ограничение)
-                 V_max=0.04,        # Максимально допустимая поступательная скорость станции (искуственное ограничение)
-                 R_max=10.,         # Максимально допустимое отклонение станции (искуственное ограничение)
-                 j_max=1e9,         # Максимально допустимый след матрицы поворота S (искуственное ограничение)
-                 a_pid_max=1e-5,    # Максимальное ускорение при непрерывном управлении
+                 e_max=1e10,  # Относительное максимальная допустимое отклонение энергии (иск огр)
+                 w_max=0.002,  # Максимально допустимая скорость вращения станции (искуственное ограничение)
+                 V_max=0.04,  # Максимально допустимая поступательная скорость станции (искуственное ограничение)
+                 R_max=10.,  # Максимально допустимое отклонение станции (искуственное ограничение)
+                 j_max=1e9,  # Максимально допустимый след матрицы поворота S (искуственное ограничение)
+                 a_pid_max=1e-5,  # Максимальное ускорение при непрерывном управлении
 
-                 is_saving=False,               # Сохранение vedo-изображений
-                 save_rate=1,                   # Итерации между сохранением vedo-изображений
-                 coordinate_system='orbital',   # Система координат vedo-изображения
+                 is_saving=False,  # Сохранение vedo-изображений
+                 save_rate=1,  # Итерации между сохранением vedo-изображений
+                 coordinate_system='orbital',  # Система координат vedo-изображения
 
-                 choice='3',                    # Тип конструкции
-                 choice_complete=False,         # Уже собранная конструкция (для отладки)
+                 choice='3',  # Тип конструкции
+                 choice_complete=False,  # Уже собранная конструкция (для отладки)
                  floor=5,
                  extrafloor=0,
 
-                 if_talk=False,                 # Мне было скучно
-                 if_multiprocessing=True,       # Многопроцессорность
-                 if_testing_mode=False,         # Лишние принтпоинты
-                 if_any_print=True,             # Любые принтпоинты
+                 if_talk=False,  # Мне было скучно
+                 if_multiprocessing=True,  # Многопроцессорность
+                 if_testing_mode=False,  # Лишние принтпоинты
+                 if_any_print=True,  # Любые принтпоинты
 
-                 Radius_orbit=6800e3,           # Радиус орбиты
-                 mu=5.972e24 * 6.67408e-11,     # Гравитационный параметр Земли
-                 d_to_grab=0.5,                 # Расстояние захвата до цели
-                 d_crash=0.1,                   # Расстояние соударения до осей стержней
+                 Radius_orbit=6800e3,  # Радиус орбиты
+                 mu=5.972e24 * 6.67408e-11,  # Гравитационный параметр Земли
+                 d_to_grab=0.5,  # Расстояние захвата до цели
+                 d_crash=0.1,  # Расстояние соударения до осей стержней
 
-                 k_p=3e-4,                      # Коэффициент ПД-регулятора
-                 k_u=1e-1,                      # Коэффициент разброса скорости
-                 k_av=1e-5,                     # Коэффициент поля отталкивания
-                 k_ac=0.,                       # Коэффициент паразитного ускорения
+                 k_p=3e-4,  # Коэффициент ПД-регулятора
+                 k_u=1e-1,  # Коэффициент разброса скорости
+                 k_av=1e-5,  # Коэффициент поля отталкивания
+                 k_ac=0.,  # Коэффициент паразитного ускорения
                  level_avoid=2,
-                 s=None,                        # готовый объект класса Structure
-                 c=None,                        # готовый объект класса Container
-                 a=None,                        # готовый объект класса Apparatus
+                 s=None,  # готовый объект класса Structure
+                 c=None,  # готовый объект класса Container
+                 a=None,  # готовый объект класса Apparatus
                  file_reset=False,
                  method='trust-const',
-                 fons_fluminis=True,  # А что делаешь ты?
                  if_T_in_shooting=False,
                  begin_rotation='xx'):
 
         # Параметры типа bool
         self.file_name = 'storage/main.txt'
         self.main_numerical_simulation = s is None
-        self.survivor = True            # Зафиксирован ли проход "через текстуры" (можно сделать вылет программы)
-        self.warning_message = False    # Если где-то проблема, вместо вылета программы я обозначаю её сообщениями
-        self.t_flyby = T_max * 0.95     # Время необходимости облёта
+        self.survivor = True  # Зафиксирован ли проход "через текстуры" (можно сделать вылет программы)
+        self.warning_message = False  # Если где-то проблема, вместо вылета программы я обозначаю её сообщениями
+        self.t_flyby = T_max * 0.95  # Время необходимости облёта
         self.if_talk = if_talk
         self.if_multiprocessing = if_multiprocessing
         self.if_testing_mode = if_testing_mode
@@ -104,7 +157,6 @@ class AllProblemObjects(object):
         self.diff_evolve_F = diff_evolve_F
         self.diff_evolve_chance = diff_evolve_chance
         self.mu_ipm = mu_IPM
-        self.mu_e = mu_e
         self.k_p = k_p
         self.k_d = kd_from_kp(k_p)
         self.k_u = k_u
@@ -127,7 +179,7 @@ class AllProblemObjects(object):
 
         # Кинематические параметры и ограничения
         self.u_max = u_max
-        self.u_min = u_max / 1e2
+        self.u_min = u_max / 10
         self.du_impulse_max = du_impulse_max
         self.e_max = e_max
         self.w_max = w_max
@@ -145,38 +197,34 @@ class AllProblemObjects(object):
             self.s, self.c, self.a = get_all_components(choice=choice, complete=choice_complete, n_app=N_apparatus,
                                                         floor=floor, extrafloor=extrafloor)
             if file_reset:
-                f = open(self.file_name, 'w')
-                f.write(f"ограничения {self.R_max} {self.V_max} {self.j_max} {self.w_max}\n")
-                f.close()
-                f = open('storage/repulsions.txt', 'w')
-                f.close()
-                f = open('storage/iteration_docking.txt', 'w')
-                f.close()
+                with open(self.file_name, 'w') as f:
+                    f.write(f"ограничения {self.R_max} {self.V_max} {self.j_max} {self.w_max}\n")
+                with open('storage/repulsions.txt', 'w') as _:
+                    pass
+                with open('storage/iteration_docking.txt', 'w') as _:
+                    pass
         else:
             self.s, self.c, self.a = (s, c, a)
         self.choice = choice
-        self.t_start = np.zeros(self.a.n + 1)
+        self.t_start = np.zeros(self.a.n + 1)  # dt=(t - t_start) -> уравнения ХКУ
         self.M = np.sum(self.s.mass) + np.sum(self.c.mass)
         if self.main_numerical_simulation:
-            self.my_print(f"m_a: {self.a.mass[0]}, m_ub= {'{:.2f}'.format(np.sum(self.s.mass))} + {np.sum(self.c.mass)}"
-                          f" = {'{:.2f}'.format(self.M)}", mode='c')
+            self.my_print(f"Масса КА m_a = {self.a.mass[0]} кг, Масса конструкции m_ub = "
+                          f"{'{:.2f}'.format(np.sum(self.s.mass))}(стержни) + {np.sum(self.c.mass)}(каркас)"
+                          f" = {'{:.2f}'.format(self.M)} кг", mode='c')
 
         q12 = [[1 / np.sqrt(2) * (begin_rotation[j] in i) for i in ['xyz', 'x', 'y', 'z']] for j in
                range(len(begin_rotation))]
         self.w_hkw = np.sqrt(mu / Radius_orbit ** 3)
         self.w_hkw_vec = np.array([0., 0., self.w_hkw])  # ИСК
-        if len(q12) == 1:
-            self.La = np.array(q12[0])
-        else:
-            self.La = np.array(q_dot(q12[0], q12[1]))
+        for i in range(len(q12)):
+            self.La = q12[i] if i == 0 else q_dot(q12[i], self.La)
         self.U, self.S, self.A, self.R_e = self.get_matrices(self.La, 0.)
         self.S_0 = self.S
         self.r_ub = np.zeros(3)
         self.v_ub = np.zeros(3)
         self.J, self.r_center = call_inertia(self, [], app_y=0)  # НЕУЧЁТ НЕСКОЛЬКИХ АППАРАТОВ
         self.J_1 = np.linalg.inv(self.J)
-        # self.my_print(f"det(J)={np.linalg.det(self.J)} ---> log10={np.log10(np.linalg.det(self.J))}  | "
-        #               f"{self.J[0][0]}", mode='c')
         if self.main_numerical_simulation:
             for i in range(self.a.n):
                 self.a.r[i] = self.b_o(self.a.target[i])
@@ -207,7 +255,6 @@ class AllProblemObjects(object):
         self.E = 0.
         self.E_max = 0.
 
-        self.fons_fluminis = fons_fluminis
         self.method = method
         self.if_T_in_shooting = if_T_in_shooting
         self.repulsion_counters = [0 for _ in range(self.a.n)]
@@ -222,17 +269,17 @@ class AllProblemObjects(object):
         self.line_str_orf = self.r_ub
 
         # Выбор значений в зависимости от аргументов
-        self.cases = dict({'acceleration_control': lambda v: v if np.linalg.norm(v) < self.a_pid_max else
-                                                             v / np.linalg.norm(v) * self.a_pid_max * 0.95,
+        self.cases = dict({'acceleration_control': lambda v: (v if np.linalg.norm(v) < self.a_pid_max else
+                                                              v / np.linalg.norm(v) * self.a_pid_max * 0.95),
                            'repulse_vel_control': lambda v: (v if np.linalg.norm(v) < self.u_max else
                                                              v / np.linalg.norm(v) * self.u_max * 0.95)
-                                                             if np.linalg.norm(v) > self.u_min else
-                                                             v / np.linalg.norm(v) * self.u_min * 1.05,
-                           'diff_vel_control': lambda a, cnd: ((a if np.linalg.norm(a) < self.u_max else
-                                                                a / np.linalg.norm(a) * self.u_max * 0.95)
-                                                               if np.linalg.norm(a) > self.u_min else
-                                                               a / np.linalg.norm(a) * self.u_min * 1.05) if cnd
-                                                                                                          else a})
+                           if np.linalg.norm(v) > self.u_min else
+                           v / np.linalg.norm(v) * self.u_min * 1.05,
+                           'diff_vel_control': lambda a_, cnd: ((a_ if np.linalg.norm(a_) < self.u_max else
+                                                                a_ / np.linalg.norm(a_) * self.u_max * 0.95)
+                                                                if np.linalg.norm(a_) > self.u_min else
+                                                                a_ / np.linalg.norm(a_) * self.u_min * 1.05) if cnd
+                           else a_})
 
     # ----------------------------------------- РАСЧЁТ ПАРАМЕТРОВ
     def get_e_deviation(self):
@@ -306,21 +353,21 @@ class AllProblemObjects(object):
             lst = line.split()
             if int(lst[1]) == id_app:
                 if lcl_counter == 0:
-                    anw = np.array([float(lst[2+i]) for i in range(3)])
+                    anw = np.array([float(lst[2 + i]) for i in range(3)])
                 lcl_counter -= 1
         file.close()
         return anw
 
     # ----------------------------------------- РУНГЕ-КУТТЫ 4 ПОРЯДКА
-    def rv_right_part(self, rv, a):
-        return np.array([rv[3], rv[4], rv[5], a[0], a[1], a[2]])
-
     def rk4_acceleration(self, r, v, a):
+        def rv_right_part(rv_, a_):
+            return np.array([rv_[3], rv_[4], rv_[5], a_[0], a_[1], a_[2]])
+
         rv = np.append(r, v)
-        k1 = self.rv_right_part(rv, a)
-        k2 = self.rv_right_part(rv + k1 * self.dt / 2, a)
-        k3 = self.rv_right_part(rv + k2 * self.dt / 2, a)
-        k4 = self.rv_right_part(rv + k3 * self.dt, a)
+        k1 = rv_right_part(rv, a)
+        k2 = rv_right_part(rv + k1 * self.dt / 2, a)
+        k3 = rv_right_part(rv + k2 * self.dt / 2, a)
+        k4 = rv_right_part(rv + k3 * self.dt, a)
         rv = self.dt / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
         return rv[0:3] + r, rv[3:6] + v
 
@@ -392,7 +439,7 @@ class AllProblemObjects(object):
             self.a_orbital[id_app] = self.get_hkw_acceleration(np.append(r, v))
             self.a.r[id_app] = r
             self.a.v[id_app] = v
-            
+
             if self.d_crash is not None:
                 if self.warning_message and self.main_numerical_simulation \
                         and (self.t - self.t_start[id_app]) > self.freetime:
@@ -407,7 +454,7 @@ class AllProblemObjects(object):
     def control_step(self, id_app):
         """ Функция ускорения бортового двигателя / подачи импульса двигателя.
         Вызывается на каждой итерации.
-        :param id_app: id-номер аппарата
+        :param id_app: Id-номер аппарата
         :return: None
         """
         if self.method == 'linear-propulsion' and self.a_self_params[id_app] is not None:
@@ -464,7 +511,7 @@ class AllProblemObjects(object):
 
         self.a.target[id_app] = self.a.target_p[id_app].copy()
         self.a.flag_fly[id_app] = False
-        self.a.busy_time[id_app] = self.time_to_be_busy
+        self.a.busy_time[id_app] = self.time_to_be_busy * 5
         self.t_reaction_counter = self.t_reaction
 
     def get_repulsion_change_params(self, id_app: int):
@@ -491,14 +538,14 @@ class AllProblemObjects(object):
             raise Exception("Неправильный входной вектор скорости!")
         m_ss, m_ub, J, J_1, J_p, r_ub_crf, r_ub_crf_p, r, r_ub_orf, r0c, R0c, r_ub_orf_p, v_ub_p = \
             self.get_repulsion_change_params(id_app)
-        u_rot = my_cross(self.w, self.S.T @ r0c)                        # ORF
-        V_rot = my_cross(self.w, self.S.T @ R0c)                        # ORF
-        V0 = - u0 * m_ss / m_ub                                         # BRF
-        u = self.S.T @ u0 + v_ub_p + u_rot                              # ORF
-        V = self.S.T @ V0 + v_ub_p + V_rot                              # ORF
+        u_rot = my_cross(self.w, self.S.T @ r0c)  # ORF
+        V_rot = my_cross(self.w, self.S.T @ R0c)  # ORF
+        V0 = - u0 * m_ss / m_ub  # BRF
+        u = self.S.T @ u0 + v_ub_p + u_rot  # ORF
+        V = self.S.T @ V0 + v_ub_p + V_rot  # ORF
         self.w = self.b_o(J_1) @ (
                 self.b_o(J_p) @ self.w + (m_ub + m_ss) * my_cross(r_ub_orf_p, v_ub_p) -
-                m_ss * my_cross(r, u) - m_ub * my_cross(r_ub_orf, V))   # ORF
+                m_ss * my_cross(r, u) - m_ub * my_cross(r_ub_orf, V))  # ORF
 
         self.om_update()
         self.C_r[id_app] = get_c_hkw(r, u, self.w_hkw)
@@ -691,7 +738,6 @@ class AllProblemObjects(object):
         slf.diff_evolve_F = self.diff_evolve_F
         slf.diff_evolve_chance = self.diff_evolve_chance
         slf.mu_ipm = self.mu_ipm
-        slf.mu_e = self.mu_e
 
         slf.T_total = self.T_total
         slf.T_max = self.T_max
@@ -762,7 +808,6 @@ class AllProblemObjects(object):
         slf.E_max = self.E_max
 
         slf.method = self.method
-        slf.fons_fluminis = self.fons_fluminis
         slf.if_T_in_shooting = self.if_T_in_shooting
 
         return slf
