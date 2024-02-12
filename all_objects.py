@@ -192,7 +192,7 @@ class AllProblemObjects(object):
         self.d_to_grab = d_to_grab
         self.mu = mu
 
-        # Параметры рассматриваемых объектов
+        # Случай копирования класса AllProblemObjects
         if s is None:
             self.s, self.c, self.a = get_all_components(choice=choice, complete=choice_complete, n_app=N_apparatus,
                                                         floor=floor, extrafloor=extrafloor)
@@ -205,6 +205,8 @@ class AllProblemObjects(object):
                     pass
         else:
             self.s, self.c, self.a = (s, c, a)
+
+        # Параметры масс
         self.choice = choice
         self.t_start = np.zeros(self.a.n + 1)  # dt=(t - t_start) -> уравнения ХКУ
         self.M = np.sum(self.s.mass) + np.sum(self.c.mass)
@@ -213,51 +215,56 @@ class AllProblemObjects(object):
                           f"{'{:.2f}'.format(np.sum(self.s.mass))}(стержни) + {np.sum(self.c.mass)}(каркас)"
                           f" = {'{:.2f}'.format(self.M)} кг", mode='c')
 
+        #
+        self.r_ub = np.zeros(3)
+        self.v_ub = np.zeros(3)
+        self.taken_beams = np.array([])
+        self.taken_beams_p = np.array([])
+
+        # Параметры вращения
         q12 = [[1 / np.sqrt(2) * (begin_rotation[j] in i) for i in ['xyz', 'x', 'y', 'z']] for j in
                range(len(begin_rotation))]
-        self.w_hkw = np.sqrt(mu / Radius_orbit ** 3)
-        self.w_hkw_vec = np.array([0., 0., self.w_hkw])  # ИСК
         for i in range(len(q12)):
             self.La = q12[i] if i == 0 else q_dot(q12[i], self.La)
         self.U, self.S, self.A, self.R_e = self.get_matrices(self.La, 0.)
         self.S_0 = self.S
-        self.r_ub = np.zeros(3)
-        self.v_ub = np.zeros(3)
+        self.w_twist = w_twist
+        self.w = np.array([0., w_twist, 0.])
+        self.w_diff = 0.
+        self.w_hkw = np.sqrt(mu / Radius_orbit ** 3)
+        self.w_hkw_vec = np.array([0., 0., self.w_hkw])  # ИСК
+        self.Om = self.U.T @ self.w + self.w_hkw_vec
         self.J, self.r_center = call_inertia(self, [], app_y=0)  # НЕУЧЁТ НЕСКОЛЬКИХ АППАРАТОВ
         self.J_1 = np.linalg.inv(self.J)
         if self.main_numerical_simulation:
             for i in range(self.a.n):
                 self.a.r[i] = self.b_o(self.a.target[i])
-        self.taken_beams = np.array([])
-        self.taken_beams_p = np.array([])
 
+        # Кинематические параметры
         self.C_R = get_c_hkw(self.r_ub, np.zeros(3), self.w_hkw)
         self.C_r = [get_c_hkw(self.a.r[i], self.a.v[i], self.w_hkw) for i in range(self.a.n)]
-
         self.v_p = [np.zeros(3) for _ in range(self.a.n)]
         self.dr_p = [np.zeros(3) for _ in range(self.a.n)]
-        self.a_orbital = [np.zeros(3) for _ in range(self.a.n)]  # Ускорение
-        self.A_orbital = np.zeros(3)  # Ускорение
-        self.a_self = [np.zeros(3) for _ in range(self.a.n)]  # Ускорение
-        self.a_self_params = [None for _ in range(self.a.n)]
+        self.a_orbital = [np.zeros(3) for _ in range(self.a.n)]
+        self.A_orbital = np.zeros(3)
+        self.a_self = [np.zeros(3) for _ in range(self.a.n)]
         self.a_wrong = np.random.rand(3)
         self.a_wrong = self.a_pid_max * k_ac * self.a_wrong / np.linalg.norm(self.a_wrong)
-        self.w_twist = w_twist
-        self.w = np.array([0., w_twist, 0.])
-        self.w_diff = 0.
-        self.Om = self.U.T @ self.w + self.w_hkw_vec
-        self.e = np.zeros(3)
-        self.tg_tmp = np.array([100., 0., 0.])
-        self.flag_vision = [False for _ in range(self.a.n)]
+        self.e = np.zeros(3)  # НЕУЧЁТ НЕСКОЛЬКИХ АППАРАТОВ
+
+        # Энергетические параметры
         self.U_begin = self.get_potential_energy()
         self.T_begin = self.get_kinetic_energy()
         self.T = 0.
         self.E = 0.
         self.E_max = 0.
 
+        # Прочие параметры
         self.method = method
         self.if_T_in_shooting = if_T_in_shooting
         self.repulsion_counters = [0 for _ in range(self.a.n)]
+        self.flag_vision = [False for _ in range(self.a.n)]
+        self.a_self_params = [None for _ in range(self.a.n)]
 
         # Параметры отображения
         self.is_saving = is_saving
@@ -409,7 +416,7 @@ class AllProblemObjects(object):
         self.E = self.T + self.U  # - self.U_begin - self.T_begin
         self.E_max = max(self.E_max, self.E)
 
-        # Euler rotation
+        # Уравнения Эйлера, вращение
         tmp = self.Om.copy()
         self.La, self.Om = self.rk4_w(self.La, self.Om, self.J, self.t)
         self.U, self.S, self.A, self.R_e = self.get_matrices()
@@ -417,12 +424,12 @@ class AllProblemObjects(object):
         self.w_diff = np.linalg.norm(self.w - np.array([0., self.w_twist, 0.]))
         self.e = (self.Om - tmp) / self.dt
 
-        # Translational movement of the structure
+        # Движение центра масс собираемой конструкции
         self.r_ub = r_hkw(self.C_R, self.w_hkw, self.t - self.t_start[self.a.n])
         self.v_ub = v_hkw(self.C_R, self.w_hkw, self.t - self.t_start[self.a.n])
         self.A_orbital = self.get_hkw_acceleration(np.append(self.r_ub, self.v_ub))
 
-        # Translational movement of devices
+        # Движения центра масс сборочного КА
         for id_app in self.a.id:
             if self.a.flag_fly[id_app] == 1:
                 if self.a.flag_hkw[id_app]:
@@ -802,7 +809,6 @@ class AllProblemObjects(object):
         slf.w_twist = self.w_twist
         slf.w_diff = self.w_diff
         slf.Om = copy.deepcopy(self.Om)
-        slf.tg_tmp = copy.deepcopy(self.tg_tmp)
 
         slf.E = self.E
         slf.E_max = self.E_max
