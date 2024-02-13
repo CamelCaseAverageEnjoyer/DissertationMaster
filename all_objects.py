@@ -1,3 +1,5 @@
+import numpy as np
+
 from mylibs.construction_functions import *
 from mylibs.control_function import *
 from mylibs.calculation_functions import *
@@ -222,17 +224,17 @@ class AllProblemObjects(object):
         self.taken_beams_p = np.array([])
 
         # Параметры вращения
+        self.w_twist = w_twist
+        self.w = np.array([0., w_twist, 0.])
+        self.w_diff = 0.
+        self.w_hkw = np.sqrt(mu / Radius_orbit ** 3)
+        self.w_hkw_vec = np.array([0., 0., self.w_hkw])
         q12 = [[1 / np.sqrt(2) * (begin_rotation[j] in i) for i in ['xyz', 'x', 'y', 'z']] for j in
                range(len(begin_rotation))]
         for i in range(len(q12)):
             self.La = q12[i] if i == 0 else q_dot(q12[i], self.La)
         self.U, self.S, self.A, self.R_e = self.get_matrices(self.La, 0.)
         self.S_0 = self.S
-        self.w_twist = w_twist
-        self.w = np.array([0., w_twist, 0.])
-        self.w_diff = 0.
-        self.w_hkw = np.sqrt(mu / Radius_orbit ** 3)
-        self.w_hkw_vec = np.array([0., 0., self.w_hkw])  # ИСК
         self.Om = self.U.T @ self.w + self.w_hkw_vec
         self.J, self.r_center = call_inertia(self, [], app_y=0)  # НЕУЧЁТ НЕСКОЛЬКИХ АППАРАТОВ
         self.J_1 = np.linalg.inv(self.J)
@@ -250,7 +252,7 @@ class AllProblemObjects(object):
         self.a_self = [np.zeros(3) for _ in range(self.a.n)]
         self.a_wrong = np.random.rand(3)
         self.a_wrong = self.a_pid_max * k_ac * self.a_wrong / np.linalg.norm(self.a_wrong)
-        self.e = np.zeros(3)  # НЕУЧЁТ НЕСКОЛЬКИХ АППАРАТОВ
+        self.e = np.zeros(3)  # Угловое ускорение собираемой конструкции
 
         # Энергетические параметры
         self.U_begin = self.get_potential_energy()
@@ -289,26 +291,26 @@ class AllProblemObjects(object):
                            else a_})
 
     # ----------------------------------------- РАСЧЁТ ПАРАМЕТРОВ
-    def get_e_deviation(self):
+    def get_e_deviation(self) -> float:
         if self.E_max > 1e-4:
             return self.T / self.E_max
         else:
             return self.E
 
-    def get_discrepancy(self, id_app: int, vector: bool = False, r=None):
+    def get_discrepancy(self, id_app: int, vector: bool = False, r=None) -> any:
         """Возвращает невязку аппарата с целью"""
         tmp = self.a.r[id_app] if r is None else r
         discrepancy = tmp - self.b_o(self.a.target[id_app])
         return discrepancy if vector else np.linalg.norm(discrepancy)
 
-    def get_angular_momentum(self):
+    def get_angular_momentum(self) -> float:
         return np.linalg.norm(self.J @ self.S @ self.w)
 
-    def get_kinetic_energy(self):
+    def get_kinetic_energy(self) -> float:
         """Возвращет кинетическую энергию вращения станции"""
         return self.w.T @ self.S.T @ self.J @ self.S @ self.w / 2
 
-    def get_potential_energy(self):
+    def get_potential_energy(self) -> float:
         tmp = 0
         J_irf = self.b_i(self.J)
         gamma = self.R_e / self.Radius_orbit
@@ -318,7 +320,7 @@ class AllProblemObjects(object):
         # tmp = 3 * gamma.T @ J_orf @ gamma  # попробовать
         return 1 / 2 * self.mu / self.Radius_orbit ** 3 * (tmp + np.trace(self.J))  # self.mu/self.Radius_orbit + ()
 
-    def get_matrices(self, La=None, t=None):
+    def get_matrices(self, La=None, t=None) -> tuple:
         """Функция подсчёта матриц поворота из кватернионов; \n
         На вход подаётся кватернион La и скаляр \n
         Заодно считает вектор от центра Земли до центра масс системы в ИСК."""
@@ -336,7 +338,7 @@ class AllProblemObjects(object):
         R_e = U.T @ np.array([0, 0, self.Radius_orbit])
         return U, S, A, R_e
 
-    def get_hkw_acceleration(self, rv):
+    def get_hkw_acceleration(self, rv) -> np.ndarray:
         return np.array([-2 * self.w_hkw * rv[5],
                          -self.w_hkw ** 2 * rv[1],
                          2 * self.w_hkw * rv[3] + 3 * self.w_hkw ** 2 * rv[2]])
@@ -344,7 +346,7 @@ class AllProblemObjects(object):
     def get_ext_momentum_rigid_body(self, A, J, R_e):
         return 3 * self.mu * my_cross(A @ R_e, J @ A @ R_e) / self.Radius_orbit ** 5
 
-    def get_masses(self, id_app: int):
+    def get_masses(self, id_app: int) -> tuple:
         """Нет учёта нескольких аппаратов!"""
         id_beam = self.a.flag_beam[id_app]
         m_beam = 0. if (id_beam is None) else self.s.mass[id_beam]
@@ -352,7 +354,7 @@ class AllProblemObjects(object):
         m_ss = self.a.mass[id_app] + m_beam
         return m_ss, m_ub
 
-    def get_repulsion(self, id_app: int):
+    def get_repulsion(self, id_app: int) -> np.ndarray:
         file = open('storage/repulsions_-1.txt', 'r')
         lcl_counter = self.repulsion_counters[id_app]
         anw = None
@@ -366,30 +368,28 @@ class AllProblemObjects(object):
         return anw
 
     # ----------------------------------------- РУНГЕ-КУТТЫ 4 ПОРЯДКА
-    def rk4_acceleration(self, r, v, a):
-        def rv_right_part(rv_, a_):
-            return np.array([rv_[3], rv_[4], rv_[5], a_[0], a_[1], a_[2]])
-
+    def rk4_acceleration(self, r, v, a) -> tuple:
+        def rv_right_part(rv_: np.ndarray, a_: np.ndarray) -> np.ndarray:
+            return np.append(rv_[3:6], a_[0:3])
         rv = np.append(r, v)
         k1 = rv_right_part(rv, a)
         k2 = rv_right_part(rv + k1 * self.dt / 2, a)
         k3 = rv_right_part(rv + k2 * self.dt / 2, a)
         k4 = rv_right_part(rv + k3 * self.dt, a)
-        rv = self.dt / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
+        rv = (k1 + 2 * k2 + 2 * k3 + k4) * self.dt / 6
         return rv[0:3] + r, rv[3:6] + v
 
-    def lw_right_part(self, LaOm, t, J):
+    def lw_right_part(self, LaOm, t, J) -> np.ndarray:
         """Функция правых частей для угловой скорости; \n
         Используется в методе Рунге-Кутты."""
         La, Om = LaOm[0:4], LaOm[4:7]
         dLa = 1 / 2 * q_dot([0, Om[0], Om[1], Om[2]], La)
         _, _, A, R_e = self.get_matrices(La=La, t=t)
         J1 = np.linalg.inv(J)
-        M_external = self.get_ext_momentum_rigid_body(A, J, R_e)
-        # M_external = np.zeros(3)
-        return np.append(dLa, A.T @ J1 @ (M_external - my_cross(A @ Om, J @ A @ Om)))
+        m_external = self.get_ext_momentum_rigid_body(A, J, R_e)
+        return np.append(dLa, A.T @ J1 @ (m_external - my_cross(A @ Om, J @ A @ Om)))
 
-    def rk4_w(self, La, Om, J, t):
+    def rk4_w(self, La, Om, J, t) -> tuple:
         """Интегрирование уравнение Эйлера методом Рунге-Кутты 4 порядка; \n
         Используется в виде: \n
         La, Om = rk4_w(La, Om, J, t)."""
@@ -402,15 +402,17 @@ class AllProblemObjects(object):
         return La + LaOm[0:4], LaOm[4:7] + Om
 
     # ----------------------------------------- ОБНОВЛЕНИЕ ПЕРЕМЕННЫХ КЛАССА
-    def w_update(self):
+    def w_update(self) -> None:
         self.w = self.U @ (self.Om - self.w_hkw_vec)
 
-    def om_update(self):
+    def om_update(self) -> None:
         self.Om = self.U.T @ self.w + self.w_hkw_vec
 
-    def time_step(self):
+    def time_step(self) -> None:
         self.iter += 1
         self.t = self.iter * self.dt
+
+        # Энергия
         self.U = self.get_potential_energy()
         self.T = self.get_kinetic_energy()  # - self.T_begin
         self.E = self.T + self.U  # - self.U_begin - self.T_begin
@@ -447,19 +449,16 @@ class AllProblemObjects(object):
             self.a.r[id_app] = r
             self.a.v[id_app] = v
 
-            if self.d_crash is not None:
-                if self.warning_message and self.main_numerical_simulation \
-                        and (self.t - self.t_start[id_app]) > self.freetime:
-                    if self.survivor:
-                        self.survivor = not call_crash(o=self, r_sat=r, R=self.r_ub,
-                                                       S=self.S, taken_beams=self.taken_beams)
-                        if not self.survivor:
-                            self.my_print(get_angry_message(), mode='y')
+            if self.d_crash is not None and self.warning_message and self.main_numerical_simulation \
+                    and (self.t - self.t_start[id_app]) > self.freetime and self.survivor and self.if_testing_mode:
+                self.survivor = not call_crash(o=self, r_sat=r, R=self.r_ub, S=self.S, taken_beams=self.taken_beams)
+                if not self.survivor:
+                    self.my_print(get_angry_message(), mode='y')
         if not self.survivor and self.warning_message and self.iter % 200 == 0 and self.if_testing_mode:
             self.my_print(get_angry_message(), mode='r')
 
-    def control_step(self, id_app):
-        """ Функция ускорения бортового двигателя / подачи импульса двигателя.
+    def control_step(self, id_app) -> None:
+        """Функция ускорения бортового двигателя / подачи импульса двигателя.
         Вызывается на каждой итерации.
         :param id_app: Id-номер аппарата
         :return: None
@@ -479,7 +478,11 @@ class AllProblemObjects(object):
         if np.linalg.norm(self.a_self[id_app]) > self.a_pid_max:
             self.a_self[id_app] *= self.a_pid_max / np.linalg.norm(self.a_self[id_app])
 
-    def repulse_app_config(self, id_app: int):
+    def repulse_app_config(self, id_app: int) -> None:
+        """Функция, переводящая КА в состояние готовности к прыжку, до момента прыжка
+        :param id_app: Id-номер аппарата
+        :return: None
+        """
         # Алгоритм выбора цели
         if self.a.flag_start[id_app]:  # IF ON START
             id_beam = self.s.call_possible_transport(self.taken_beams)[0]
@@ -508,8 +511,13 @@ class AllProblemObjects(object):
         self.a.r_0[id_app] = self.get_discrepancy(id_app)
         self.flag_vision[id_app] = False
 
-    def remove_repulse_app_config(self, id_app: int):
+    def remove_repulse_app_config(self, id_app: int) -> None:
+        """Функция, возвращающая аппарат из состояния готовности
+        :param id_app: Id-номер аппарата
+        :return: None
+        """
         if self.a.flag_beam[id_app] is not None:
+            print(f"---------------------------->{self.a.flag_beam[id_app]}")
             id_beam = self.a.flag_beam[id_app]
             self.a.flag_beam[id_app] = None
             self.a.flag_start[id_app] = True
@@ -520,18 +528,15 @@ class AllProblemObjects(object):
         self.a.flag_fly[id_app] = False
         self.a.busy_time[id_app] = self.time_to_be_busy * 5
         self.t_reaction_counter = self.t_reaction
+        print(f"123123123---------------------------->{self.a.flag_beam[id_app]}")
 
     def get_repulsion_change_params(self, id_app: int):
         r_ub_orf_p = self.r_ub.copy()
         v_ub_p = self.v_ub.copy()
         J_p, r_center_p = call_inertia(self, self.taken_beams_p, app_y=id_app)
-        if self.main_numerical_simulation:
-            print(f"rep-1--{self.taken_beams_p}, r={r_center_p}")
         r0_crf = np.array(self.a.target_p[id_app])
         r = self.b_o(self.a.target_p[id_app], r_center=r_center_p)
         J, r_center = call_inertia(self, self.taken_beams, app_n=id_app)
-        if self.main_numerical_simulation:
-            print(f"rep-2--{self.taken_beams}, r={r_center}")
         J_1 = np.linalg.inv(self.J)
         R0c = r_center - r_center_p
         r0c = r0_crf - r_center_p
@@ -567,8 +572,6 @@ class AllProblemObjects(object):
     def capturing_change_params(self, id_app: int):
         # Параметры пока аппарат летит
         J_p, r_center_p = call_inertia(self, self.taken_beams, app_n=id_app)
-        if self.main_numerical_simulation:
-            print(f"cap-1--{self.taken_beams}, r={r_center_p}")
         m_ss, m_ub = self.get_masses(id_app)
         R_p = self.r_ub.copy()
         V_p = self.v_ub.copy()
@@ -593,8 +596,6 @@ class AllProblemObjects(object):
 
         # Параметры когда аппарат уже на месте, стержень установлен
         J, r_center = call_inertia(self, self.taken_beams, app_y=id_app)
-        if self.main_numerical_simulation:
-            print(f"cap-2--{self.taken_beams}, r={r_center}")
         self.r_ub += self.S.T @ (r_center - r_center_p)  # Спорный момент
         self.v_ub = (V_p * m_ub + v_p * m_ss) / (m_ub + m_ss)
         if self.main_numerical_simulation:
