@@ -7,30 +7,28 @@ from mylibs.tiny_functions import *
 
 def e_combined(c: float, c_max: float, delta: float = 1e-2):
     if c/c_max <= 1 - delta:
-        e = 1 - c/c_max
+        e = 1 - c/c_max + delta * c/c_max
     else:
-        e = delta * np.exp((1 - c/c_max - delta) / delta)
-    return clip(e, 1e-3, 1e10)
+        e = delta * np.exp(1 - c/c_max)
+    return clip(e, 1e-4, 1e10)
 
 def f_combined(e: float, dr: float = 5., mu: float = 1e-2):
     return dr**2 - mu*np.log(e)
 
 def capturing_penalty(o, dr, dr_average, e, V, R, w, j, n_crashes, visible, crhper, mu_ipm):
-    delta = 1e-1
-    id_app = 0  # ШАМАНСТВО, нет учёта нескольких аппаратов
+    """delta = 1e-1
     e_w = e_combined(c=abs(w), c_max=o.w_max, delta=delta)
     e_j = e_combined(c=abs(j), c_max=o.j_max, delta=delta)
     e_V = e_combined(c=abs(V), c_max=o.V_max, delta=delta)
     e_R = e_combined(c=abs(R), c_max=o.R_max, delta=delta)
-    '''a = o.a.target[id_app] - o.o_b(o.r_ub)
-    tau = my_cross(dr, a + dr)
-    tau /= np.linalg.norm(tau)
-    b = my_cross(tau, dr)
-    b /= np.linalg.norm(b)
-    tmp = abs(np.dot(dr / np.linalg.norm(dr), a / np.linalg.norm(a))) * 1e2 '''
-    # anw = np.linalg.norm(dr) * (clip(1 - crhper, 0, 1) + clip(crhper, 0, 1) * tmp)
     anw = dr * np.linalg.norm(dr)  # * (clip(1 - crhper, 0, 1) + clip(crhper, 0, 1) * tmp)
-    anw += (-mu_ipm * (np.log(e_w) + np.log(e_V) + np.log(e_R) + np.log(e_j))) * dr / np.linalg.norm(dr)
+    anw += (-mu_ipm * (np.log(e_w) + np.log(e_V) + np.log(e_R) + np.log(e_j))) * dr / np.linalg.norm(dr)"""
+    e_w = e_combined(c=abs(w), c_max=o.w_max)
+    e_j = e_combined(c=abs(j), c_max=o.j_max)
+    e_V = e_combined(c=abs(V), c_max=o.V_max)
+    e_R = e_combined(c=abs(R), c_max=o.R_max)
+    # print(f"w:{e_w}({np.log(e_w)}), j:{e_j}({np.log(e_j)}), V:{e_V}({np.log(e_V)}), R:{e_R}({np.log(e_R)})")
+    anw = np.linalg.norm(dr) ** 2 - mu_ipm * (np.log(e_w) + np.log(e_V) + np.log(e_R) + np.log(e_j))
     return anw
 
 def detour_penalty(o, dr, dr_average, e, V, R, w, j, n_crashes, visible, crhper, mu_ipm):
@@ -39,7 +37,6 @@ def detour_penalty(o, dr, dr_average, e, V, R, w, j, n_crashes, visible, crhper,
         anw = dr + dr_average - o.mu_ipm * (np.log(o.e_max - e) + np.log(o.V_max - V) +
                                np.log(o.R_max - R) + np.log(o.j_max - j)) + \
               np.array([1e3, 1e3, 1e3]) * n_crashes'''
-    # np.array([1e2, 1e2, 1e2]) * (clip(10*(e - o.e_max), 0, 1) + clip(10*(V - o.V_max), 0, 1) + clip(1e-1 * (R - o.R_max), 0, 1) + clip(1e-2 * (j - o.j_max), 0, 1)) + \
 
     anw = np.linalg.norm(dr) + dr_average * 0.1 + 1 * n_crashes + 1e2 * (not visible)
     params = [[o.e_max, e], [o.j_max, j], [o.V_max, V], [o.R_max, R]]
@@ -65,7 +62,7 @@ def f_dr(u, *args):
                                                                                    check_visible=False)
     return np.linalg.norm(dr)**2
 
-def f_to_capturing(u, *args):
+def f_to_capturing(u, *args) -> tuple:
     from mylibs.calculation_functions import calculation_motion
     if len(args) == 1:
         args = args[0]
@@ -88,7 +85,7 @@ def f_to_detour(u, *args):
     anw = detour_penalty(o, dr, dr_average, e, V, R, w, j, n_crashes, visible, crhper, mu_ipm)
     return anw
 
-def f_controlled_const(v, *args):
+def f_controlled_const(v, *args) -> tuple:
     from mylibs.calculation_functions import calculation_motion
     if len(args) == 1:
         args = args[0]
@@ -105,7 +102,8 @@ def f_controlled_const(v, *args):
     return capturing_penalty(o, dr, dr_average, e, V, R, w, j, n_crashes, visible, crhper, mu_ipm)
 
 def my_calc_shooting(o, id_app, r_1, interaction: bool = True, u: any = None, func: any = f_dr):
-    """u = [T, u_x, u_y, u_z]"""
+    """u = [T, u_x, u_y, u_z]
+    ШАМАНСТВО: что это такое? ЧТО ТЫ ДЕЛАЕШЬ?"""
     shooting_amount = o.shooting_amount_repulsion if interaction else o.shooting_amount_impulse
     i_iteration = 0
 
@@ -135,84 +133,113 @@ def my_calc_shooting(o, id_app, r_1, interaction: bool = True, u: any = None, fu
         pass
 
 def calc_shooting_sample(u, o, T_max, id_app, interaction, mu_ipm, func):
+    """Функция, подаваемая на случайное ядро процессора при распараллеливании. Интегрирует уравнения движения"""
     T_max = u[len(u) - 1] if o.if_T_in_shooting else T_max
-    f, tol = func(u, o, T_max, id_app, interaction, o.method in ['linear-propulsion', 'const-propulsion'], mu_ipm)
-    return [i for i in f] + [tol]
+    return func(u, o, T_max, id_app, interaction, o.method in ['linear-propulsion', 'const-propulsion'], mu_ipm)
 
-def calc_shooting(o, id_app, r_1, interaction: bool = True, u0: any = None, n: int = 3, func: any = f_to_capturing, T_max=None):
-    """ Функция выполняет пристрелочный/спектральный поиск оптимальной скорости отталкивания/импульса аппарата; \n
-    Input:                                                                                  \n
-    -> o - AllObjects класс;                                                                \n
-    -> id_app - номер аппарата                                                              \n
-    -> r_right - радиус-вектор ССК положения цели                                           \n
-    -> interaction - происходит ли при импульсе отталкивание аппарата от конструкции        \n
-    -> u0 - начальное приближение                                                           \n
-    -> n - длина рабочего вектора                                                           \n
-    -> func - функция, выдающая вектор длины 3, минимизируемая оптимальным вход-вектором    \n
-    Output:                                                                                 \n
-    -> u - оптимальный вектор скорости отталкивания/импульса (ССК при interaction=True, ОСК иначе)"""
-    shooting_amount = o.shooting_amount_repulsion if interaction else o.shooting_amount_impulse
-    tmp = r_1 - o.o_b(o.a.r[id_app]) if interaction else o.b_o(r_1) - np.array(o.a.r[id_app])
+def calc_shooting(o, id_app, r_1, interaction: bool = True, u0: any = None, n: int = 3, func: any = f_to_capturing,
+                  T_max=None) -> tuple:
+    """Функция выполняет пристрелочный поиск подходящей скорости отталкивания/импульса аппарата
+    :param o: AllObjects класс
+    :param id_app: id-номер аппарата
+    :param r_1: радиус-вектор ССК положения цели
+    :param interaction: происходит ли при импульсе отталкивание аппарата от конструкции
+    :param u0: начальное приближение
+    :param n: длина рабочего вектора
+    :param func: функция, выдающая вектор длины 3, минимизируемая оптимальным вход-вектором
+    :param T_max: время полёта
+    :return u: скорость отталкивания/импульса аппарата
+    :return cond: подходящая ли скорость u"""
+    shooting_amount = o.shooting_amount_repulsion if interaction else o.shooting_amount_impulse  # Число итераций
+    tmp = r_1 - o.o_b(o.a.r[id_app]) if interaction else o.b_o(r_1) - np.array(o.a.r[id_app])  # Начальная невязка
     T_max = o.T_max if T_max is None else T_max
-    u = o.u_min * tmp / np.linalg.norm(tmp) if u0 is None else u0
+    u = o.u_min * tmp / np.linalg.norm(tmp) if u0 is None else u0  # Начальное приближение "тупо на цель" если u0=None
     if n > 3:
         u = np.zeros(n)
         u[0:3] = o.u_min * tmp / np.linalg.norm(tmp) if u0 is None or np.linalg.norm(u0) < 1e-5 else u0[0:3]
-    u_anw = u.copy()
-    tol_anw = 1e5
+    u_anw = u.copy()  # Будущий return
+    mu_ipm = o.mu_ipm  # Коэффициент μ уменьшается с каждой итерацией
+    i_iteration = 0  # На случай условия добавочных итераций (например, при невыполнении условий)
+    n_full = n
+
+    # Запись параметров
+    tol_anw = 1e3
     tol_list = []
 
-    # Метод пристрелки
-    mu_ipm = o.mu_ipm
-    i_iteration = 0
-    n_full = n
+    # Вариация начальной скорости
+    dd = 1e-4
+    du = dd * o.u_max
+    variation = [du] * 3 + [dd * o.a_pid_max] * (n - 3)
     if o.if_T_in_shooting:
         u = np.append(u, T_max)
         n_full += 1
+        variation += [1.]
+    u_i = np.diag(variation)
+
+    # Метод пристрелки
     while i_iteration < shooting_amount:
-        du = 1e-7
-        if o.if_T_in_shooting:
-            u_i = np.diag([du * o.u_max] * 3 + [du * o.a_pid_max] * (n - 3) + [10])
-        else:
-            u_i = np.diag([du * o.u_max] * 3 + [du * o.a_pid_max] * (n - 3))
-        mu_ipm /= 2
+        # Изменение параметров
+        mu_ipm /= 1.2
         i_iteration += 1
 
+        # Расчёт
+        # [центр, [0,0,0], [0,0,1], [0,1,0], [0,1,1], [1,0,0], [1,0,1], [1,1,0], [1,1,1]]
         anw = p_map(calc_shooting_sample,
-                    [u] + [u + u_i[:, i] for i in range(n_full)],
-                    [o for _ in range(1 + n_full)],
-                    [T_max for _ in range(1 + n_full)],
-                    [id_app for _ in range(1 + n_full)],
-                    [interaction for _ in range(1 + n_full)],
-                    [mu_ipm for _ in range(1 + n_full)],
-                    [func for _ in range(1 + n_full)])
-        dr = np.array(anw[0][0:3])
-        dr_ = [anw[1 + i] for i in range(n_full)]
-        tol = anw[0][3]
-        tol_list += [tol]
-        if o.if_T_in_shooting:
-            T_max = u[len(u) - 1]
-        o.my_print(f"Точность {round(tol,5)}, целевая функция {round(np.linalg.norm(dr),5)}, T_max={T_max}",
-                   mode=None)
-        if np.linalg.norm(dr) < tol_anw:
-            tol_anw = np.linalg.norm(dr)
+                    [u] +
+                    [u + sum([u_i[:, j]*(int(np.binary_repr(i, width=3)[j])*2-1) for j in range(3)]) for i in range(8)]
+                    + [u + u_i[:, i] for i in range(3)] + [u - u_i[:, i] for i in range(3)],
+                    [o for _ in range(1 + 8 + 6)],
+                    [T_max for _ in range(1 + 8 + 6)],
+                    [id_app for _ in range(1 + 8 + 6)],
+                    [interaction for _ in range(1 + 8 + 6)],
+                    [mu_ipm for _ in range(1 + 8 + 6)],
+                    [func for _ in range(1 + 8 + 6)])
+        tol_list += [anw[0][1]]
+        f0 = anw[0][0]
+        f_cube = [anw[1+i][0] for i in range(8)]
+        f_cross = [anw[1+8+i][0] for i in range(6)]
+        # print(f"f0={f0}; f_cube={f_cube}; f_cross={f_cross}")
+        o.my_print(f"Точность {round(tol_list[-1],5)}, целевая функция {round(f0, 5)}, T_max={T_max}", mode='c')
+        if np.linalg.norm(f0) < tol_anw:
+            tol_anw = np.linalg.norm(f0)
             u_anw = u.copy()
    
-        if o.d_to_grab is not None and tol < o.d_to_grab*0.98:  # and not (c or cx or cy or cz):
-            tol_anw = tol
+        if o.d_to_grab is not None and tol_list[-1] < o.d_to_grab*0.98:  # Выполнение условий, критерий останова
             u_anw = u.copy()
             break
         else:
-            Jacobian = np.array([[(dr_[j][i] - dr[i]) / u_i[j][j] for j in range(n_full)] for i in range(3)])
-            if n_full == 3 and np.linalg.det(Jacobian) > 1e-7:
-                Jacobian_1 = np.linalg.inv(Jacobian)
+            # [центр, [0,0,0], [0,0,1], [0,1,0], [0,1,1], [1,0,0], [1,0,1], [1,1,0], [1,1,1]]
+            # Расчёт ∇Ф: 4 стороны квадрата - 4 стороны квадрата
+            # x: 5+6+7+8 - 1-2-3-4
+            # y: 3+4 + 7+8 - 1-2 - 5-6
+            # z: 2+4+6+8 - 1-3-5-7
+            gradient = np.array([
+                (f_cross[i] - f_cross[3+i]) / (2 * du)
+                for i in range(3)])
+            """gradient = np.array([
+                np.array(f_cube).dot([int(np.binary_repr(k, width=3)[i])*2-1 for k in range(8)]) / (4 * 2 * du)
+                for i in range(3)])"""
+            Gramian = np.array([[
+                (f_cross[i] + f_cross[3+i] - 2*f0) / (du**2)
+                if i == j else
+                np.array(f_cube).dot([int(np.binary_repr(k, width=3)[i] == np.binary_repr(k, width=3)[j])*2-1
+                                      for k in range(8)]) / (2 * 2 * 2 * du**2)
+                for j in range(n)] for i in range(3)])
+            # print(f"gradient={gradient}\n\nGramian={Gramian}\n")
+
+            if n == 3 and abs(np.linalg.det(Gramian)) > 1e-10:
+                Gramian_1 = np.linalg.inv(Gramian)
             else:
-                Jacobian_1 = np.linalg.pinv(Jacobian)
-            correction = Jacobian_1 @ dr
+                print(f"Используется псевдообратная Матрица Гессе! ΔG={np.linalg.det(Gramian)}")
+                # Gramian_1 = np.linalg.pinv(Gramian)
+                break  # to_delete
+            correction = Gramian_1 @ gradient
+            # o.my_print(f"ΔG={np.linalg.det(Gramian)}, ∇Ф={np.linalg.norm(gradient)} --> {np.linalg.norm(Gramian_1 @ gradient)}", mode='c')
+
             if np.linalg.norm(correction) > 1e-12:
                 correction = correction / np.linalg.norm(correction) * clip(np.linalg.norm(correction), 0, o.u_max / 4)
             else:
-                print(f"Пристрелка закончена, градиента нет")
+                print(f"Пристрелка закончена, градиент/грамиан нулевой")
                 break
             u -= correction
 
@@ -232,13 +259,14 @@ def calc_shooting(o, id_app, r_1, interaction: bool = True, u0: any = None, n: i
                 mu_ipm *= 10
                 i_iteration -= 1
                 T_max *= 1.1 if T_max < o.T_max_hard_limit else 1'''
-    method_comps = o.method.split('+')
+
+        T_max = u[len(u) - 1] if o.if_T_in_shooting else T_max
     file_local = open('storage/iteration_docking.txt', 'a')
     if True:  # tol < o.d_to_grab*0.999:
         for i in range(len(tol_list)):
             file_local.write(f"{i} {tol_list[i]}\n")
     file_local.close()
-    return u_anw, tol < o.d_to_grab*0.999  # and abs(tol - np.linalg.norm(dr)) < 1e-10
+    return u_anw, tol_list[-1] < o.d_to_grab*0.98
 
 def diff_evolve_sample(j: int, func: any, v, target_p, comp_index: list,
                        chance: float = 0.5, f: float = 1., *args):

@@ -35,7 +35,7 @@ o_global = AllProblemObjects(if_impulse_control=False,
                              begin_rotation='x' if choice == '4' else 'xx',
                              w_twist=1e-4 if choice == '4' else 0.,
 
-                             dt=1., T_max=5500., u_max=0.2 if choice == '4' else 0.05,
+                             dt=2., T_max=5500., u_max=0.2 if choice == '4' else 0.05,
                              a_pid_max=1e-5, k_p=3e-4, freetime=50,
                              choice=choice, floor=20, extrafloor=0, d_crash=0.2, d_to_grab=0.5,
                              N_apparatus=1, file_reset=True, coordinate_system=['orbital', 'body', 'real'][0])
@@ -56,7 +56,7 @@ def iteration_func(o):
         # Repulsion
         o.a.busy_time[id_app] -= o.dt if o.a.busy_time[id_app] >= 0 else 0
         if (not o.a.flag_fly[id_app]) and o.a.busy_time[id_app] < 0:
-            u_a_priori = o.get_repulsion(id_app)
+            u_a_priori = None  # o.get_repulsion(id_app)
             print(f"отталкивание из файла {u_a_priori}")
             u = repulsion(o, id_app, u_a_priori=u_a_priori)
             o.file_save(f'отталкивание {id_app} {u[0]} {u[1]} {u[2]}')

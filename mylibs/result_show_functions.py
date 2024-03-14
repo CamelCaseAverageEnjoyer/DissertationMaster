@@ -824,7 +824,7 @@ def reader_heatmap_function(name: str = '',  n_x: int = 10, n_y: int = 10, max_v
 
 def heatmap_function(name: str = '', n_x: int = 10, n_y: int = 10, target_toward: bool = True, scipy_meh=False):
     """Цветная карта целевой функции"""
-    from mylibs.numerical_methods import capturing_penalty
+    from snsmylibs.numerical_methods import capturing_penalty
     filename = 'storage/heatmap_function_' + name + '.txt'
     f = open(filename, 'w')
     x_list = np.linspace(-15, 5, n_x)

@@ -76,7 +76,7 @@ class AllProblemObjects(object):
                  N_apparatus=1,  # Количество аппаратов
                  diff_evolve_vectors=20,  # Количество проб дифф эволюции
                  diff_evolve_times=5,  # Количество эпох дифф эволюции
-                 shooting_amount_repulsion=20,  # Шаги пристрелки отталкивания
+                 shooting_amount_repulsion=7,  # Шаги пристрелки отталкивания
                  shooting_amount_impulse=10,  # Шаги пристрелки импульсного управления
 
                  diff_evolve_F=0.8,  # Гиперпараметр дифф эволюции

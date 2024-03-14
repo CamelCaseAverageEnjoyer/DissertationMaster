@@ -403,6 +403,7 @@ def approx_from_2d(t, M, m, R_x_0, R_z_0, phi_0, w_0, Vp_x, Vp_z, r_x_0, r_z_0, 
 
 
 def repulsion(o, id_app, u_a_priori=None):
+    """Функция отталкивания сборочного аппарата от конструкции."""
     """Input:                                                                   \n
     -> o - AllObjects класс                                                     \n
     -> id_app - номер аппарата                                                  \n
@@ -452,38 +453,40 @@ def repulsion(o, id_app, u_a_priori=None):
             count = 0
             for T in np.linspace(3000, o.T_max, N):
                 count += 1
-                flag_in_sphere = False
-                r1 = o.b_o(r_1)
-                r0 = np.array(o.a.r[id_app])
-                center = r0/2 + r1/2
-                radius = np.linalg.norm(r1 - r0) / 2
-                u = get_v0(o, id_app, T)
-                u0 = o.S @ u
-                C = get_c_hkw(r0, u, o.w_hkw)
-                o.my_print(f"Подбор {count}/{N} | u={u0}", mode='m')
-                for i_tmp in np.linspace(0, T, 30):  # Гиперпараметр 30
-                    tmp = r_hkw(C, o.w_hkw, i_tmp)
-                    # print(f"{round(np.linalg.norm(tmp - center) / radius * 100)}%")
-                    if np.linalg.norm(tmp - center) < radius * 0.99:
-                        print(f"Траектория внутри сферы!")
-                        flag_in_sphere = True
-                        break
-                if not flag_in_sphere:
-                    u1, target_is_reached = calc_shooting(o=o, id_app=id_app, r_1=r_1, interaction=True, u0=u0,
-                                                          T_max=T + 50, func=f_to_capturing)
-                    # u1 = find_repulsion_velocity_new(o, id_app, r_1, True, u0, T, ifunc=False)
-                    # u1 = my_calc_shooting(o, id_app, r_1, True, u=np.append([T], u0), func=f_dr)
-                    '''dr, _, _, _, _, _, _, _, _, _ = calculation_motion(o=o, u=u0, T_max=T+200, id_app=id_app,
-                                                                       interaction=True, check_visible=False)
-                    target_is_reached = np.linalg.norm(dr) < o.d_to_grab
-                    o.my_print(f"Итоговая точность {np.linalg.norm(dr)}", mode='m')'''
-                    if target_is_reached:
-                        u0 = u1.copy()
-                        break
-            # u0 = o.S @get_v0(o, id_app, o.T_max)
-            # u0 = np.array([-0.01692162423579614, 5.20798226662381e-05, 0.008768796686505929])
-            # print(f"Аналитическая скорость {u0}")
-            # u0 = o.S @ u0
+
+                if count < 4 or count > 10:  # ШАМАНСТВО
+                    flag_in_sphere = False
+                    r1 = o.b_o(r_1)
+                    r0 = np.array(o.a.r[id_app])
+                    center = r0/2 + r1/2
+                    radius = np.linalg.norm(r1 - r0) / 2
+                    u = get_v0(o, id_app, T)
+                    u0 = o.S @ u
+                    C = get_c_hkw(r0, u, o.w_hkw)
+                    o.my_print(f"Подбор {count}/{N} | u={u0}", mode='m')
+                    for i_tmp in np.linspace(0, T, 30):  # Гиперпараметр 30
+                        tmp = r_hkw(C, o.w_hkw, i_tmp)
+                        # print(f"{round(np.linalg.norm(tmp - center) / radius * 100)}%")
+                        if np.linalg.norm(tmp - center) < radius * 0.99:
+                            print(f"Траектория внутри сферы!")
+                            flag_in_sphere = True
+                            break
+                    if not flag_in_sphere:
+                        u1, target_is_reached = calc_shooting(o=o, id_app=id_app, r_1=r_1, interaction=True, u0=u0,
+                                                              T_max=T + 50, func=f_to_capturing)
+                        # u1 = find_repulsion_velocity_new(o, id_app, r_1, True, u0, T, ifunc=False)
+                        # u1 = my_calc_shooting(o, id_app, r_1, True, u=np.append([T], u0), func=f_dr)
+                        '''dr, _, _, _, _, _, _, _, _, _ = calculation_motion(o=o, u=u0, T_max=T+200, id_app=id_app,
+                                                                           interaction=True, check_visible=False)
+                        target_is_reached = np.linalg.norm(dr) < o.d_to_grab
+                        o.my_print(f"Итоговая точность {np.linalg.norm(dr)}", mode='m')'''
+                        if target_is_reached:
+                            u0 = u1.copy()
+                            break
+                # u0 = o.S @get_v0(o, id_app, o.T_max)
+                # u0 = np.array([-0.01692162423579614, 5.20798226662381e-05, 0.008768796686505929])
+                # print(f"Аналитическая скорость {u0}")
+                # u0 = o.S @ u0
         else:
             tmp = r_1 - np.array(o.o_b(o.a.r[id_app]))
             u0 = o.u_min * tmp / np.linalg.norm(tmp)

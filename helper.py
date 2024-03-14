@@ -37,15 +37,15 @@ name = str(u0)  # + 'control_Z_-5'
 
 n_x = 200
 n_y = n_x
-name = 'scipy'
+name = 'cylinder'
 # heatmap_function(name=name, n_x=n_x, n_y=n_y, target_toward=False, scipy_meh=True)
 # reader_heatmap_function(name=name, max_value=115, n_x=n_x, n_y=n_y)
 
 # test_center_mass(u_max=3e-2, dt=100., T_max=100000.)
 # test_stitching_collision_function(n=100)
 
-plot_params_while_main(dt=1., show_rate=20, limit=3000, show_probe_episodes=False, energy_show=False,
-                       show_j=True, show_R=True, show_w=True, filename='', propulsion_3d_plot=False, t_from=0.)
+plot_params_while_main(dt=2., show_rate=20, limit=3000, show_probe_episodes=False, energy_show=False,
+                       show_j=False, show_R=True, show_w=True, filename='', propulsion_3d_plot=False, t_from=0.)
 # get_repilsions("")
 
 # plot_iter_downgrade('_scipy')
