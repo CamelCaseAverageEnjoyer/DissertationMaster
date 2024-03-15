@@ -105,7 +105,7 @@ def call_crash(o, r_sat, R, S, taken_beams=np.array([]), iFunc=False, brf=False)
         return np.min(g)
 
 
-def call_inertia(o, id_s=np.array([]), app_y=None, app_n=None):
+def call_inertia(o, id_s, app_y=None, app_n=None) -> tuple:
     """Функция считает тензор инерции в собственной ск конструкции и центр масс;    \n
     Input:                                                                          \n
     -> o - AllObjects класс;                                                        \n
@@ -116,14 +116,16 @@ def call_inertia(o, id_s=np.array([]), app_y=None, app_n=None):
     -> Тензор инерции, вектор центра масс. """
     J = np.zeros((3, 3))
     r = np.zeros(3)
-    m = 0
+    m = 0.
 
-    # Truss construction
+    # Ферма
     for n in range(o.s.n):
         flag = not np.any(id_s == n)
-        for a in range(o.a.n):
+        if o.main_numerical_simulation and n == 0:
+            print(f"++++++++++++++++ {flag} id={n}")
+        """for a in range(o.a.n):
             if o.a.flag_beam[a] is not None and int(o.a.flag_beam[a]) == n:
-                flag = False
+                flag = False"""
         if flag:
             if np.sum(o.s.flag[n]) > 0:
                 r_1 = np.array(o.s.r1[n])
@@ -131,10 +133,11 @@ def call_inertia(o, id_s=np.array([]), app_y=None, app_n=None):
             else:
                 r_1 = o.s.r_st[n]
                 r_2 = o.s.r_st[n] - np.array([o.s.length[n], 0, 0])
-            r += o.s.mass[n] * (r_1 + r_2) / 2
+            r += o.s.mass[n] * (0.5*r_1 + 0.5*r_2)
             m += o.s.mass[n]
             J += o.s.mass[n] * local_tensor_of_rod(r_1, r_2)
-    # Cargo container
+
+    # Грузовой отсек + каркас
     for n in range(o.c.n):
         r_1 = np.array(o.c.r1[n])
         r_2 = np.array(o.c.r2[n])
@@ -144,15 +147,16 @@ def call_inertia(o, id_s=np.array([]), app_y=None, app_n=None):
             [[(o.c.diam[n]/2) ** 2 / 2, 0, 0],
              [0, (o.c.diam[n]/2) ** 2 / 4 + np.linalg.norm(r_1 - r_2) ** 2 / 12, 0],
              [0, 0, (o.c.diam[n]/2) ** 2 / 4 + np.linalg.norm(r_1 - r_2) ** 2 / 12]])
-    # Servicing spacecraft
+
+    # Сборочный КА
     for a in range(o.a.n):
         if (not o.a.flag_fly[a] and app_n != a) or app_y == a:
-            tmp = o.a.mass[a] if o.a.flag_beam[a] is None else o.a.mass[a] + o.s.mass[int(o.a.flag_beam[a])]
-            '''if o.main_numerical_simulation:
-                o.my_print(f"\nbeam: {o.a.flag_beam[a] is None}\n", test=True)'''
+            tmp = o.a.mass[a]  # if o.a.flag_beam[a] is None else o.a.mass[a] + o.s.mass[int(o.a.flag_beam[a])]
             r += tmp * o.a.target_p[a]
             m += tmp
             J += local_tensor_of_point(tmp, o.a.target_p[a])
+            # print(f"r_a = {o.a.target_p[a]}")
+        # print(f"~~~~~~~~~~ a: {(not o.a.flag_fly[a] and app_n != a) or app_y == a} (m_a = {o.a.mass[a]}) --> m_ub = {m}")
 
     # Расчёт центра масс + теорема Гюйгенца-Штейнера
     r /= m
@@ -454,7 +458,7 @@ def repulsion(o, id_app, u_a_priori=None):
             for T in np.linspace(3000, o.T_max, N):
                 count += 1
 
-                if count < 4 or count > 10:  # ШАМАНСТВО
+                if count < 5 or count > 10:  # ШАМАНСТВО
                     flag_in_sphere = False
                     r1 = o.b_o(r_1)
                     r0 = np.array(o.a.r[id_app])
@@ -549,9 +553,9 @@ def repulsion(o, id_app, u_a_priori=None):
     u0 = o.cases['repulse_vel_control'](u0)
     if target_is_reached:
         o.repulsion_change_params(id_app=id_app, u0=u0)
-        o.my_print(f"App id:{id_app} pushed off with u={np.linalg.norm(u0)}, w={np.linalg.norm(o.w)}",
+        o.my_print(f"КА id={id_app} оттолкнулся со скоростью u={np.linalg.norm(u0)}, w={np.linalg.norm(o.w)}",
                    mode="b", test=True)
-        o.my_print(f"Taken beams list: {o.taken_beams}", mode="g", test=True)
+        o.my_print(f"Взятые стержни: {o.taken_beams}", mode="g", test=True)
         talk_decision(o.if_talk)
     else:
         o.remove_repulse_app_config(id_app)

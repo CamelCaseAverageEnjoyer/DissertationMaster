@@ -52,7 +52,7 @@ def package_beams(N, h):
 
 
 class Structure(object):
-    def __init__(self, choice: str = '1', complete: bool = False, floor: int = 5, extrafloor: int = 0, mass_per_length: float = 1.,
+    def __init__(self, choice: str = '1', complete: bool = False, floor: int = 5, extrafloor: int = 0, mass_per_length: float = 1.,  # mass_check
                  testing=False):
         if floor < 1:
             raise "Поменяй параметры конструкции: floor должен быть равным 1 или больше"
@@ -523,7 +523,7 @@ class Container(object):
 
 
 class Apparatus(object):
-    def __init__(self, X: Structure, n: int = 1, mass: float = 20.):
+    def __init__(self, X: Structure, n: int = 1, mass: float = 20.):  # mass_check
         if n > len(X.id):
             raise ValueError('Слишком много аппаратов! Получи ошибку!')
         self.X = X
@@ -538,7 +538,7 @@ class Apparatus(object):
         self.busy_time = np.array([(i + 1) * 100. for i in range(n)])
         self.v = np.array([np.zeros(3) for _ in range(n)])
         id_list = X.call_possible_transport([]) if n > 0 else [0]
-        self.target = np.array([(np.array(X.r_st[id_list[i]]) + np.array([-0.1 - X.length[id_list[i]], 0, 0]))
+        self.target = np.array([(np.array(X.r_st[id_list[i]]) + np.array([- X.length[id_list[i]], 0, 0]))
                                 for i in range(n)])
         self.target_p = copy.deepcopy(self.target)
         self.r = copy.deepcopy(self.target)

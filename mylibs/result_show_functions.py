@@ -141,9 +141,9 @@ def plot_params_while_main(filename: str = "", trial_episodes: bool = False, sho
     f.close()
 
     def params_reset():
-        return [[[] for _ in range(id_max)] for _ in range(10)]
+        return [[[] for _ in range(id_max)] for _ in range(11)]
 
-    dr, e, j, V, R, t, a, m, mc, ub = params_reset()  # mc - mass center
+    dr, e, j, V, R, t, a, m, mc, ub, r = params_reset()  # mc - mass center
     R_max, V_max, j_max, e_max = (1., 1., 1., 1.)
 
     f = open('storage/main' + filename + '.txt', 'r')
@@ -154,11 +154,11 @@ def plot_params_while_main(filename: str = "", trial_episodes: bool = False, sho
             if len(lst) > 0:
                 # print(len(lst))
                 if lst[0] == 'ограничения' and len(lst) == 5:
-                    print(f"Есть ограничения")
                     R_max = float(lst[1])
                     V_max = float(lst[2])
                     j_max = float(lst[3])
                     e_max = float(lst[4])
+                    o.my_print(f"Есть ограничения: r_ub={R_max}, v_ub={V_max}, j_ub={j_max}, w_ub={e_max}", test=True)
                 if lst[0] == 'график' and tmp * dt > t_from and tmp % show_rate == 0:
                     if len(lst) == 9 and (show_probe_episodes or bool(int(lst[8]))):
                         id_app = int(lst[1])
@@ -178,8 +178,7 @@ def plot_params_while_main(filename: str = "", trial_episodes: bool = False, sho
                         R[id_app].append(float(lst[6]))
                         a[id_app].append(float(lst[7]))
                         mc[id_app].append(float(lst[8]))
-                        ub[id_app].append(float(lst[9]))
-                        m[id_app].append(int(lst[10]))
+                        r[id_app].append(float(lst[9]))
 
             if lst[0] == 'отталкивание':
                 print(f"Отталкивание {lst[1]}: [{lst[2]}, {lst[3]}, {lst[4]}]")
@@ -196,7 +195,7 @@ def plot_params_while_main(filename: str = "", trial_episodes: bool = False, sho
     axs[0].set_ylabel('Position error Δr(t), m', fontsize=11)
     axs[0].set_title('', fontsize=13)
     axs[1].set_xlabel('Time t, s', fontsize=11)
-    axs[1].set_ylabel('Limited parameters', fontsize=11)
+    axs[1].set_ylabel('Relative constrained variables', fontsize=11)
     if propulsion_3d_plot:
         axs[2].set_xlabel('Time t, s', fontsize=11)
         axs[2].set_ylabel('бортовое ускорение, м/с2', fontsize=11)
@@ -242,22 +241,27 @@ def plot_params_while_main(filename: str = "", trial_episodes: bool = False, sho
                 axs[0].plot(t[id_app], ub[id_app], c=clr[2 * id_app + 3], label='UB mass center')
                 axs[0].plot(t[id_app], mc[id_app], c=clr[2 * id_app + 1], label='Total mass center')
             axs[0].plot(t[id_app], dr[id_app], c=clr[2 * id_app], label='Δr(t)')
-            axs[1].plot(t[id_app], [1 for _ in range(len(t[id_app]))], c='gray')
+            # axs[0].plot(t[id_app], mc[id_app], c=clr[2 * id_app + 2], label='mass center(t)')
+            # axs[0].plot(t[id_app], r[id_app], c=clr[2 * id_app + 3], label='r(t)')
+            # axs[0].plot(t[id_app], R[id_app], c=clr[2 * id_app + 4], label='R(t)')
+            # axs[1].plot(t[id_app], [1 for _ in range(len(t[id_app]))], c='gray')  # Серая линия
             if propulsion_3d_plot:
                 axs[2].plot(t[id_app], a[id_app], c='c')
             # axs[0].plot(t[id_app], np.zeros(len(t[id_app])), c='khaki')
             # axs[2].plot(range(len(a[id_app])), np.zeros(len(a[id_app])), c='khaki')
         id_app = 0
         if show_w:
-            axs[1].plot(t[id_app], np.array(e[id_app]) / e_max, c=clr2[1][0], label='w')
+            axs[1].plot(t[id_app], np.array(e[id_app]) / e_max, c=clr2[1][0], label='ωᵘᵇ')
         if show_j:
-            axs[1].plot(t[id_app], np.array(j[id_app]) / j_max, c=clr2[1][1], label='alpha')
+            axs[1].plot(t[id_app], np.array(j[id_app]) / j_max, c=clr2[1][1], label='ηᵘᵇ')
         if show_V:
-            axs[1].plot(t[id_app], np.array(V[id_app]) / V_max, c=clr2[1][2], label='V')
+            axs[1].plot(t[id_app], np.array(V[id_app]) / V_max, c=clr2[1][2], label='υᵘᵇ')
         if show_R:
-            axs[1].plot(t[id_app], np.array(R[id_app]) / R_max, c=clr2[1][3], label='R')
+            axs[1].plot(t[id_app], np.array(R[id_app]) / R_max, c=clr2[1][3], label='rᵘᵇ')
     axs[0].legend()
     axs[1].legend()
+    axs[1].set_ylim([0, 1])
+    plt.grid(True)
     plt.show()
 
 

@@ -484,15 +484,15 @@ class AllProblemObjects(object):
         :return: None
         """
         # Алгоритм выбора цели
-        if self.a.flag_start[id_app]:  # IF ON START
+        if self.a.flag_start[id_app]:  # Если на старте
             id_beam = self.s.call_possible_transport(self.taken_beams)[0]
             self.taken_beams = np.append(self.taken_beams, id_beam)
             self.my_print(f"Аппарат {id_app} забрал стержень {id_beam}", mode="b")
         else:
-            if self.a.flag_beam[id_app] is None:  # GOING HOME
+            if self.a.flag_beam[id_app] is None:  # Возвращение в грузовой контейнер
                 id_beam = None
                 self.my_print(f"Аппарат {id_app} возвращается на базу", mode="b")
-            else:  # GOING TO POINT
+            else:  # Направление к точке закрепления
                 id_beam = self.a.flag_beam[id_app]
                 self.my_print(f"Аппарат {id_app} летит установливать стержень {id_beam}", mode="b")
 
@@ -533,22 +533,35 @@ class AllProblemObjects(object):
     def get_repulsion_change_params(self, id_app: int):
         r_ub_orf_p = self.r_ub.copy()
         v_ub_p = self.v_ub.copy()
-        J_p, r_center_p = call_inertia(self, self.taken_beams_p, app_y=id_app)
         r0_crf = np.array(self.a.target_p[id_app])
-        r = self.b_o(self.a.target_p[id_app], r_center=r_center_p)
-        J, r_center = call_inertia(self, self.taken_beams, app_n=id_app)
+
+        J_p, r_center_p = call_inertia(self, self.taken_beams_p, app_y=id_app)
+        self.J, self.r_center = call_inertia(self, self.taken_beams, app_n=id_app)
         J_1 = np.linalg.inv(self.J)
-        R0c = r_center - r_center_p
-        r0c = r0_crf - r_center_p
-        r_ub_orf = r_ub_orf_p + self.S.T @ R0c
+
         m_ss, m_ub = self.get_masses(id_app)
 
-        return m_ss, m_ub, J, J_1, J_p, r_center, r_center_p, r, r_ub_orf, r0c, R0c, r_ub_orf_p, v_ub_p
+        R0c = self.r_center - r_center_p  # SRF
+        r0c = r0_crf - r_center_p  # SRF
+
+        R0c = -r0c * m_ss / m_ub
+        self.r_center = R0c + r_center_p
+
+        r_ub_orf = r_ub_orf_p + self.S.T @ R0c  # ORF
+        r_ss_orf = r_ub_orf_p + self.S.T @ r0c  # ORF
+        # r_ub_orf = - r_ss_orf * m_ss / m_ub  # ШАМАНСТВО! КОЛДУНСТВО!
+        if self.main_numerical_simulation:
+            tmp = (m_ss * r_ss_orf + m_ub * r_ub_orf) / (m_ss + m_ub)
+            print(f"=====M+M+M+M====>>>> {(m_ss * r0c + m_ub * R0c) / (m_ss + m_ub)}")
+            print(f"=====M=M=M=M====>>>> {tmp} ({m_ss}|{m_ub}) ~~~~~~ R={r_ub_orf} / Rp={ self.r_ub}")
+            print(f"================>>>> Взятые стержни {self.taken_beams_p} -> {self.taken_beams}")
+
+        return m_ss, m_ub, self.J, J_1, J_p, self.r_center, r_center_p, r_ss_orf, r_ub_orf, r0c, R0c, r_ub_orf_p, v_ub_p
 
     def repulsion_change_params(self, id_app: int, u0):
         if len(u0.shape) != 1 or len(u0) != 3:
             raise Exception("Неправильный входной вектор скорости!")
-        m_ss, m_ub, J, J_1, J_p, r_ub_crf, r_ub_crf_p, r, r_ub_orf, r0c, R0c, r_ub_orf_p, v_ub_p = \
+        m_ss, m_ub, J, J_1, J_p, r_ub_crf, r_ub_crf_p, r_ss_orf, r_ub_orf, r0c, R0c, r_ub_orf_p, v_ub_p = \
             self.get_repulsion_change_params(id_app)
         u_rot = my_cross(self.w, self.S.T @ r0c)  # ORF
         V_rot = my_cross(self.w, self.S.T @ R0c)  # ORF
@@ -557,26 +570,28 @@ class AllProblemObjects(object):
         V = self.S.T @ V0 + v_ub_p + V_rot  # ORF
         self.w = self.b_o(J_1) @ (
                 self.b_o(J_p) @ self.w + (m_ub + m_ss) * my_cross(r_ub_orf_p, v_ub_p) -
-                m_ss * my_cross(r, u) - m_ub * my_cross(r_ub_orf, V))  # ORF
+                m_ss * my_cross(r_ss_orf, u) - m_ub * my_cross(r_ub_orf, V))  # ORF
 
         self.om_update()
-        self.C_r[id_app] = get_c_hkw(r, u, self.w_hkw)
+        self.a.r[id_app] = r_ss_orf
+        self.a.v[id_app] = u
+        self.C_r[id_app] = get_c_hkw(r_ss_orf, u, self.w_hkw)
         self.C_R = get_c_hkw(r_ub_orf, V, self.w_hkw)
         self.t_start[id_app] = self.t
         self.t_start[self.a.n] = self.t
         self.repulsion_counters[id_app] += 1
-
-        self.a.r[id_app] = r
-        self.a.v[id_app] = u
+        self.r_ub = r_ub_orf.copy()
 
     def capturing_change_params(self, id_app: int):
         # Параметры пока аппарат летит
         J_p, r_center_p = call_inertia(self, self.taken_beams, app_n=id_app)
+        if self.main_numerical_simulation:
+            print(f"111111111111111 {self.taken_beams}")
         m_ss, m_ub = self.get_masses(id_app)
-        R_p = self.r_ub.copy()
-        V_p = self.v_ub.copy()
-        r_p = self.a.r[id_app].copy()
-        v_p = self.a.v[id_app].copy()
+        r_ub_p = self.r_ub.copy()
+        v_ub_p = self.v_ub.copy()
+        r_ss_p = self.a.r[id_app].copy()
+        v_ss_p = self.a.v[id_app].copy()
 
         # Мгновенная посадка и установка стержня
         id_beam = self.a.flag_beam[id_app]
@@ -596,19 +611,24 @@ class AllProblemObjects(object):
 
         # Параметры когда аппарат уже на месте, стержень установлен
         J, r_center = call_inertia(self, self.taken_beams, app_y=id_app)
+        if self.main_numerical_simulation:
+            print(f"222222222222222 {self.taken_beams}")
+        tmp = self.r_ub.copy()
         self.r_ub += self.S.T @ (r_center - r_center_p)  # Спорный момент
-        self.v_ub = (V_p * m_ub + v_p * m_ss) / (m_ub + m_ss)
+        self.v_ub = (v_ub_p * m_ub + v_ss_p * m_ss) / (m_ub + m_ss)
         if self.main_numerical_simulation:
             self.my_print(f"r_ub: {self.r_ub}", mode='r')
-            self.my_print(f"v_ub: {self.v_ub}: V={np.linalg.norm(V_p)}, v={np.linalg.norm(v_p)}", mode='r')
+            self.my_print(f"v_ub: {self.v_ub}: V={np.linalg.norm(v_ub_p)}, v={np.linalg.norm(v_ss_p)}", mode='r')
         self.w = np.linalg.inv(self.b_o(J)) @ (self.b_o(J_p) @ self.w -
                                                (m_ub + m_ss) * my_cross(self.r_ub, self.v_ub) +
-                                               m_ss * my_cross(r_p, v_p) + m_ub * my_cross(R_p, V_p))
+                                               m_ss * my_cross(r_ss_p, v_ss_p) + m_ub * my_cross(r_ub_p, v_ub_p))
 
         self.om_update()
         self.C_R = get_c_hkw(self.r_ub, self.v_ub, self.w_hkw)
-        # ШАМАНСТВО И РАЗГЕЛЬДЯЙСТВО
-        self.C_R = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        if self.main_numerical_simulation:
+            print(f"--------------------r: {self.r_ub} = {tmp} + ({self.S.T @ r_center} - {self.S.T @ r_center_p})"
+                  f"\n--------------------v: {self.v_ub}\n--------------------w: {self.w}")
+            print(f"C_R: {self.C_R}")
 
         # Capture config
         self.taken_beams_p = self.taken_beams.copy()
@@ -702,6 +722,10 @@ class AllProblemObjects(object):
         file.close()
 
     def my_print(self, txt, mode=None, test=False):
+        """Функция вывода **цветного** текста
+        :param txt: выводимый текст
+        :param mode: цвет текста {b, g, y, r, c, m}
+        :param test: вывод для отладки кода, помечается жёлтым цветом"""
         if (self.if_any_print and not test) or (self.if_testing_mode and test):
             if mode is None and not test:
                 print(Style.RESET_ALL + txt)
@@ -709,7 +733,7 @@ class AllProblemObjects(object):
                 print(Fore.BLUE + txt + Style.RESET_ALL)
             if mode == "g":
                 print(Fore.GREEN + txt + Style.RESET_ALL)
-            if mode == "y" or test and mode is None:
+            if mode == "y" or (test and mode is None):
                 print(Fore.YELLOW + txt + Style.RESET_ALL)
             if mode == "r":
                 print(Fore.RED + txt + Style.RESET_ALL)
