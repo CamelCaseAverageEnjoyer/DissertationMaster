@@ -1,5 +1,7 @@
 ### Орбитальная сборка фермы с аппаратами-сборщиками
 
+![](res_hdr_3_3.gif)
+
 ---
 #### <image src="https://cdn.icon-icons.com/icons2/548/PNG/512/1455554839_line-60_icon-icons.com_53339.png" width=15> Программные файлы проекта 
   
